@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "pnpm run --parallel dev:web dev:indexer",
     "dev:web": "pnpm --filter ./apps/web dev",
-    "dev:soothsayer": "pnpm --filter ./apps/soothsayer dev",
+    "dev:moltbook": "pnpm --filter ./apps/moltbook dev",
     "dev:indexer": "pnpm --filter ./packages/indexer dev",
     "build": "turbo run build",
     "test": "turbo run test",

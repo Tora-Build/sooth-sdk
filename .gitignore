@@ -65,3 +65,7 @@ apps/web/test-results/
 
 # Local Netlify folder
 .netlify
+
+# Agent artifacts
+.claude/worktrees/
+.superdesign/

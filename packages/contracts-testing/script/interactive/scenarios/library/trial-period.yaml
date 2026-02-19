@@ -1,6 +1,7 @@
-# Trial Period Test (V11)
+# Updated for SoothBook V12 (was TickBook)
+# Trial Period Test (V12)
 #
-# Demonstrates V11 trial period dismissal and refund flow:
+# Demonstrates V12 trial period dismissal and refund flow:
 #   alice   = creator (creates market, waits for trial to end, then dismisses)
 #   bob     = trader (buys YES during trial, claims refund after dismissal)
 #   charlie = trader (buys NO during trial, claims refund after dismissal)

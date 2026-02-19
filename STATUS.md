@@ -2,7 +2,7 @@
 
 > **Codebase Version**: V12.0 (SoothBook)  
 > **Active Testing**: Base Sepolia  
-> **Last Updated**: 2026-02-16
+> **Last Updated**: 2026-02-19
 
 ## V12 SoothBook (Current)
 
@@ -23,24 +23,24 @@ V12 replaces TickBook with **SoothBook** — an orderbook (602 lines) with 4 ato
 
 | Layer | Status | Details |
 |-------|--------|---------|
-| Contracts | ✅ Deployed | SoothBook + OutcomeToken + TickBitmap on Base Sepolia |
+| Contracts | ✅ Deployed | SoothBook + OutcomeToken + TickBitmap on Base Sepolia + Monad Testnet |
 | CLI | ✅ Wired | 10 commands (`buyyes`, `buyno`, `sbmint`, `sbmerge`, `sbcancel`, `sbredeem`, `sbresolve`, `sbstate`, `sbbook`, `sbpositions`) |
 | SDK | ✅ Built | Browser SDK with 11 commands in `apps/web/src/lib/sdk/commands/soothbook.ts` |
-| Indexer | ✅ Configured | 8 event handlers, 4 schema tables (market, order, fill, mint_merge) |
+| Indexer | ✅ Configured | 29 event handlers (8 SoothBook + 15 LaunchpadEngine + 6 AMMEngine), 9 schema tables |
 | Frontend | ✅ Integrated | Pro page (SoothBook trading) + Trade page (AMM) read from deployments.json |
 
 ### V12 Deployment (Base Sepolia)
 
 | Contract | Address |
 |----------|---------|
-| MockUSDC | `0x797fc44b9d56da8b3646b6ec2d5cd2a325c804f5` |
-| ProtocolConfig | `0xd34d2cd65f83676023e11b0d7cba35c71746f63f` |
-| Collateralizer | `0x74446dc0059c85073a46f4c71e567ac3d2a721e0` |
-| AMMEngine | `0x0fd277ec38d68a16de40e65973193569821bc6de` |
-| SoothBook | `0xd057603b8b45e9a9a7613af71cb91882680abc4f` |
-| LaunchpadEngine | `0x32ffaa368ec00191abd2650a1f53d4fdc6ebefea` |
+| MockUSDC | `0xc7587d8393bf43d778267c40706a533ca1299e21` |
+| ProtocolConfig | `0x4dedced068424cab5def4e5fd0b3ce7bf5671d8d` |
+| Collateralizer | `0xfb757cec1ff68cbef2124172a03d92090602576c` |
+| AMMEngine | `0x5d2bfce963bd7e002213522a22e3615d454708b3` |
+| SoothBook | `0x6c3ad4d5a800b87acdfe5ba82972feb23acab011` |
+| LaunchpadEngine | `0x69a831d48d1c46ab0919d0c19cf47a2fdc842ee3` |
 
-3 seed markets created via LaunchpadEngine (bonding stage). Block 37727323.
+3 seed markets created via LaunchpadEngine (bonding stage). Block 37762786.
 
 ---
 
@@ -55,22 +55,25 @@ V12 replaces TickBook with **SoothBook** — an orderbook (602 lines) with 4 ato
 | Adjudicator-only finalize | `TruthMarket` | ✅ Implemented |
 
 ## Current Focus
-- **V12 Migration Repair Complete (2026-02-16)** — Completed comprehensive diagnostic and repair of V11→V12 migration damage. The original migration incorrectly treated SoothBook as "standalone" (independent from LaunchpadEngine), causing features to be deleted instead of replaced. All 8 repair tasks completed: hooks rewired to SoothBook, vault→wallet mode, positions via ERC20, indexer handlers fixed, ~80 TS errors resolved, CLI on-chain market discovery, Portfolio page integrated, order store wired. `tsc --noEmit` 0 errors, `npm run build` success, `forge test` 218 passing.
+- **Pro UX + Order History Stabilization (2026-02-19)** — Refining Pro page behavior after V12 migration repair: historical chart layout/alignment, open/history order table consistency, cancellation UX, and history visibility parity across Web + SDK + interactive CLI.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-02-19** — **Order History + Deployment Handoff Sync**: Added historical order `Refund Amt` in `UserOrdersPanel` with event-driven semantics (filled taker surplus, cancelled non-escrow collateral return). Extended feed parsing to include `surplus`/`escrow`. Added pagination baseline of 50 entries in history flows. Added new SDK command `sbhistory [page] [size]` and interactive CLI command `history [page] [size]`, both with consistent columns (`ID`, `Side`, `Price`, `Size`, `Refund Amt`, `Event`). Added inline legend clarifying refund meaning. Added batch-cancel silent mode to avoid duplicate toasts. Captured deployment handoff in `.agent/HANDOFF_2026-02-19_DEPLOY_PROGRESS.md` with verification status for Monad/Base and current warnings.
 - **2026-02-16** — **V12 Migration Diagnostic & Repair**: Full audit of V11→V12 "standalone SoothBook" damage. Identified 24 items — 7 needed replacement, 5 were broken stubs. Fixed all: `useOrderbook.ts` + `useOrderbookTrade.ts` rewired to SoothBook (tick-depth reads, buyYes/buyNo/mint/merge/cancel/redeem, Polymarket-style mapping). `useTraderVault` → wallet mode (no vault). `useActivePositions` → SoothBook ERC20 YES/NO tokens + `getImpliedPrice`. `useLockedProceeds`/`useLockedFunds` → clean noops. `TradingAccountCard` → wallet USDC approval semantics. `PositionActionsModal` → wallet wording. Indexer `OrderFilled`/`OrderCancelled` handlers fixed + 6 API endpoints added. ~80 TS errors fixed (ABIS type spread, missing type exports). CLI `markets` command now discovers on-chain markets from LaunchpadEngine. Portfolio page integrated with TradingAccountCard + ActiveOrdersCard. Order store wired to useOrderbookTrade. Pro page findings written to `.agent/PRO_PAGE_FINDINGS.md`.
 - **2026-02-15** — **V12 Fresh Deployment**: Deployed fresh V12 contracts to Base Sepolia. Fixed deploy script to transfer SoothBook ownership to LaunchpadEngine (was missing — root cause of graduation not creating SoothBook markets).
 - **2026-02-15** — **TickBook Removal**: Removed TickBookPoolManager, TickBookVault, interfaces, hooks, DynamicFeeHook across all layers. SoothBook is now the sole orderbook. 13 test files removed, CLI/SDK/indexer/frontend cleaned of all TickBook references. Updated LaunchpadEngine (removed `_tickBook` constructor param). Zero TickBook references in active code.
 - **2026-02-15** — **V12 SoothBook Full Stack**: Deployed SoothBook V12 to Base Sepolia. Built full integration: CLI with 11 `sb*` commands, browser SDK with 11 commands, Ponder indexer with 8 event handlers + 4 tables. 45 unit tests passing.
-- **2026-02-08** — **RPC 429 Error Elimination**: Comprehensive RPC call reduction. Indexer computes `yesProbability` locally. Frontend `usePositions` refactored to indexer endpoints. `useAMMQuote` optimized. Result: Zero 429 errors.
 
 ## Pending/Blocked
 - **IPFS Market Metadata** — Currently storing market metadata (name, category) in browser localStorage. Lost on browser clear or cross-device. Need to store on IPFS and emit CID in contract event for persistence.
-- **Multi-chain SoothBook deploy** — SoothBook only deployed to Base Sepolia. Monad, MegaETH, Arc need fresh deployments.
-- **CLI scenarios** — YAML scenarios in `packages/contracts-testing/script/interactive/scenarios/` still reference TickBook commands. Need updating for SoothBook.
-- **Indexer LaunchpadEngine/AMMEngine handlers** — `ponder.config.ts` configures them but no `ponder.on("LaunchpadEngine:...")` handlers exist. Schema tables (`launchpadMarket`, `ammPosition`, `lpBalance`, `lockEntry`) are never populated.
+- **Multi-chain SoothBook deploy** — Monad V12 deployed + verified. MegaETH, Arc still need fresh deployments.
+- **Historical chart polish** — Remaining UX tuning for 1m rendering/dot alignment and stats formatting consistency under narrow widths.
+- **Indexer double-count caveat** — Both LaunchpadEngine and AMMEngine emit `PositionTraded` for the same trade (call chain). Handler comments flag this for testing.
 
 ## Recently Completed
+- ✅ **Indexer LaunchpadEngine/AMMEngine handlers (2026-02-19)** — 15 LaunchpadEngine + 6 AMMEngine handlers added. Schema tables (`launchpadMarket`, `ammPosition`, `lpBalance`, `lockEntry`) now populated.
+- ✅ **CLI scenario YAML update (2026-02-19)** — All 6 scenario files updated from TickBook to SoothBook V12 commands.
+- ✅ **Monad V12 Deployment Verified (2026-02-19)** — Topology + bytecode checks pass via QuickNode RPC. 3 market keys pending graduation (expected).
 - ✅ **V12 Migration Repair (2026-02-16)** — All 8 diagnostic/repair tasks complete. 0 TS errors, build passes, 218 forge tests passing.
 - ✅ **V12 Fresh Deployment (2026-02-15)** — Fresh contracts deployed to Base Sepolia with SoothBook ownership correctly transferred to LaunchpadEngine.
 - ✅ **TickBook Full Removal (2026-02-15)** — Zero TickBook references in active code.

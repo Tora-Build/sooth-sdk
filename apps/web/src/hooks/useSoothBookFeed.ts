@@ -3,6 +3,16 @@ import toast from 'react-hot-toast';
 import { parseAbiItem } from 'viem';
 import { usePublicClient } from 'wagmi';
 
+const DEFAULT_LOOKBACK_BLOCKS = 10_000n;
+const USER_SCAN_CHUNK_SIZE = 400_000n;
+
+const CHAIN_START_BLOCKS: Record<number, bigint> = {
+  84532: 36_399_046n,
+  10143: 6_558_931n,
+  5042002: 21_983_342n,
+  6343: 8_855_921n,
+};
+
 const ORDER_PLACED = parseAbiItem(
   'event OrderPlaced(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount, bool escrow)',
 );
@@ -31,6 +41,8 @@ export type FeedItem = {
   who: `0x${string}`;
   block: bigint;
   logIndex: number;
+  escrow?: boolean;
+  surplus?: bigint;
   maker?: `0x${string}`;
   makerSide?: 'YES' | 'NO';
   makerTick?: string;
@@ -38,64 +50,170 @@ export type FeedItem = {
   makerOrderId?: string;
 };
 
+type UseSoothBookFeedOptions = {
+  owner?: `0x${string}`;
+};
+
+function getScanRanges(fromBlock: bigint, toBlock: bigint, chunkSize: bigint): Array<{ from: bigint; to: bigint }> {
+  if (toBlock < fromBlock) return [];
+
+  const ranges: Array<{ from: bigint; to: bigint }> = [];
+  let start = fromBlock;
+
+  while (start <= toBlock) {
+    const end = start + chunkSize - 1n;
+    ranges.push({ from: start, to: end > toBlock ? toBlock : end });
+    start = end + 1n;
+  }
+
+  return ranges;
+}
+
 export function useSoothBookFeed(
   soothBookAddress: `0x${string}` | undefined,
   marketKey: `0x${string}` | undefined,
+  options?: UseSoothBookFeedOptions,
 ) {
   const publicClient = usePublicClient();
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  const owner = options?.owner;
 
   const refresh = useCallback(async () => {
     if (!publicClient || !soothBookAddress || !marketKey) return;
     setIsLoading(true);
     try {
       const latest = await publicClient.getBlockNumber();
-      const from = latest > 10000n ? latest - 10000n : 0n;
-      const [placed, placedV2, filled, filledV2, cancelled, cancelledV2] = await Promise.all([
-        publicClient.getLogs({
-          address: soothBookAddress,
-          event: ORDER_PLACED,
-          args: { marketKey },
-          fromBlock: from,
-          toBlock: 'latest',
-        }),
-        publicClient.getLogs({
-          address: soothBookAddress,
-          event: ORDER_PLACED_V2,
-          args: { marketKey },
-          fromBlock: from,
-          toBlock: 'latest',
-        }),
-        publicClient.getLogs({
-          address: soothBookAddress,
-          event: ORDER_FILLED,
-          args: { marketKey },
-          fromBlock: from,
-          toBlock: 'latest',
-        }),
-        publicClient.getLogs({
-          address: soothBookAddress,
-          event: ORDER_FILLED_V2,
-          args: { marketKey },
-          fromBlock: from,
-          toBlock: 'latest',
-        }),
-        publicClient.getLogs({
-          address: soothBookAddress,
-          event: ORDER_CANCELLED,
-          args: { marketKey },
-          fromBlock: from,
-          toBlock: 'latest',
-        }),
-        publicClient.getLogs({
-          address: soothBookAddress,
-          event: ORDER_CANCELLED_V2,
-          args: { marketKey },
-          fromBlock: from,
-          toBlock: 'latest',
-        }),
-      ]);
+
+      let placed: Awaited<ReturnType<typeof publicClient.getLogs<typeof ORDER_PLACED>>> = [];
+      let placedV2: Awaited<ReturnType<typeof publicClient.getLogs<typeof ORDER_PLACED_V2>>> = [];
+      let filled: Awaited<ReturnType<typeof publicClient.getLogs<typeof ORDER_FILLED>>> = [];
+      let filledV2: Awaited<ReturnType<typeof publicClient.getLogs<typeof ORDER_FILLED_V2>>> = [];
+      let cancelled: Awaited<ReturnType<typeof publicClient.getLogs<typeof ORDER_CANCELLED>>> = [];
+      let cancelledV2: Awaited<ReturnType<typeof publicClient.getLogs<typeof ORDER_CANCELLED_V2>>> = [];
+
+      const ownerLower = owner?.toLowerCase() as `0x${string}` | undefined;
+      if (!ownerLower) {
+        const from = latest > DEFAULT_LOOKBACK_BLOCKS ? latest - DEFAULT_LOOKBACK_BLOCKS : 0n;
+        [placed, placedV2, filled, filledV2, cancelled, cancelledV2] = await Promise.all([
+          publicClient.getLogs({
+            address: soothBookAddress,
+            event: ORDER_PLACED,
+            args: { marketKey },
+            fromBlock: from,
+            toBlock: 'latest',
+          }),
+          publicClient.getLogs({
+            address: soothBookAddress,
+            event: ORDER_PLACED_V2,
+            args: { marketKey },
+            fromBlock: from,
+            toBlock: 'latest',
+          }),
+          publicClient.getLogs({
+            address: soothBookAddress,
+            event: ORDER_FILLED,
+            args: { marketKey },
+            fromBlock: from,
+            toBlock: 'latest',
+          }),
+          publicClient.getLogs({
+            address: soothBookAddress,
+            event: ORDER_FILLED_V2,
+            args: { marketKey },
+            fromBlock: from,
+            toBlock: 'latest',
+          }),
+          publicClient.getLogs({
+            address: soothBookAddress,
+            event: ORDER_CANCELLED,
+            args: { marketKey },
+            fromBlock: from,
+            toBlock: 'latest',
+          }),
+          publicClient.getLogs({
+            address: soothBookAddress,
+            event: ORDER_CANCELLED_V2,
+            args: { marketKey },
+            fromBlock: from,
+            toBlock: 'latest',
+          }),
+        ]);
+      } else {
+        const chainId = publicClient.chain?.id;
+        const fallbackStart = latest > 2_000_000n ? latest - 2_000_000n : 0n;
+        const startBlock = CHAIN_START_BLOCKS[chainId ?? 0] ?? fallbackStart;
+        const ranges = getScanRanges(startBlock, latest, USER_SCAN_CHUNK_SIZE);
+
+        for (const range of ranges) {
+          const [chunkPlaced, chunkPlacedV2, chunkFilledAsTaker, chunkFilledV2AsTaker, chunkFilledAsMaker, chunkFilledV2AsMaker, chunkCancelled, chunkCancelledV2] = await Promise.all([
+            publicClient.getLogs({
+              address: soothBookAddress,
+              event: ORDER_PLACED,
+              args: { marketKey, maker: ownerLower },
+              fromBlock: range.from,
+              toBlock: range.to,
+            }),
+            publicClient.getLogs({
+              address: soothBookAddress,
+              event: ORDER_PLACED_V2,
+              args: { marketKey, maker: ownerLower },
+              fromBlock: range.from,
+              toBlock: range.to,
+            }),
+            publicClient.getLogs({
+              address: soothBookAddress,
+              event: ORDER_FILLED,
+              args: { marketKey, taker: ownerLower },
+              fromBlock: range.from,
+              toBlock: range.to,
+            }),
+            publicClient.getLogs({
+              address: soothBookAddress,
+              event: ORDER_FILLED_V2,
+              args: { marketKey, taker: ownerLower },
+              fromBlock: range.from,
+              toBlock: range.to,
+            }),
+            publicClient.getLogs({
+              address: soothBookAddress,
+              event: ORDER_FILLED,
+              args: { marketKey, maker: ownerLower },
+              fromBlock: range.from,
+              toBlock: range.to,
+            }),
+            publicClient.getLogs({
+              address: soothBookAddress,
+              event: ORDER_FILLED_V2,
+              args: { marketKey, maker: ownerLower },
+              fromBlock: range.from,
+              toBlock: range.to,
+            }),
+            publicClient.getLogs({
+              address: soothBookAddress,
+              event: ORDER_CANCELLED,
+              args: { marketKey, maker: ownerLower },
+              fromBlock: range.from,
+              toBlock: range.to,
+            }),
+            publicClient.getLogs({
+              address: soothBookAddress,
+              event: ORDER_CANCELLED_V2,
+              args: { marketKey, maker: ownerLower },
+              fromBlock: range.from,
+              toBlock: range.to,
+            }),
+          ]);
+
+          placed.push(...chunkPlaced);
+          placedV2.push(...chunkPlacedV2);
+          filled.push(...chunkFilledAsTaker, ...chunkFilledAsMaker);
+          filledV2.push(...chunkFilledV2AsTaker, ...chunkFilledV2AsMaker);
+          cancelled.push(...chunkCancelled);
+          cancelledV2.push(...chunkCancelledV2);
+        }
+      }
 
       const items: FeedItem[] = [];
 
@@ -110,6 +228,7 @@ export function useSoothBookFeed(
           who: log.args.maker as `0x${string}`,
           block: log.blockNumber ?? 0n,
           logIndex: Number(log.logIndex),
+          escrow: Boolean(log.args.escrow),
         });
       }
 
@@ -124,6 +243,7 @@ export function useSoothBookFeed(
           who: log.args.maker as `0x${string}`,
           block: log.blockNumber ?? 0n,
           logIndex: Number(log.logIndex),
+          escrow: Boolean(log.args.escrow),
           orderId: String(log.args.orderId ?? ''),
         });
       }
@@ -139,6 +259,7 @@ export function useSoothBookFeed(
           side,
           tick: `${log.args.yesTick}/${log.args.noTick}`,
           amount: log.args.amount ?? 0n,
+          surplus: log.args.surplus ?? 0n,
           who: log.args.taker as `0x${string}`,
           block: log.blockNumber ?? 0n,
           logIndex: Number(log.logIndex),
@@ -159,6 +280,7 @@ export function useSoothBookFeed(
           side,
           tick: `${log.args.yesTick}/${log.args.noTick}`,
           amount: log.args.amount ?? 0n,
+          surplus: log.args.surplus ?? 0n,
           who: log.args.taker as `0x${string}`,
           block: log.blockNumber ?? 0n,
           logIndex: Number(log.logIndex),
@@ -225,7 +347,7 @@ export function useSoothBookFeed(
     } finally {
       setIsLoading(false);
     }
-  }, [publicClient, soothBookAddress, marketKey]);
+  }, [publicClient, soothBookAddress, marketKey, owner]);
 
   return { feed, isLoading, refresh };
 }

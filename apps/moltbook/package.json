@@ -1,5 +1,5 @@
 {
-  "name": "soothsayer",
+  "name": "moltbook",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -13,10 +13,6 @@
     "@reown/appkit": "^1.8.14",
     "@reown/appkit-adapter-wagmi": "^1.8.14",
     "@tanstack/react-query": "^5.51.11",
-    "@lens-protocol/client": "^2.3.2",
-    "@lens-protocol/metadata": "^1.2.0",
-    "@lens-chain/sdk": "^1.0.3",
-    "@lens-chain/storage-client": "^1.0.6",
     "clsx": "^2.1.1",
     "lucide-react": "^0.424.0",
     "react": "^18.2.0",

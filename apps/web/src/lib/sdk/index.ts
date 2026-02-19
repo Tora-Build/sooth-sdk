@@ -240,6 +240,10 @@ export class SoothSDK {
     return soothbookCommands.sbprice(this.getContext(), args);
   }
 
+  async sbhistory(args: string[] = []) {
+    return soothbookCommands.sbhistory(this.getContext(), args);
+  }
+
   async sbSetMarket(keyOrIndex: string): Promise<{ result: CommandResult; output: OutputLine[] }> {
     if (!this.config.contracts.SoothBook) {
       return {
@@ -368,6 +372,8 @@ export class SoothSDK {
         return this.sbstate(args);
       case 'sbprice':
         return this.sbprice(args);
+      case 'sbhistory':
+        return this.sbhistory(args);
       case 'sbsetmarket':
       case 'sbm':
         if (args.length < 1) {
@@ -431,6 +437,7 @@ export class SoothSDK {
         plain('    sbcancel <yes|no> <tick>           Cancel order'),
         plain('    sbredeem                           Redeem winning tokens'),
         plain('    sbbook                             Show orderbook'),
+        plain('    sbhistory [page] [size]           Show your order history'),
         plain('    sbbalance / sbstate / sbprice      Query state'),
         plain('    sbsetmarket <key|index>            Select V12 market'),
         plain(''),

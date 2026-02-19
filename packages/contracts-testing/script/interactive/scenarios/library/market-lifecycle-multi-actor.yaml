@@ -1,3 +1,4 @@
+# Updated for SoothBook V12 (was TickBook)
 # Market Lifecycle (Multi-Actor)
 # 
 # Demonstrates full market lifecycle with 5 distinct actor roles:
@@ -111,40 +112,37 @@ steps:
     action: marketstatus
     args: {}
 
-   # ============================================================
-   # PHASE 3: SoothBook trading (post-graduation)
-   # ============================================================
-   
-   - actor: bob
-     action: setmarket
-     args:
-       address: "created"
+  # ============================================================
+  # PHASE 3: SoothBook trading (post-graduation)
+  # ============================================================
 
-   - actor: bob
-     action: order
-     args:
-       outcome: "no"
-       tickRange: "450-550"
-       shares: "50"
+  - actor: bob
+    action: setmarket
+    args:
+      address: "created"
 
-   - actor: charlie
-     action: setmarket
-     args:
-       address: "created"
+  - actor: bob
+    action: buyno
+    args:
+      tick: 450
+      amount: "50"
 
-   - actor: charlie
-     action: order
-     args:
-       outcome: "yes"
-       tickRange: "450-550"
-       shares: "25"
+  - actor: charlie
+    action: setmarket
+    args:
+      address: "created"
 
-   - actor: bob
-     action: order
-     args:
-       outcome: "yes"
-       tickRange: "450-550"
-       shares: "20"
+  - actor: charlie
+    action: buyyes
+    args:
+      tick: 550
+      amount: "25"
+
+  - actor: bob
+    action: buyyes
+    args:
+      tick: 500
+      amount: "20"
 
   # ============================================================
   # PHASE 4: Set up Ellen (keeper)
@@ -194,7 +192,7 @@ steps:
 
   # ============================================================
   # PHASE 8.5: Verify Trading Stopped (post-settlement)
-   # Both AMM and SoothBook should reject trades after settlement
+  # Both AMM and SoothBook should reject trades after settlement
   # ============================================================
 
   # Test: AMM trading should fail after settlement
@@ -207,15 +205,14 @@ steps:
     expect:
       fail: true
 
-   # Test: SoothBook order should fail after settlement  
-   - actor: bob
-     action: order
-     args:
-       outcome: "yes"
-       tickRange: "400-600"
-       shares: "10"
-     expect:
-       fail: true
+  # Test: SoothBook order should fail after settlement
+  - actor: bob
+    action: buyyes
+    args:
+      tick: 500
+      amount: "10"
+    expect:
+      fail: true
 
   # Test: LP transfer should fail after settlement (tokens locked)
   - actor: alice
@@ -235,41 +232,41 @@ steps:
     args:
       address: "created"
 
-   # IMPORTANT: Cancel orders and claim refunds BEFORE redeeming internal outcomes
-   # The refund pool uses _marketCollateralWad which gets depleted by redemptions
-   - actor: bob
-     action: cancel
-     args:
-       orderId: "all"
+  # IMPORTANT: Cancel orders and claim refunds BEFORE redeeming internal outcomes
+  # The refund pool uses _marketCollateralWad which gets depleted by redemptions
+  - actor: bob
+    action: cancel
+    args:
+      side: "no"
+      tick: 450
 
-   - actor: bob
-     action: claimrefunds
-     args: {}
+  # SoothBook: refunds auto-returned on cancel
 
-   # Now redeem internal outcomes (from order fills)
-   - actor: bob
-     action: redeem
-     args: {}
+  # Now redeem internal outcomes (from order fills)
+  - actor: bob
+    action: redeem
+    args: {}
 
-   - actor: bob
-     action: redeemamm
-     args: {}
+  - actor: bob
+    action: redeemamm
+    args: {}
 
-   - actor: bob
-     action: redeemlp
-     args:
-       amount: "max"
+  - actor: bob
+    action: redeemlp
+    args:
+      amount: "max"
 
-   - actor: charlie
-     action: setmarket
-     args:
-       address: "created"
+  - actor: charlie
+    action: setmarket
+    args:
+      address: "created"
 
-   # Cancel SoothBook orders (claims fills + refunds unfilled collateral)
-   - actor: charlie
-     action: cancel
-     args:
-       orderId: "all"
+  # Cancel SoothBook orders (claims fills + refunds unfilled collateral)
+  - actor: charlie
+    action: cancel
+    args:
+      side: "yes"
+      tick: 550
 
   - actor: charlie
     action: redeem
@@ -279,10 +276,7 @@ steps:
     action: redeemamm
     args: {}
 
-  # Claim pending refunds from order cancellations
-  - actor: charlie
-    action: claimrefunds
-    args: {}
+  # SoothBook: refunds auto-returned on cancel
 
   - actor: charlie
     action: redeemlp

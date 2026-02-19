@@ -16,6 +16,22 @@
         "0xeed22448551a6e6bab78edf7149dbcf6baa3c6e5ad3f429c0c3fff2b1a3149af",
         "0xeb51aec8580147e87ec137a96cbcf2e275c5680fb4b4ca7d006ac8f9de5e0aab"
       ]
+    },
+    "monadTestnet": {
+      "chainId": 10143,
+      "contracts": {
+        "MockUSDC": "0x01843713106f85749335472ccb8b477804ac235f",
+        "ProtocolConfig": "0xd02f94185e6561c48810cab151803c12919f7eea",
+        "Collateralizer": "0xeb664daf2c4beb41b9f1f5ad1fb822730bb62b03",
+        "AMMEngine": "0x28b799febd74b92d8ff17745ad432bfa86799fc8",
+        "SoothBook": "0x94818c56b904371bf100acf723a7619dfc2c2ec0",
+        "LaunchpadEngine": "0x6fd82b76045af934354a2033fde5cb64772ae615"
+      },
+      "markets": [
+        "0x9c6f8ea7f2cc622c5077c96bd6b3e2bc2787b0dbbe93b08599f7bd370d162da1",
+        "0x55b6043f587b03c022153a08b132adae7e4a3fd620ce5d5f6cdc548fe48f845f",
+        "0xb520628d9bcd87a6e7a9ac4b15ff1d14b32da97e1aa4b957aa1de8b034892561"
+      ]
     }
   }
 }

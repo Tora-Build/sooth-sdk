@@ -1,5 +1,27 @@
 # Architectural Decision Records (ADRs)
 
+## ADR-085: Unified Order History Refund Semantics Across Web/SDK/CLI
+- **Date**: 2026-02-19
+- **Status**: Accepted
+- **Context**:
+  - Users needed consistent visibility of refund-related value in historical orders.
+  - Web UI had partial history context while SDK/interactive CLI lacked equivalent user-history output.
+  - SoothBook emits `surplus` on fill events, while cancel events do not emit a direct refund field.
+- **Decision**:
+  1. Introduce a unified `Refund Amt` field in historical order displays across Web, SDK, and interactive CLI.
+  2. Define refund semantics as:
+     - `Filled` (taker perspective): refund uses emitted `surplus`.
+     - `Cancelled` (non-escrow orders): refund displayed as returned collateral estimate (`tick * amount / 1000` in WAD basis).
+     - Otherwise display `—` (not inferable or not applicable).
+  3. Add user-history pagination baseline of 50 entries:
+     - SDK command: `sbhistory [page] [pageSize]`
+     - CLI command: `history [page] [pageSize]`
+  4. Include explicit inline legend copy to avoid semantic ambiguity.
+- **Consequences**:
+  - Users get consistent history interpretation across all interaction surfaces.
+  - Some cancel rows remain `—` where refund cannot be safely inferred from event payload.
+  - Future protocol/indexer enhancements can replace inferred cancel refunds with exact emitted values when available.
+
 ## ADR-084: V12 Pro Testing Surface Must Include Book Visibility
 - **Date**: 2026-02-15
 - **Status**: Accepted

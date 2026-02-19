@@ -299,6 +299,41 @@ contract SoothBookTest is Test {
         assertEq(noToken.balanceOf(bob), 50 * WAD, "bob NO");
     }
 
+    function test_autoMatch_hits_max_matches_uses_ioc_remainder() public {
+        uint256 makerOrderCount = 130;
+        uint256 oneShare = 1 * WAD;
+
+        // Build many tiny maker orders at the same crossing tick.
+        vm.startPrank(bob);
+        for (uint256 i = 0; i < makerOrderCount; i++) {
+            book.buyNo(marketKey, 400, uint128(oneShare), false, 0);
+        }
+        vm.stopPrank();
+
+        uint256 aliceBefore = usdc.balanceOf(alice);
+
+        // Buy YES 130 shares. With MAX_MATCHES_PER_TX=128, only 128 fill.
+        vm.prank(alice);
+        book.buyYes(marketKey, 600, uint128(makerOrderCount * oneShare), false, 0);
+
+        // Alice receives only matched shares.
+        assertEq(yesToken.balanceOf(alice), 128 * WAD, "taker should receive exactly max matched shares");
+
+        // IOC remainder must NOT rest on taker side.
+        (uint256 yesResting,) = book.getOrdersAtTick(marketKey, 1, 600);
+        assertEq(yesResting, 0, "capped remainder must not rest");
+
+        // Maker side should keep exactly 2 shares unfilled.
+        (uint256 noResting, uint256 noOrderCount) = book.getOrdersAtTick(marketKey, 0, 400);
+        assertEq(noResting, 2 * WAD, "only unmatched maker liquidity should remain");
+        assertEq(noOrderCount, 2, "two maker orders should remain");
+
+        // Cost should reflect 128 matched shares at 0.6 USDC/share.
+        uint256 aliceSpent = aliceBefore - usdc.balanceOf(alice);
+        uint256 expectedSpent = (uint256(128 * WAD) * 600) / 1000;
+        assertEq(aliceSpent, expectedSpent, "IOC refund for capped remainder should apply");
+    }
+
     function test_bestTick_matches_orderbook_scan_after_mixed_flow() public {
         uint16[10] memory yesTicks = [
             uint16(114), 126, 170, 259, 319,

@@ -37,7 +37,7 @@ import { ERC20_ABI } from '../config/abis';
 import { cn } from '../lib/utils';
 import toast from 'react-hot-toast';
 import { useChainStore } from '../store/useChainStore';
-import { LiquidityMap, UserOrdersPanel } from '../components/features/pro';
+import { HistoricalPriceCard, LiquidityMap, UserOrdersPanel } from '../components/features/pro';
 
 type OrderAction = 'buy_yes' | 'sell_yes' | 'buy_no' | 'sell_no';
 
@@ -421,6 +421,16 @@ const getAddressExplorerUrl = (chainId: number, address: string) => {
   return `${explorers[chainId] || 'https://sepolia.basescan.org'}/address/${address}`;
 };
 
+const getTokenExplorerUrl = (chainId: number, tokenAddress: string) => {
+  const explorers: Record<number, string> = {
+    84532: 'https://sepolia.basescan.org',
+    8453: 'https://basescan.org',
+    10143: 'https://testnet.monadvision.com',
+    5042002: 'https://testnet.arcscan.app',
+  };
+  return `${explorers[chainId] || 'https://sepolia.basescan.org'}/token/${tokenAddress}`;
+};
+
 const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; embedded?: boolean }) => {
   const navigate = useNavigate();
   const { isConnected, address: userAddress } = useAccount();
@@ -432,6 +442,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   // UI State
   const [action, setAction] = useState<OrderAction>('buy_yes');
   const [price, setPrice] = useState('50.0');
+  const [isPriceTouched, setIsPriceTouched] = useState(false);
   const [amount, setAmount] = useState('1');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mintMergeTab, setMintMergeTab] = useState<'mint' | 'merge'>('mint');
@@ -510,6 +521,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
       marketKey,
       currentTick: bestYesTick,
       probability: midpoint,
+      bestBidYes: bestBid,
+      bestAskYes: bestAskAsYes,
       isActive: marketState.isActive,
       bids,
       asks,
@@ -535,6 +548,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   const decimals = Number(usdcDecimals ?? 18);
 
   const walletUsdc = balances[0] ?? 0n;
+  const yesToken = marketState.yesToken ?? yesTokenAddress;
+  const noToken = marketState.noToken ?? noTokenAddress;
 
   // Approval check
   const { data: vaultAllowance } = useReadContract({
@@ -555,6 +570,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     const x = e.clientX - rect.left;
     let percent = Math.max(0.1, Math.min(99.9, (x / rect.width) * 100));
     percent = Math.round(percent * 10) / 10;
+    setIsPriceTouched(true);
     setPrice(percent.toFixed(1));
   }, [isDragging]);
 
@@ -572,6 +588,33 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
       };
     }
   }, [isDragging, handlePointerMove, handlePointerUp]);
+
+  useEffect(() => {
+    setIsPriceTouched(false);
+  }, [action, marketKey]);
+
+  useEffect(() => {
+    if (isPriceTouched) return;
+
+    const bestBidYes = tickBook?.bestBidYes ?? 0;
+    const bestAskYes = tickBook?.bestAskYes ?? 0;
+
+    let defaultYesPrice = 0.5;
+    if (isBuying) {
+      defaultYesPrice = isYes
+        ? (bestAskYes > 0 ? bestAskYes : defaultYesPrice)
+        : (bestBidYes > 0 ? bestBidYes : defaultYesPrice);
+    } else {
+      defaultYesPrice = isYes
+        ? (bestBidYes > 0 ? bestBidYes : defaultYesPrice)
+        : (bestAskYes > 0 ? bestAskYes : defaultYesPrice);
+    }
+
+    // Price input is outcome-relative: YES tab shows YES price, NO tab shows NO price.
+    const defaultDisplayPrice = isYes ? defaultYesPrice : (1 - defaultYesPrice);
+    const clampedCents = Math.max(0.1, Math.min(99.9, defaultDisplayPrice * 100));
+    setPrice(clampedCents.toFixed(1));
+  }, [action, isBuying, isPriceTouched, isYes, tickBook?.bestAskYes, tickBook?.bestBidYes]);
 
   const needsApproval = useMemo(() => {
     return ((vaultAllowance as bigint) ?? 0n) < parseUnits('1000', decimals);
@@ -612,12 +655,9 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
   const estimatedValue = useMemo(() => {
     if (!amountNum) return 0;
     const p = priceNum / 100;
-    if (action === 'buy_yes') return amountNum * p;
-    if (action === 'buy_no') return amountNum * (1 - p);
-    if (action === 'sell_yes') return amountNum * p;
-    if (action === 'sell_no') return amountNum * (1 - p);
-    return 0;
-  }, [amountNum, priceNum, action]);
+    // p is already the selected outcome price (YES in YES tab, NO in NO tab).
+    return amountNum * p;
+  }, [amountNum, priceNum]);
 
   const hasEnoughBalance = useMemo(() => {
     if (isBuying) {
@@ -670,7 +710,8 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     try {
       const outcome = (isYes ? 0 : 1) as 0 | 1;
       const priceProb = Math.max(0.001, Math.min(0.999, priceNum / 100));
-      await placeOrder(outcome, priceProb.toFixed(3), amount, isBuying);
+      const success = await placeOrder(outcome, priceProb.toFixed(3), amount, isBuying);
+      if (!success) return;
       refetchOrderbook();
       refetchBalance();
       refreshFeed();
@@ -690,11 +731,13 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
     if (!mintMergeAmount) return;
     setIsSubmitting(true);
     try {
+      let success = false;
       if (mintMergeTab === 'mint') {
-        await mintShares(mintMergeAmount);
+        success = await mintShares(mintMergeAmount);
       } else {
-        await mergeShares(mintMergeAmount);
+        success = await mergeShares(mintMergeAmount);
       }
+      if (!success) return;
       refetchOrderbook();
       refetchBalance();
       refreshFeed();
@@ -1048,6 +1091,12 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
             </div>
           </div>
 
+          <HistoricalPriceCard
+            chainId={chainId}
+            marketKey={tickBook?.marketKey as `0x${string}` | undefined}
+            viewOutcome={isYes ? 'yes' : 'no'}
+          />
+
           <UserOrdersPanel
             marketId={marketAddr}
             marketKey={tickBook?.marketKey as `0x${string}`}
@@ -1061,7 +1110,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
         </div>
 
         {/* RIGHT COLUMN: Wallet + Trading Panel + Mint/Merge (40%) */}
-        <div className="lg:col-span-4 space-y-4">
+        <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-4 lg:self-start">
 
           <Card className="bg-gradient-to-b from-slate-900/80 to-slate-950/80 border-slate-800/50 p-4">
             <div className="flex items-center gap-2 mb-3">
@@ -1074,64 +1123,44 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                 <div className="text-xs text-slate-500 uppercase">USDC</div>
                 <div className="font-mono text-sm text-white">${parseFloat(formatUnits(walletUsdc, decimals)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
               </div>
-              <div className="bg-emerald-950/20 rounded-lg p-2 text-center border border-emerald-900/20">
-                <div className="text-xs text-emerald-500/80 uppercase flex items-center justify-center gap-1">
-                  <span>YES</span>
-                  {(marketState.yesToken ?? yesTokenAddress) && (
-                    <a
-                      href={getAddressExplorerUrl(chainId, marketState.yesToken ?? yesTokenAddress ?? '')}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="hover:text-emerald-300 transition-colors"
-                      title={`View YES token ${(marketState.yesToken ?? yesTokenAddress) || ''} on explorer`}
-                    >
-                      ↗
-                    </a>
-                  )}
-                </div>
-                {(marketState.yesToken ?? yesTokenAddress) ? (
-                  <a
-                    href={getAddressExplorerUrl(chainId, marketState.yesToken ?? yesTokenAddress ?? '')}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-mono text-sm text-white hover:text-emerald-300 transition-colors underline-offset-2 hover:underline"
-                    title={`View YES token ${(marketState.yesToken ?? yesTokenAddress) || ''} on explorer`}
-                  >
+              {yesToken ? (
+                <a
+                  href={getTokenExplorerUrl(chainId, yesToken)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="bg-emerald-950/20 rounded-lg p-2 text-center border border-emerald-900/20 hover:border-emerald-600/50 hover:bg-emerald-900/20 transition-colors"
+                  title={`View YES token ${yesToken} on explorer`}
+                >
+                  <div className="text-xs text-emerald-500/80 uppercase">YES</div>
+                  <div className="font-mono text-sm text-white">
                     {(userYesShares ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </a>
-                ) : (
+                  </div>
+                </a>
+              ) : (
+                <div className="bg-emerald-950/20 rounded-lg p-2 text-center border border-emerald-900/20">
+                  <div className="text-xs text-emerald-500/80 uppercase">YES</div>
                   <div className="font-mono text-sm text-white">{(userYesShares ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-                )}
-              </div>
-              <div className="bg-rose-950/20 rounded-lg p-2 text-center border border-rose-900/20">
-                <div className="text-xs text-rose-500/80 uppercase flex items-center justify-center gap-1">
-                  <span>NO</span>
-                  {(marketState.noToken ?? noTokenAddress) && (
-                    <a
-                      href={getAddressExplorerUrl(chainId, marketState.noToken ?? noTokenAddress ?? '')}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="hover:text-rose-300 transition-colors"
-                      title={`View NO token ${(marketState.noToken ?? noTokenAddress) || ''} on explorer`}
-                    >
-                      ↗
-                    </a>
-                  )}
                 </div>
-                {(marketState.noToken ?? noTokenAddress) ? (
-                  <a
-                    href={getAddressExplorerUrl(chainId, marketState.noToken ?? noTokenAddress ?? '')}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-mono text-sm text-white hover:text-rose-300 transition-colors underline-offset-2 hover:underline"
-                    title={`View NO token ${(marketState.noToken ?? noTokenAddress) || ''} on explorer`}
-                  >
+              )}
+              {noToken ? (
+                <a
+                  href={getTokenExplorerUrl(chainId, noToken)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="bg-rose-950/20 rounded-lg p-2 text-center border border-rose-900/20 hover:border-rose-600/50 hover:bg-rose-900/20 transition-colors"
+                  title={`View NO token ${noToken} on explorer`}
+                >
+                  <div className="text-xs text-rose-500/80 uppercase">NO</div>
+                  <div className="font-mono text-sm text-white">
                     {(userNoShares ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </a>
-                ) : (
+                  </div>
+                </a>
+              ) : (
+                <div className="bg-rose-950/20 rounded-lg p-2 text-center border border-rose-900/20">
+                  <div className="text-xs text-rose-500/80 uppercase">NO</div>
                   <div className="font-mono text-sm text-white">{(userNoShares ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
             {needsApproval && (
@@ -1145,7 +1174,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
 
           {/* Trading Panel */}
-          <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 overflow-hidden sticky top-4">
+          <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950/80 border border-slate-800/50 overflow-hidden">
             {/* Primary Toggle: YES / NO - subtle underline style */}
             <div className="flex border-b border-slate-800">
               <button
@@ -1211,11 +1240,15 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                     type="number"
                     step="0.1"
                     value={price}
-                    onChange={(e) => setPrice(e.target.value)}
+                    onChange={(e) => {
+                      setIsPriceTouched(true);
+                      setPrice(e.target.value);
+                    }}
                     onBlur={() => {
                       const val = Math.max(0.1, Math.min(99.9, Number(price)));
                       setPrice(val.toFixed(1));
                     }}
+                    onWheel={(e) => e.currentTarget.blur()}
                     className={cn(
                       "w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-lg font-mono font-bold text-center focus:outline-none transition-all",
                       isYes ? "focus:border-emerald-500/50" : "focus:border-rose-500/50"
@@ -1276,6 +1309,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   placeholder="0"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
+                  onWheel={(e) => e.currentTarget.blur()}
                   className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-xl text-xl font-mono font-bold focus:border-slate-500 focus:outline-none"
                 />
                 <div className="flex gap-2 mt-2">
@@ -1293,7 +1327,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
 
               <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">Price</span>
+                  <span className="text-slate-500">Price (per share)</span>
                   <span className="font-mono text-slate-400">{priceNum.toFixed(1)}¢</span>
                 </div>
                 <div className="flex justify-between text-sm">
@@ -1302,6 +1336,11 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                     {amountNum > 0 ? `${!isBuying ? '+' : ''}$${estimatedValue.toFixed(2)}` : '–'}
                   </span>
                 </div>
+                {amountNum > 0 && (
+                  <div className="text-[11px] text-slate-600 font-mono text-right">
+                    {amountNum.toLocaleString(undefined, { maximumFractionDigits: 0 })} × {priceNum.toFixed(1)}¢ = ${estimatedValue.toFixed(2)}
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-500">
                     {isBuying ? 'Available USDC' : `Your ${isYes ? 'YES' : 'NO'} Shares`}
@@ -1396,6 +1435,7 @@ const ProTradingTerminal = ({ marketId, embedded = false }: { marketId: string; 
                   placeholder={mintMergeTab === 'mint' ? 'USDC amount' : 'Shares to merge'}
                   value={mintMergeAmount}
                   onChange={(e) => setMintMergeAmount(e.target.value)}
+                  onWheel={(e) => e.currentTarget.blur()}
                   className="w-full px-3 py-2 pr-14 bg-slate-950 border border-slate-700 rounded-lg text-sm font-mono font-bold focus:border-slate-500 focus:outline-none"
                 />
                 <button

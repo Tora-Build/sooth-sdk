@@ -1,3 +1,4 @@
+# Updated for SoothBook V12 (was TickBook)
 # Multi-Actor Orderbook Scenario
 # Tests multiple makers and takers interacting
 
@@ -12,9 +13,9 @@ steps:
       amount: "50000"
 
   - actor: alice
-    action: deposit
+    action: approve
     args:
-      amount: "25000"
+      contract: "soothbook"
 
   - actor: bob
     action: mint
@@ -22,9 +23,9 @@ steps:
       amount: "50000"
 
   - actor: bob
-    action: deposit
+    action: approve
     args:
-      amount: "25000"
+      contract: "soothbook"
 
   - actor: charlie
     action: mint
@@ -32,46 +33,43 @@ steps:
       amount: "50000"
 
   - actor: charlie
-    action: deposit
+    action: approve
     args:
-      amount: "25000"
+      contract: "soothbook"
 
-  # Alice places YES orders at different levels
+  # Alice places YES orders at different ticks
+  # 30-40 range → tick 350, 40-50 range → tick 450, 50-60 range → tick 550
   - actor: alice
-    action: order
+    action: buyyes
     args:
-      outcome: "yes"
-      range: "30-40"
-      shares: "200"
-
-  - actor: alice
-    action: order
-    args:
-      outcome: "yes"
-      range: "40-50"
-      shares: "300"
+      tick: 350
+      amount: "200"
 
   - actor: alice
-    action: order
+    action: buyyes
     args:
-      outcome: "yes"
-      range: "50-60"
-      shares: "200"
+      tick: 450
+      amount: "300"
 
-  # Bob places NO orders at different levels
+  - actor: alice
+    action: buyyes
+    args:
+      tick: 550
+      amount: "200"
+
+  # Bob places NO orders at different ticks
+  # 50-60 range → tick 550, 60-70 range → tick 650
   - actor: bob
-    action: order
+    action: buyno
     args:
-      outcome: "no"
-      range: "50-60"
-      shares: "200"
+      tick: 550
+      amount: "200"
 
   - actor: bob
-    action: order
+    action: buyno
     args:
-      outcome: "no"
-      range: "60-70"
-      shares: "300"
+      tick: 650
+      amount: "300"
 
   # Check orderbook state
   - actor: alice
@@ -80,31 +78,30 @@ steps:
 
   # Charlie crosses some orders as taker
   - actor: charlie
-    action: market
+    action: buyno
     args:
-      side: "buy"
-      outcome: "no"
-      shares: "150"
+      tick: 950
+      amount: "150"
 
   - actor: charlie
-    action: market
+    action: buyyes
     args:
-      side: "buy"
-      outcome: "yes"
-      shares: "100"
+      tick: 950
+      amount: "100"
 
   # Check updated book
   - actor: charlie
     action: book
     args: {}
 
-  # Makers claim their fills
+  # SoothBook: fills are automatic, no claim needed
+  # Check order history
   - actor: alice
-    action: orders
+    action: history
     args: {}
 
   - actor: bob
-    action: orders
+    action: history
     args: {}
 
   # Final positions check

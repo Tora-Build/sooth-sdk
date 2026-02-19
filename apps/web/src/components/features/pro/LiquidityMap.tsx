@@ -5,7 +5,7 @@
  * animated pixel blocks. Displays current price indicators for
  * both AMM and SoothBook prices.
  */
-import { useMemo } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { formatUnits, parseUnits } from 'viem';
 import { cn } from '../../../lib/utils';
@@ -37,18 +37,38 @@ export interface LiquidityMapProps {
 // ============================================================================
 // Component
 // ============================================================================
-export const LiquidityMap = ({ 
+export const LiquidityMap = ({
   bids,
   asks,
-  currentProb, 
-  ammProb, 
-  isLoading, 
-  viewOutcome 
+  currentProb,
+  ammProb,
+  isLoading,
+  viewOutcome
 }: LiquidityMapProps) => {
-  const blockUnit = parseUnits('20', 18);
+  const NUM_BUCKETS = 150;
+  const GAP_PX = 2;
+  const chartRef = useRef<HTMLDivElement>(null);
+  const [maxBlocks, setMaxBlocks] = useState(12);
+
+  useEffect(() => {
+    const el = chartRef.current;
+    if (!el) return;
+    const measure = () => {
+      const { height, width } = el.getBoundingClientRect();
+      const innerH = height - 16;
+      const innerW = width - 16 - 32;
+      const colW = Math.max(1, (innerW - (NUM_BUCKETS - 1)) / NUM_BUCKETS);
+      setMaxBlocks(Math.max(4, Math.floor((innerH + GAP_PX) / (colW + GAP_PX))));
+    };
+    const obs = new ResizeObserver(measure);
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  const MAX_BLOCKS = maxBlocks;
   // Build liquidity buckets for visualization (150 columns for slightly larger squares)
-  const { buckets, totalLiquidity, bestBuyBoundary, bestSellBoundary } = useMemo(() => {
-    const numBuckets = 150;
+  const { buckets, totalLiquidity, maxBucketLiquidity, bestBuyBoundary, bestSellBoundary } = useMemo(() => {
+    const numBuckets = NUM_BUCKETS;
     const bucketData: { price: number; yesLiq: bigint; noLiq: bigint }[] = [];
 
     // Initialize empty buckets
@@ -112,13 +132,25 @@ export const LiquidityMap = ({
       liquidity: b.yesLiq + b.noLiq,
     }));
 
+    let maxBucketLiq = 0n;
+    for (const b of buckets) {
+      if (b.liquidity > maxBucketLiq) maxBucketLiq = b.liquidity;
+    }
+
     return {
       buckets,
       totalLiquidity: totalLiq,
+      maxBucketLiquidity: maxBucketLiq,
       bestBuyBoundary: hasBuyBoundary ? bestBuyBoundary : null,
       bestSellBoundary: hasSellBoundary ? bestSellBoundary : null,
     };
   }, [asks, bids]);
+
+  // Dynamic scale: blockUnit adapts so the tallest column fills MAX_BLOCKS
+  const blockUnit = maxBucketLiquidity > 0n
+    ? (maxBucketLiquidity + BigInt(MAX_BLOCKS) - 1n) / BigInt(MAX_BLOCKS) // ceiling division
+    : parseUnits('20', 18); // fallback when no data
+  const scaleMax = blockUnit * BigInt(MAX_BLOCKS);
 
   const displayBuckets = useMemo(() => {
     if (viewOutcome === 'yes') return buckets;
@@ -157,7 +189,7 @@ export const LiquidityMap = ({
       </div>
 
       {/* Pixel depth chart */}
-      <div className="relative h-32 flex items-end gap-0 bg-slate-950 rounded-lg p-2">
+      <div ref={chartRef} className="relative h-32 flex items-end gap-0 bg-slate-950 rounded-lg p-2">
         {isLoading ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <Loader2 className="w-6 h-6 text-slate-500 animate-spin" />
@@ -183,11 +215,11 @@ export const LiquidityMap = ({
         {/* Y-Axis Depth Scale */}
         <div className="absolute left-0 top-2 bottom-3 flex flex-col justify-between items-end pr-1 border-r border-slate-800/50 pointer-events-none z-20 w-8">
           <div className="text-[7px] text-slate-500 font-mono flex items-center gap-1">
-            {totalLiquidity > 0n ? parseFloat(formatUnits(blockUnit * 12n, 18)).toFixed(0) : '0'}
+            {totalLiquidity > 0n ? parseFloat(formatUnits(scaleMax, 18)).toFixed(0) : '0'}
             <div className="w-1.5 h-[1px] bg-slate-800" />
           </div>
           <div className="text-[7px] text-slate-500 font-mono flex items-center gap-1">
-            {(parseFloat(formatUnits(blockUnit * 6n, 18))).toFixed(0)}
+            {totalLiquidity > 0n ? parseFloat(formatUnits(scaleMax / 2n, 18)).toFixed(0) : '0'}
             <div className="w-1.5 h-[1px] bg-slate-800" />
           </div>
           <div className="text-[7px] text-slate-500 font-mono flex items-center gap-1">
@@ -201,7 +233,7 @@ export const LiquidityMap = ({
             {displayBuckets.map((bucket, col) => {
               const hasLiquidity = bucket.liquidity > 0n;
               const totalBlocks = bucket.liquidity > 0n
-                ? Math.max(1, Math.min(12, Number((bucket.liquidity + blockUnit - 1n) / blockUnit)))
+                ? Math.max(1, Math.min(MAX_BLOCKS, Number((bucket.liquidity + blockUnit - 1n) / blockUnit)))
                 : 0;
               let greenBlocks = 0;
               let redBlocks = 0;
@@ -222,7 +254,7 @@ export const LiquidityMap = ({
                 <div
                   key={col}
                   className={cn(
-                    "flex-1 flex flex-col justify-end gap-[2px] relative group h-full pb-1",
+                    "flex-1 flex flex-col justify-end gap-[2px] relative group h-full",
                     hasLiquidity && "cursor-pointer"
                   )}
                 >

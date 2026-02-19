@@ -9,12 +9,22 @@ import { defineChain, Chain } from 'viem';
 // Chain Definitions
 // ============================================
 
+const baseSepoliaRpcCandidates = (process.env.BASE_SEPOLIA_RPC_URL ?? '')
+  .split(',')
+  .map((url) => url.trim())
+  .filter(Boolean);
+
 export const baseSepolia = defineChain({
   id: 84532,
   name: 'Base Sepolia',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://sepolia.base.org'] },
+    default: {
+      http:
+        baseSepoliaRpcCandidates.length > 0
+          ? baseSepoliaRpcCandidates
+          : ['https://sepolia.base.org'],
+    },
   },
   blockExplorers: {
     default: { name: 'Basescan', url: 'https://sepolia.basescan.org' },
@@ -248,4 +258,3 @@ export interface DeploymentArtifact {
     soothBookKey?: string;
   }[];
 }
-
