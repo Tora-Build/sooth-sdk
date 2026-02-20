@@ -390,7 +390,7 @@ const EmptyState = ({ search }: { search?: string }) => (
         : 'Pro trading is available for graduated markets. Check the AMM for early-stage markets.'
       }
     </p>
-    <Link to="/v8" className="text-slate-400 hover:text-slate-300 text-sm font-medium">
+    <Link to="/trade" className="text-slate-400 hover:text-slate-300 text-sm font-medium">
       Browse AMM Markets →
     </Link>
   </div>

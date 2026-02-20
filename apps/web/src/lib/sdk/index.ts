@@ -19,6 +19,9 @@ export * from './commands';
 type NetworkKey = keyof typeof deployments.networks;
 
 const STORAGE_KEY_MARKET = 'sooth_selected_market';
+// NOTE: These are bonding-stage market keys (pre-graduation).
+// SoothBook.markets(key) returns all zeros for these — they are NOT registered in SoothBook yet.
+// `sbsetmarket 0/1/2` will always fail until these markets graduate.
 const SOOTHBOOK_TEST_MARKETS: readonly `0x${string}`[] = [
   '0x28a722c5a9f901c47dda06574bb57ede6fc256dfbb821a7f17cae915b511fb3b',  // BTC $150k 2026
   '0x1b7e3a5e85ec8aaa17e7e7918496fd0b4637cf54a87cf3d031ebe50b8576f515',  // ETH flip BTC 2027
