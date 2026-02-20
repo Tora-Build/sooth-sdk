@@ -19,12 +19,12 @@ const DEPLOYMENTS: Record<number, ChainDeployment> = {
     networkName: 'baseSepolia',
     version: 'V12.0',
     contracts: {
-      MockUSDC: '0xc7587d8393bf43d778267c40706a533ca1299e21',
-      ProtocolConfig: '0x4dedced068424cab5def4e5fd0b3ce7bf5671d8d',
-      Collateralizer: '0xfb757cec1ff68cbef2124172a03d92090602576c',
-      AMMEngine: '0x5d2bfce963bd7e002213522a22e3615d454708b3',
-      SoothBook: '0x6c3ad4d5a800b87acdfe5ba82972feb23acab011',
-      LaunchpadEngine: '0x69a831d48d1c46ab0919d0c19cf47a2fdc842ee3',
+      MockUSDC: '0x51073241ff403cd900008569714e0c9605f65a79',
+      ProtocolConfig: '0xd19842d2cbcb6146460e6639db1571787620583f',
+      Collateralizer: '0x956e8ad7b35c5270fc737ceddfcd7d894a1e5574',
+      AMMEngine: '0x1d736e5008b775948e0cbd06bbf0074d48a9803a',
+      SoothBook: '0x0eb179c7e79e62bac3ee40d379425e32cb00d22b',
+      LaunchpadEngine: '0xf00fb446d1262d1f4100e6d899cf0c8c298a6e61',
     },
   },
   143: {

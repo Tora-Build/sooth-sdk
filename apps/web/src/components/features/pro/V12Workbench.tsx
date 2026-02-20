@@ -19,7 +19,7 @@ import deployments from '../../../config/deployments.json';
 import { useSoothBookMarket } from '../../../hooks/useSoothBook';
 
 const BASE_SEPOLIA = 84532;
-const DEFAULT_MARKET_KEY = '0x79a7bc6308ae7267ddd3776d02ad1446f41d1e3ed74ed41b5184fc53cc8bd5b5';
+const DEFAULT_MARKET_KEY = '0x28a722c5a9f901c47dda06574bb57ede6fc256dfbb821a7f17cae915b511fb3b';
 
 type DeploymentNetwork = {
   chainId?: number;

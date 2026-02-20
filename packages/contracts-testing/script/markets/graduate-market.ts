@@ -4,34 +4,55 @@
  */
 import { createWalletClient, createPublicClient, http, parseAbi } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { baseSepolia } from './chainConfigs';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load .env
-const envPath = path.join(process.cwd(), '.env');
-if (fs.existsSync(envPath)) {
-  const envContent = fs.readFileSync(envPath, 'utf-8');
-  for (const line of envContent.split('\n')) {
-    const trimmed = line.trim();
-    if (trimmed && !trimmed.startsWith('#')) {
-      const eqIndex = trimmed.indexOf('=');
-      if (eqIndex > 0) {
-        const key = trimmed.slice(0, eqIndex);
-        const value = trimmed.slice(eqIndex + 1);
-        if (!process.env[key]) process.env[key] = value;
+const envPaths = [
+  path.join(__dirname, '..', '..', '..', '..', '.env'),
+  path.join(__dirname, '..', '..', '.env'),
+  path.join(process.cwd(), '.env'),
+];
+for (const envPath of envPaths) {
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, 'utf-8');
+    for (const line of envContent.split('\n')) {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#')) {
+        const eqIndex = trimmed.indexOf('=');
+        if (eqIndex > 0) {
+          const key = trimmed.slice(0, eqIndex);
+          const value = trimmed.slice(eqIndex + 1);
+          if (!process.env[key]) process.env[key] = value;
+        }
       }
     }
+    break;
   }
 }
+
+function loadDeployment(chainName: string) {
+  const deployPath = path.join(__dirname, '..', '..', '..', 'contracts-core', 'deployments', `${chainName}.json`);
+  if (!fs.existsSync(deployPath)) {
+    throw new Error(`Deployment file not found: ${deployPath}`);
+  }
+  return JSON.parse(fs.readFileSync(deployPath, 'utf-8'));
+}
+
+const chainName = process.argv[2] || 'baseSepolia';
+const deployment = loadDeployment(chainName);
+const rpcUrl = process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org';
 
 const WAD = 10n ** 18n;
 const MAX_UINT256 = 2n ** 256n - 1n;
 
-// Contract addresses (Base Sepolia)
-const MOCK_USDC = '0x0ed4eeb883634b7c811bec8191ee3a3cac0f3d50' as const;
-const LAUNCHPAD_ENGINE = '0x63B625e2bB008699F518178E4aD2CF76EEcbd6aC' as const;
-const BTC_MARKET = '0xe783ba6ACdF1Dd59032b39209bf0951A63599683' as const;
+const MOCK_USDC = deployment.contracts.MockUSDC as `0x${string}`;
+const LAUNCHPAD_ENGINE = deployment.contracts.LaunchpadEngine as `0x${string}`;
+const BTC_MARKET = (deployment.markets[0]?.address ?? '') as `0x${string}`;
 
 const ERC20_ABI = parseAbi([
   'function mint(address to, uint256 amount) external',
@@ -56,13 +77,13 @@ async function main() {
   console.log(`Deployer: ${account.address}`);
 
   const publicClient = createPublicClient({
-    chain: baseSepolia,
-    transport: http(),
+    chain: { id: deployment.chainId, name: deployment.chainName },
+    transport: http(rpcUrl),
   });
 
   const walletClient = createWalletClient({
-    chain: baseSepolia,
-    transport: http(),
+    chain: { id: deployment.chainId, name: deployment.chainName },
+    transport: http(rpcUrl),
     account,
   });
 
