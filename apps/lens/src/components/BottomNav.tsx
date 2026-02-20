@@ -1,5 +1,5 @@
 import { useContext } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { Rss, BarChart3, Search, User } from 'lucide-react';
 import { ShowcaseContext } from '../hooks/useShowcase';
 import { PhoneRouteContext } from '../App';
@@ -11,7 +11,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: '/', icon: Rss, label: 'FEED' },
+  { to: '/feed', icon: Rss, label: 'FEED' },
   { to: '/markets', icon: BarChart3, label: 'MARKETS' },
   { to: '/search', icon: Search, label: 'DISCOVER' },
   { to: '/profile', icon: User, label: 'PROFILE' },
@@ -42,6 +42,10 @@ function PhoneNavButton({ to: _to, icon: Icon, label, isActive, onClick }: {
 export function BottomNav() {
   const isShowcase = useContext(ShowcaseContext);
   const phoneRoute = useContext(PhoneRouteContext);
+  const location = useLocation();
+
+  const currentRoute = isShowcase ? phoneRoute.route : location.pathname;
+  if (currentRoute === '/create') return null;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 px-3 pb-3">

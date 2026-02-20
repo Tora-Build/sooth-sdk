@@ -27,16 +27,16 @@ export function Home() {
 
       <main className="flex-1 overflow-y-auto snap-container">
         {isLoading ? (
-          <div className="h-screen flex items-center justify-center">
+          <div className="h-full flex items-center justify-center">
             <Loader2 className="w-10 h-10 text-[#00d4aa] animate-spin" />
           </div>
         ) : error ? (
-          <div className="h-screen flex flex-col items-center justify-center px-6 text-center">
+          <div className="h-full flex flex-col items-center justify-center px-6 text-center">
             <p className="text-[#e01b24] font-bold mb-2">Failed to load markets</p>
             <p className="text-[#888] text-sm">{(error as Error).message}</p>
           </div>
         ) : !posts || posts.length === 0 ? (
-          <div className="h-screen flex flex-col items-center justify-center px-6 text-center">
+          <div className="h-full flex flex-col items-center justify-center px-6 text-center">
             <Rss className="w-16 h-16 text-[#00d4aa]/50 mb-4" />
             <p className="text-white font-bold text-lg mb-2">No sooth markets yet</p>
             <p className="text-[#888] text-sm">Check back soon for prediction markets</p>

@@ -1,20 +1,25 @@
 import { useState } from "react";
 import { useNavigate } from 'react-router-dom';
-import { Rss, Loader2, Plus } from "lucide-react";
+import { Rss, Loader2, Plus, Wallet } from "lucide-react";
+import { useAppKit } from '@reown/appkit/react';
+import { useAccount } from 'wagmi';
 import { useLensFeed } from "../hooks/useLensFeed";
 import { LensPostCard } from "../components/LensPostCard";
 import { useShowcase } from "../hooks/useShowcase";
+import { IS_TESTNET } from "../lib/lensConfig";
 
 const FILTERS = [
   { label: "All", tag: undefined },
-  { label: "Sooth", tag: "sooth" },
-  { label: "Markets", tag: "prediction-market" },
+  { label: "Sooth", tag: "sooth-market" },
+  { label: "Markets", tag: "sooth-market" },
   { label: "DeFi", tag: "defi" },
 ] as const;
 
 export function Feed() {
   const [activeFilter, setActiveFilter] = useState(0);
   const navigate = useNavigate();
+  const { open } = useAppKit();
+  const { isConnected } = useAccount();
   const tag = FILTERS[activeFilter].tag;
   const { data: posts, isLoading, error } = useLensFeed(tag);
   const inShowcase = useShowcase();
@@ -26,7 +31,14 @@ export function Feed() {
         <div className="px-4 pt-4 pb-2 flex items-center gap-2">
           <Rss className="w-5 h-5 text-[#00d4aa]" />
           <h1 className="text-lg font-bold">Lens Feed</h1>
-          <span className="text-xs text-[#888] ml-auto">mainnet</span>
+          <span className="text-xs text-[#888] ml-auto">{IS_TESTNET ? 'Lens Testnet' : 'Lens Chain'}</span>
+          <button
+            onClick={() => open()}
+            className="h-10 flex items-center justify-center active:scale-90 transition-transform"
+            aria-label={isConnected ? "Open wallet profile" : "Connect wallet"}
+          >
+            <Wallet className={`w-5 h-5 ${isConnected ? 'text-[#00d4aa]' : 'text-[#888]'}`} />
+          </button>
         </div>
 
         {/* Filter chips */}
