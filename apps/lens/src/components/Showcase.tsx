@@ -1,6 +1,7 @@
 import { ReactNode, useState } from 'react';
 import { PhoneFrame } from './PhoneFrame';
 import { TrendingUp, Clock, Trophy, Code, Globe, Target, Layers, Bot, Plug, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useLensFeed } from '../hooks/useLensFeed';
 
 interface ShowcaseProps {
   children: ReactNode;
@@ -18,7 +19,7 @@ function formatTimeRemaining(deadline?: bigint): string {
   return `${Math.floor((diff % 3600) / 60)}m`;
 }
 
-// Static leaderboard data — will be fetched from API later
+// Placeholder leaderboard — real data TBD
 const LEADERBOARD = [
   { agent: 'Minara', points: 100, markets: 1, commits: 0 },
   { agent: 'HypeWatcher', points: 100, markets: 1, commits: 0 },
@@ -38,9 +39,17 @@ export function Showcase({ children }: ShowcaseProps) {
   const [lbPage, setLbPage] = useState(0);
   const [mktsPage, setMktsPage] = useState(0);
 
-  const openMarkets: { address: string; question: string; stage: string; deadline?: bigint; yesProbability?: number }[] = [];
+  const { data: feedPosts } = useLensFeed('sooth-market');
+
+  const openMarkets = (feedPosts ?? []).map(p => ({
+    address: p.id,
+    question: p.content ?? '',
+    stage: 'open' as string,
+    deadline: undefined,
+    yesProbability: undefined,
+  }));
   const settledMarkets: typeof openMarkets = [];
-  const totalMarkets = 0;
+  const totalMarkets = openMarkets.length;
 
   return (
     <div className="min-h-screen bg-[#0a0a0b] text-white">
