@@ -4,9 +4,9 @@ import { ABIS } from '../../../config/abis';
 import { formatWad, parseWad, error, success, plain, info, warn, bold, dim, separator } from '../utils';
 
 const TEST_MARKETS: readonly `0x${string}`[] = [
-  '0x79a7bc6308ae7267ddd3776d02ad1446f41d1e3ed74ed41b5184fc53cc8bd5b5',
-  '0x51c50fd0e163b78ae31b6b04b87169dee2041aaf0279ecef7d10d0284d4cecb9',
-  '0x1e20bd6ecb21252705442f66733ad9bd6b38f4a29acae27f1c95bd2f57eab737',
+  '0x28a722c5a9f901c47dda06574bb57ede6fc256dfbb821a7f17cae915b511fb3b',
+  '0x1b7e3a5e85ec8aaa17e7e7918496fd0b4637cf54a87cf3d031ebe50b8576f515',
+  '0x8881374938b0170c9fefd869f43721a62c145c48e3686f0494c51e5b44cdcf35',
 ];
 
 const NO_SIDE = 0;
@@ -16,8 +16,8 @@ const USER_SCAN_CHUNK_SIZE = 400_000n;
 const DEFAULT_HISTORY_PAGE_SIZE = 50;
 
 const CHAIN_START_BLOCKS: Record<number, bigint> = {
-  84532: 36_399_046n,
-  10143: 6_558_931n,
+  84532: 37_890_676n,
+  10143: 13_700_000n,
   5042002: 21_983_342n,
   6343: 8_855_921n,
 };

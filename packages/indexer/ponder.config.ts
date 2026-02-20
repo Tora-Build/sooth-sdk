@@ -4,9 +4,9 @@ import { LaunchpadEngineAbi } from "./src/abis/LaunchpadEngine";
 import { AMMEngineAbi } from "./src/abis/AMMEngine";
 import { SoothBookAbi } from "./src/abis/SoothBook";
 
-const monadRpcUrls = [
-  "https://monad-mainnet.g.alchemy.com/v2/jbMFWO2gYvRKxW5skck8K",
-  "https://rpc.monad.xyz",
+const monadTestnetRpcUrls = [
+  "https://blue-stylish-friday.monad-testnet.quiknode.pro/e8b690b8d333c538f85bab9c93a2a3b512a4cb9a/",
+  "https://testnet-rpc.monad.xyz",
 ];
 
 const baseSepoliaRpcEnv = process.env.BASE_SEPOLIA_RPC_URL
@@ -18,9 +18,9 @@ const baseSepoliaRpcUrls = baseSepoliaRpcEnv
 
 export default createConfig({
   chains: {
-    monadMainnet: {
-      id: 143,
-      rpc: monadRpcUrls,
+    monadTestnet: {
+      id: 10143,
+      rpc: monadTestnetRpcUrls,
       pollingInterval: 500,
       ethGetLogsBlockRange: 50,
     },
@@ -34,35 +34,39 @@ export default createConfig({
     LaunchpadEngine: {
       abi: LaunchpadEngineAbi,
       chain: {
-        monadMainnet: {
-          address: "0xaa3Ffae62A8Af00d08Ac395e9551776b0A01E492",
-          startBlock: 54706817,
+        monadTestnet: {
+          address: "0x6fd82b76045af934354a2033fde5cb64772ae615",
+          startBlock: 13700000,
         },
         baseSepolia: {
-          address: "0x69a831d48d1c46ab0919d0c19cf47a2fdc842ee3",
-          startBlock: 37762786,
+          address: "0xf00fb446d1262d1f4100e6d899cf0c8c298a6e61",
+          startBlock: 37890676,
         },
       },
     },
     AMMEngine: {
       abi: AMMEngineAbi,
       chain: {
-        monadMainnet: {
-          address: "0x8629b9ca457F4088ec8346FAED61DA858FDB498d",
-          startBlock: 54706817,
+        monadTestnet: {
+          address: "0x28b799febd74b92d8ff17745ad432bfa86799fc8",
+          startBlock: 13700000,
         },
         baseSepolia: {
-          address: "0x5d2bfce963bd7e002213522a22e3615d454708b3",
-          startBlock: 37762782,
+          address: "0x1d736e5008b775948e0cbd06bbf0074d48a9803a",
+          startBlock: 37890676,
         },
       },
     },
     SoothBook: {
       abi: SoothBookAbi,
       chain: {
+        monadTestnet: {
+          address: "0x94818c56b904371bf100acf723a7619dfc2c2ec0",
+          startBlock: 13700000,
+        },
         baseSepolia: {
-          address: "0x6c3ad4d5a800b87acdfe5ba82972feb23acab011",
-          startBlock: 37762784,
+          address: "0x0eb179c7e79e62bac3ee40d379425e32cb00d22b",
+          startBlock: 37890676,
         },
       },
     },

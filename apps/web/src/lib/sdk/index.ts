@@ -20,9 +20,9 @@ type NetworkKey = keyof typeof deployments.networks;
 
 const STORAGE_KEY_MARKET = 'sooth_selected_market';
 const SOOTHBOOK_TEST_MARKETS: readonly `0x${string}`[] = [
-  '0x79a7bc6308ae7267ddd3776d02ad1446f41d1e3ed74ed41b5184fc53cc8bd5b5',
-  '0x51c50fd0e163b78ae31b6b04b87169dee2041aaf0279ecef7d10d0284d4cecb9',
-  '0x1e20bd6ecb21252705442f66733ad9bd6b38f4a29acae27f1c95bd2f57eab737',
+  '0x28a722c5a9f901c47dda06574bb57ede6fc256dfbb821a7f17cae915b511fb3b',  // BTC $150k 2026
+  '0x1b7e3a5e85ec8aaa17e7e7918496fd0b4637cf54a87cf3d031ebe50b8576f515',  // ETH flip BTC 2027
+  '0x8881374938b0170c9fefd869f43721a62c145c48e3686f0494c51e5b44cdcf35',  // SOL ETF 2026
 ];
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 

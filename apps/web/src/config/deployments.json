@@ -4,17 +4,17 @@
     "baseSepolia": {
       "chainId": 84532,
       "contracts": {
-        "MockUSDC": "0xc7587d8393bf43d778267c40706a533ca1299e21",
-        "ProtocolConfig": "0x4dedced068424cab5def4e5fd0b3ce7bf5671d8d",
-        "Collateralizer": "0xfb757cec1ff68cbef2124172a03d92090602576c",
-        "AMMEngine": "0x5d2bfce963bd7e002213522a22e3615d454708b3",
-        "SoothBook": "0x6c3ad4d5a800b87acdfe5ba82972feb23acab011",
-        "LaunchpadEngine": "0x69a831d48d1c46ab0919d0c19cf47a2fdc842ee3"
+        "MockUSDC": "0x51073241ff403cd900008569714e0c9605f65a79",
+        "ProtocolConfig": "0xd19842d2cbcb6146460e6639db1571787620583f",
+        "Collateralizer": "0x956e8ad7b35c5270fc737ceddfcd7d894a1e5574",
+        "AMMEngine": "0x1d736e5008b775948e0cbd06bbf0074d48a9803a",
+        "SoothBook": "0x0eb179c7e79e62bac3ee40d379425e32cb00d22b",
+        "LaunchpadEngine": "0xf00fb446d1262d1f4100e6d899cf0c8c298a6e61"
       },
       "markets": [
-        "0xa323eca0d7e841a0e8eb63b3fd19097ac03c18d9876f79def4cd34461f6f98ca",
-        "0xeed22448551a6e6bab78edf7149dbcf6baa3c6e5ad3f429c0c3fff2b1a3149af",
-        "0xeb51aec8580147e87ec137a96cbcf2e275c5680fb4b4ca7d006ac8f9de5e0aab"
+        "0x28a722c5a9f901c47dda06574bb57ede6fc256dfbb821a7f17cae915b511fb3b",
+        "0x1b7e3a5e85ec8aaa17e7e7918496fd0b4637cf54a87cf3d031ebe50b8576f515",
+        "0x8881374938b0170c9fefd869f43721a62c145c48e3686f0494c51e5b44cdcf35"
       ]
     },
     "monadTestnet": {

@@ -148,7 +148,7 @@ async function waitForReceipt(
   hash: `0x${string}`
 ): Promise<any> {
   const confirmations = BigInt(Math.max(1, ctx.config.deploymentConfig.confirmations));
-  const timeoutMs = 10 * 60 * 1000; // 10 minutes
+  const timeoutMs = 30 * 60 * 1000; // 30 minutes
   const pollMs = 2000;
   const startedAt = Date.now();
   let missingTxStreak = 0;
@@ -178,8 +178,7 @@ async function waitForReceipt(
         missingTxStreak += 1;
       }
 
-      // 30 consecutive misses (~60s) strongly suggests the tx was dropped.
-      if (missingTxStreak >= 30) {
+      if (missingTxStreak >= 900) {
         throw new Error(`transaction dropped before confirmation: ${hash}`);
       }
     }

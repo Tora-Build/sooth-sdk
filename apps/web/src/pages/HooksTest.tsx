@@ -1,17 +1,10 @@
-/**
- * V8 Hooks Test Page
- * 
- * Simple page to test all V8 hooks with deployed contracts
- */
-
 import { useEffect } from 'react';
 import { useTruthMarket, useLaunchpadMarket, useAmmMarket, useCollateralizer, useCreatorPosition } from '../hooks';
 import { useChainStore } from '../store/useChainStore';
 import { useRef } from 'react';
 
-// Test market addresses from deployments
-const MARKET_1 = '0x0b7BfdfE0FAB1b48e4435fE713d78376DAC026fC'; // UN Confirms Alien Life
-const MARKET_2 = '0x122E6afFd70a66183FeBd279C418186F24d9a4e2'; // BTC TWAP
+const MARKET_1 = '0x50929360c5bc0027fc9e229bfdf5e76a4f730718'; // BTC $150k (Base Sepolia V12)
+const MARKET_2 = '0xc19a08e929b31d0ffb7e3094f6abd1fef706db27'; // ETH flip BTC (Base Sepolia V12)
 
 export function HooksTest() {
     const { selectedChainId } = useChainStore();
@@ -24,7 +17,7 @@ export function HooksTest() {
 
     return (
         <div style={{ padding: '2rem', fontFamily: 'monospace' }}>
-            <h1>V8 Hooks Test - Market 1</h1>
+            <h1>Hooks Test - Market 1</h1>
             <p>
                 Loading:{" "}
                 {marketLoading || launchpadLoading || ammLoading || collateralizerLoading || positionLoading
