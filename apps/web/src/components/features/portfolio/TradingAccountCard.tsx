@@ -116,19 +116,31 @@ export const TradingAccountCard: React.FC = () => {
 
             {/* Action Buttons Grid */}
             <div className="flex flex-col gap-2">
-              <div className="text-xs text-cyan-400/50 font-bold uppercase tracking-widest flex items-center gap-1">
-                Wallet Collateral • SoothBook Approval
-              </div>
-              <div className="grid grid-cols-1 gap-2">
-                <Button
-                  size="sm"
-                  variant="primary"
-                  onClick={() => setIsDepositOpen(true)}
-                  className="group py-2 text-xs font-black uppercase tracking-widest bg-cyan-600 hover:bg-cyan-500 border-none text-white"
-                >
-                  <ArrowDownLeft size={12} className="mr-1 opacity-70 group-hover:-translate-x-0.5 group-hover:translate-y-0.5 transition-transform" /> Approve USDC
-                </Button>
-              </div>
+              {allowance === 0n ? (
+                <>
+                  <div className="text-xs text-cyan-400/50 font-bold uppercase tracking-widest flex items-center gap-1">
+                    Wallet Collateral • SoothBook Approval
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={() => setIsDepositOpen(true)}
+                    className="group py-2 text-xs font-black uppercase tracking-widest bg-cyan-600 hover:bg-cyan-500 border-none text-white"
+                  >
+                    <ArrowDownLeft size={12} className="mr-1 opacity-70 group-hover:-translate-x-0.5 group-hover:translate-y-0.5 transition-transform" /> Approve USDC
+                  </Button>
+                </>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div className="text-xs text-cyan-400/50 font-bold uppercase tracking-widest flex items-center gap-1">
+                    Wallet Collateral • Ready to Trade
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-bold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+                    Approved
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

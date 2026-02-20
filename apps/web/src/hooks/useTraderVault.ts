@@ -31,6 +31,12 @@ export function useTraderVault() {
         args: [address, soothBookAddress] as const,
         chainId,
       },
+      {
+        address: tokenAddress,
+        abi: ERC20_ABI,
+        functionName: "decimals" as const,
+        chainId,
+      },
     ];
   }, [address, tokenAddress, soothBookAddress, chainId]);
 
@@ -47,7 +53,7 @@ export function useTraderVault() {
   const reservedBalance = 0n;
   const totalBalance = userUsdcBalance;
   const allowance = (allowanceData?.[0]?.result as bigint | undefined) ?? 0n;
-  const decimals = 6;
+  const decimals = (allowanceData?.[1]?.result as number | undefined) ?? 6;
 
   const approveUSDC = useCallback(
     async (amount: string) => {
@@ -68,7 +74,7 @@ export function useTraderVault() {
       void refetchAllowance();
       return true;
     },
-    [tokenAddress, soothBookAddress, writeContractAsync, chainId, refetchAllowance]
+    [tokenAddress, soothBookAddress, writeContractAsync, chainId, refetchAllowance, decimals]
   );
 
   const deposit = useCallback(async (_amount: string | bigint) => {
