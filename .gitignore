@@ -69,3 +69,6 @@ apps/web/test-results/
 # Agent artifacts
 .claude/worktrees/
 .superdesign/
+.sisyphus/
+.letta/
+.pids/
