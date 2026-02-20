@@ -1,12 +1,14 @@
 import { useState, createContext } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Home } from './pages/Home';
+import { Feed } from './pages/Feed';
 import { Search } from './pages/Search';
 import { Portfolio } from './pages/Portfolio';
 import { Profile } from './pages/Profile';
 import { AAP } from './pages/AAP';
 import { SkillPage } from './pages/SkillPage';
 import { AdjudicatorPage } from './pages/AdjudicatorPage';
+import { CreateMarket } from './pages/CreateMarket';
 import { BottomNav } from './components/BottomNav';
 import { Showcase } from './components/Showcase';
 import { DesktopNav } from './components/DesktopNav';
@@ -20,7 +22,9 @@ function MobileApp() {
   return (
     <div className="h-full w-full bg-mesh">
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<Feed />} />
+        <Route path="/create" element={<CreateMarket />} />
+        <Route path="/markets" element={<Home />} />
         <Route path="/search" element={<Search />} />
         <Route path="/portfolio" element={<Portfolio />} />
         <Route path="/profile" element={<Profile />} />
@@ -33,14 +37,16 @@ function MobileApp() {
 export { PhoneRouteContext };
 
 const PHONE_PAGES: Record<string, (props: { onBack?: () => void }) => JSX.Element> = {
-  '/': Home,
+  '/': Feed,
+  '/create': CreateMarket,
+  '/markets': Home,
   '/search': Search,
   '/portfolio': Portfolio,
   '/profile': Profile,
 };
 
-function PhoneContent() {
-  const [route, setRoute] = useState('/');
+function PhoneContent({ initialRoute = '/' }: { initialRoute?: string }) {
+  const [route, setRoute] = useState(initialRoute);
   const Page = PHONE_PAGES[route] || Home;
 
   return (
@@ -71,6 +77,16 @@ function DesktopApp() {
         <Route path="/aap" element={<AAP />} />
         <Route path="/skill" element={<SkillPage />} />
         <Route path="/adjudicator" element={<AdjudicatorPage />} />
+        <Route
+          path="/create"
+          element={
+            <ShowcaseContext.Provider value={true}>
+              <Showcase>
+                <PhoneContent initialRoute="/create" />
+              </Showcase>
+            </ShowcaseContext.Provider>
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
