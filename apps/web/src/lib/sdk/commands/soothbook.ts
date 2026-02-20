@@ -3,6 +3,9 @@ import type { SDKContext, CommandResult, OutputLine } from '../types';
 import { ABIS } from '../../../config/abis';
 import { formatWad, parseWad, error, success, plain, info, warn, bold, dim, separator } from '../utils';
 
+// NOTE: These are bonding-stage market keys (pre-graduation).
+// SoothBook.markets(key) returns all zeros for these — they are NOT registered in SoothBook yet.
+// `sbsetmarket 0/1/2` will always fail until these markets graduate.
 const TEST_MARKETS: readonly `0x${string}`[] = [
   '0x28a722c5a9f901c47dda06574bb57ede6fc256dfbb821a7f17cae915b511fb3b',
   '0x1b7e3a5e85ec8aaa17e7e7918496fd0b4637cf54a87cf3d031ebe50b8576f515',
@@ -1101,7 +1104,7 @@ export async function sbsetmarket(ctx: SDKContext, args: string[]): Promise<{ re
     const [collateral, yesToken, noToken, active, finalized, outcome] = await readMarket(ctx, soothBook, marketKey);
 
     if (collateral.toLowerCase() === ZERO_ADDRESS) {
-      return { result: { success: false, message: 'Market not found' }, output: [error('Market not found in SoothBook')] };
+      return { result: { success: false, message: 'Market not registered in SoothBook' }, output: [error('Market not registered in SoothBook (not graduated yet?)')] };
     }
 
     ctx.marketKey = marketKey;
