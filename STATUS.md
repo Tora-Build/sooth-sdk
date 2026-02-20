@@ -2,7 +2,7 @@
 
 > **Codebase Version**: V12.0 (SoothBook)  
 > **Active Testing**: Base Sepolia  
-> **Last Updated**: 2026-02-19
+> **Last Updated**: 2026-02-20
 
 ## V12 SoothBook (Current)
 
@@ -24,8 +24,8 @@ V12 replaces TickBook with **SoothBook** — an orderbook (602 lines) with 4 ato
 | Layer | Status | Details |
 |-------|--------|---------|
 | Contracts | ✅ Deployed | SoothBook + OutcomeToken + TickBitmap on Base Sepolia + Monad Testnet |
-| CLI | ✅ Wired | 10 commands (`buyyes`, `buyno`, `sbmint`, `sbmerge`, `sbcancel`, `sbredeem`, `sbresolve`, `sbstate`, `sbbook`, `sbpositions`) |
-| SDK | ✅ Built | Browser SDK with 11 commands in `apps/web/src/lib/sdk/commands/soothbook.ts` |
+| CLI | ✅ Wired | 11 commands (`buyyes`, `buyno`, `sbmint`, `sbmerge`, `sbcancel`, `sbredeem`, `sbresolve`, `sbstate`, `sbbook`, `sbhistory`, `sbsetmarket`) |
+| SDK | ✅ Built | Browser SDK with 11 commands in `apps/web/src/lib/sdk/commands/soothbook.ts` (`sbpositions` removed — never existed) |
 | Indexer | ✅ Configured | 29 event handlers (8 SoothBook + 15 LaunchpadEngine + 6 AMMEngine), 9 schema tables |
 | Frontend | ✅ Integrated | Pro page (SoothBook trading) + Trade page (AMM) read from deployments.json |
 
@@ -55,9 +55,10 @@ V12 replaces TickBook with **SoothBook** — an orderbook (602 lines) with 4 ato
 | Adjudicator-only finalize | `TruthMarket` | ✅ Implemented |
 
 ## Current Focus
-- **Pro UX + Order History Stabilization (2026-02-19)** — Refining Pro page behavior after V12 migration repair: historical chart layout/alignment, open/history order table consistency, cancellation UX, and history visibility parity across Web + SDK + interactive CLI.
+- **Housekeeping (2026-02-20)** — Docs and CLI help cleanup after V12 migration.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-02-20** — **Docs migration + CLI help fix**: Moved `V11/` docs to `docs/V11/`, rewrote all 6 files to replace TickBook with SoothBook. Added SUPERSEDED headers to stale `.agent/plans/` V11 files. Fixed `SoothSDK.showHelp()`: removed phantom `sbpositions`, removed `lw` section (handled by `Geek.tsx` not SDK), removed stale V11 section labels, collapsed Trial Period / LP Tokens / Protocol into Market section.
 - **2026-02-19** — **Order History + Deployment Handoff Sync**: Added historical order `Refund Amt` in `UserOrdersPanel` with event-driven semantics (filled taker surplus, cancelled non-escrow collateral return). Extended feed parsing to include `surplus`/`escrow`. Added pagination baseline of 50 entries in history flows. Added new SDK command `sbhistory [page] [size]` and interactive CLI command `history [page] [size]`, both with consistent columns (`ID`, `Side`, `Price`, `Size`, `Refund Amt`, `Event`). Added inline legend clarifying refund meaning. Added batch-cancel silent mode to avoid duplicate toasts. Captured deployment handoff in `.agent/HANDOFF_2026-02-19_DEPLOY_PROGRESS.md` with verification status for Monad/Base and current warnings.
 - **2026-02-16** — **V12 Migration Diagnostic & Repair**: Full audit of V11→V12 "standalone SoothBook" damage. Identified 24 items — 7 needed replacement, 5 were broken stubs. Fixed all: `useOrderbook.ts` + `useOrderbookTrade.ts` rewired to SoothBook (tick-depth reads, buyYes/buyNo/mint/merge/cancel/redeem, Polymarket-style mapping). `useTraderVault` → wallet mode (no vault). `useActivePositions` → SoothBook ERC20 YES/NO tokens + `getImpliedPrice`. `useLockedProceeds`/`useLockedFunds` → clean noops. `TradingAccountCard` → wallet USDC approval semantics. `PositionActionsModal` → wallet wording. Indexer `OrderFilled`/`OrderCancelled` handlers fixed + 6 API endpoints added. ~80 TS errors fixed (ABIS type spread, missing type exports). CLI `markets` command now discovers on-chain markets from LaunchpadEngine. Portfolio page integrated with TradingAccountCard + ActiveOrdersCard. Order store wired to useOrderbookTrade. Pro page findings written to `.agent/PRO_PAGE_FINDINGS.md`.
 - **2026-02-15** — **V12 Fresh Deployment**: Deployed fresh V12 contracts to Base Sepolia. Fixed deploy script to transfer SoothBook ownership to LaunchpadEngine (was missing — root cause of graduation not creating SoothBook markets).
