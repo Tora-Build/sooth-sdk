@@ -4,7 +4,7 @@ import { ExternalLink } from 'lucide-react';
 const NAV_ITEMS = [
   { to: '/', label: 'Home' },
   { to: '/aap', label: 'AAP' },
-  { to: '/skill', label: 'Skill' },
+  { to: '/skill', label: 'Plugin' },
   { to: '/adjudicator', label: 'Adjudicator' },
 ];
 
@@ -39,7 +39,7 @@ export function DesktopNav() {
 
       <div className="flex items-center gap-3">
         <a
-          href="https://github.com/Tora-Build/soothsayer-core"
+           href="https://github.com/sooth-protocol"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 hover:border-[#00d4aa]/50 hover:text-[#00d4aa] text-white/70 text-sm font-mono transition-all"

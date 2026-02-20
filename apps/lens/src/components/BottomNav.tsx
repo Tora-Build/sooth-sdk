@@ -1,24 +1,24 @@
 import { useContext } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Search, PieChart, User } from 'lucide-react';
+import { Rss, BarChart3, Search, User } from 'lucide-react';
 import { ShowcaseContext } from '../hooks/useShowcase';
 import { PhoneRouteContext } from '../App';
 
 interface NavItem {
   to: string;
-  icon: typeof Home;
+  icon: typeof Rss;
   label: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: '/', icon: Home, label: 'FEED' },
+  { to: '/', icon: Rss, label: 'FEED' },
+  { to: '/markets', icon: BarChart3, label: 'MARKETS' },
   { to: '/search', icon: Search, label: 'DISCOVER' },
-  { to: '/portfolio', icon: PieChart, label: 'PORTFOLIO' },
   { to: '/profile', icon: User, label: 'PROFILE' },
 ];
 
 function PhoneNavButton({ to: _to, icon: Icon, label, isActive, onClick }: {
-  to: string; icon: typeof Home; label: string; isActive: boolean; onClick: () => void;
+  to: string; icon: typeof Rss; label: string; isActive: boolean; onClick: () => void;
 }) {
   return (
     <button

@@ -1,32 +1,20 @@
 import { useAppKit } from '@reown/appkit/react';
 import { useAccount } from 'wagmi';
-import { BarChart3, Wallet } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
-import { useEffect, useRef } from 'react';
-import { useMarkets } from '../hooks/useMarkets';
+import { useNavigate } from 'react-router-dom';
+import { Rss, Wallet, Loader2, Plus } from 'lucide-react';
+import { useLensFeed } from '../hooks/useLensFeed';
+import { LensPostCard } from '../components/LensPostCard';
 import { useShowcase } from '../hooks/useShowcase';
-import { FeedCard } from '../components/FeedCard';
 
 export function Home() {
   const { open } = useAppKit();
+  const navigate = useNavigate();
   const { isConnected } = useAccount();
-  const { data: markets, isLoading, error } = useMarkets();
-  const [searchParams] = useSearchParams();
-  const marketIdParam = searchParams.get('marketId');
-  const containerRef = useRef<HTMLDivElement>(null);
+  const { data: posts, isLoading, error } = useLensFeed('sooth-market');
   const inShowcase = useShowcase();
 
-  useEffect(() => {
-    if (marketIdParam && markets && containerRef.current) {
-      const element = document.getElementById(`market-${marketIdParam}`);
-      if (element) {
-        element.scrollIntoView({ behavior: 'auto' });
-      }
-    }
-  }, [marketIdParam, markets]);
-
   return (
-    <div className={`${inShowcase ? 'h-full' : 'h-screen'} w-full flex flex-col bg-mesh text-white overflow-hidden relative`}>
+    <div className={`${inShowcase ? 'h-full' : 'h-dvh'} w-full flex flex-col bg-mesh text-white overflow-hidden relative`}>
       <header className="shrink-0 pt-4 px-6 flex items-center justify-end absolute top-0 w-full z-50 pointer-events-none">
         <button
           onClick={() => open()}
@@ -37,33 +25,40 @@ export function Home() {
         </button>
       </header>
 
-      <main
-        ref={containerRef}
-        className="flex-1 overflow-y-auto snap-container"
-      >
+      <main className="flex-1 overflow-y-auto snap-container">
         {isLoading ? (
           <div className="h-screen flex items-center justify-center">
-            <div className="w-10 h-10 border-2 border-[#00d4aa] border-t-transparent rounded-full animate-spin" />
+            <Loader2 className="w-10 h-10 text-[#00d4aa] animate-spin" />
           </div>
         ) : error ? (
           <div className="h-screen flex flex-col items-center justify-center px-6 text-center">
             <p className="text-[#e01b24] font-bold mb-2">Failed to load markets</p>
-            <p className="text-[#888] text-sm">{error.message}</p>
+            <p className="text-[#888] text-sm">{(error as Error).message}</p>
           </div>
-        ) : !markets || markets.length === 0 ? (
+        ) : !posts || posts.length === 0 ? (
           <div className="h-screen flex flex-col items-center justify-center px-6 text-center">
-            <BarChart3 className="w-16 h-16 text-[#00d4aa]/50 mb-4" />
-            <p className="text-white font-bold text-lg mb-2">No markets yet</p>
+            <Rss className="w-16 h-16 text-[#00d4aa]/50 mb-4" />
+            <p className="text-white font-bold text-lg mb-2">No sooth markets yet</p>
             <p className="text-[#888] text-sm">Check back soon for prediction markets</p>
           </div>
         ) : (
-          markets.map((market) => (
-            <div key={market.address} id={`market-${market.address}`} className="snap-card">
-              <FeedCard market={market} isSelected={market.address === marketIdParam} />
+          posts.map((post) => (
+            <div key={post.id} className="snap-card">
+              <LensPostCard post={post} />
             </div>
           ))
         )}
       </main>
+
+      <button
+        type="button"
+        onClick={() => navigate('/create')}
+        className="absolute right-4 z-40 size-12 rounded-full bg-[#00d4aa] text-[#1a1a1b] flex items-center justify-center shadow-lg shadow-black/40 active:scale-95 transition-transform"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5rem)' }}
+        aria-label="Create market"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
     </div>
   );
 }

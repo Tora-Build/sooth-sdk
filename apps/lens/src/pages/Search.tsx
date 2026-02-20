@@ -1,180 +1,96 @@
-import { useState, useMemo } from 'react';
-import { Search as SearchIcon, TrendingUp, Zap, Globe, Cpu, DollarSign, X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { useMarkets } from '../hooks/useMarkets';
-import { parseTextWithLinks } from '../lib/utils';
+import { useState } from 'react';
+import { Loader2, Search as SearchIcon } from 'lucide-react';
+import { useLensFeed, type LensPost } from '../hooks/useLensFeed';
+import { LensPostCard } from '../components/LensPostCard';
 
-const CATEGORIES = [
-  {
-    id: 'crypto',
-    label: 'Crypto',
-    icon: DollarSign,
-    color: 'text-amber-400',
-    keywords: ['bitcoin', 'btc', 'eth', 'ethereum', 'crypto', 'token', 'defi', 'nft', 'solana', 'monad', 'memecoin'],
-  },
-  {
-    id: 'tech',
-    label: 'Tech',
-    icon: Cpu,
-    color: 'text-cyan-400',
-    keywords: ['ai', 'gpt', 'apple', 'google', 'microsoft', 'openai', 'tech', 'software', 'chip', 'nvidia'],
-  },
-  {
-    id: 'politics',
-    label: 'Politics',
-    icon: Globe,
-    color: 'text-indigo-400',
-    keywords: ['trump', 'biden', 'election', 'senate', 'congress', 'vote', 'president', 'war', 'fed', 'reserve'],
-  },
-  {
-    id: 'sports',
-    label: 'Sports',
-    icon: Zap,
-    color: 'text-emerald-400',
-    keywords: ['nba', 'nfl', 'mlb', 'soccer', 'football', 'basketball', 'championship', 'super bowl', 'world cup'],
-  },
-] as const;
+const TAGS = ['sooth-market', 'crypto', 'politics', 'sports', 'tech', 'defi', 'culture'] as const;
 
-const TRENDING = [
-  'Bitcoin $100k',
-  'AI Regulation',
-  'ETH ETF',
-  'Fed Rate Cut',
-  'Trump 2024',
-];
+function TagChip({
+  tag,
+  isActive,
+  onClick,
+}: {
+  tag: string;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`shrink-0 px-4 py-2 rounded-full font-medium text-sm transition-all ${
+        isActive
+          ? 'bg-[#00d4aa] text-black'
+          : 'bg-white/5 border border-white/10 text-white hover:bg-white/10'
+      }`}
+    >
+      {tag}
+    </button>
+  );
+}
 
-function matchesCategory(question: string, keywords: readonly string[]): boolean {
-  const lowerQuestion = question.toLowerCase();
-  return keywords.some((kw) => lowerQuestion.includes(kw));
+function EmptyState({ tag }: { tag: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 px-8 text-center">
+      <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-4">
+        <SearchIcon className="w-8 h-8 text-[#888]" />
+      </div>
+      <h3 className="text-lg font-bold text-white mb-2">No markets found</h3>
+      <p className="text-sm text-[#888]">
+        No markets found for <span className="text-[#00d4aa]">#{tag}</span>
+      </p>
+    </div>
+  );
+}
+
+function LoadingState() {
+  return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <Loader2 className="w-8 h-8 text-[#00d4aa] animate-spin mb-3" />
+      <p className="text-sm text-[#888]">Loading markets…</p>
+    </div>
+  );
 }
 
 export function Search() {
-  const [query, setQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const navigate = useNavigate();
-  const { data: markets } = useMarkets();
+  const [selectedTag, setSelectedTag] = useState<string>('sooth-market');
+  const { data: posts, isLoading } = useLensFeed(selectedTag);
 
-  const filteredMarkets = useMemo(() => {
-    if (!markets) return [];
-
-    return markets.filter((m) => {
-      const matchesQuery = query
-        ? m.question.toLowerCase().includes(query.toLowerCase())
-        : true;
-
-      const matchesCat = activeCategory
-        ? matchesCategory(m.question, CATEGORIES.find((c) => c.id === activeCategory)?.keywords ?? [])
-        : true;
-
-      return matchesQuery && matchesCat;
-    });
-  }, [markets, query, activeCategory]);
-
-  const handleCategoryClick = (categoryId: string) => {
-    setActiveCategory((prev) => (prev === categoryId ? null : categoryId));
-    setQuery('');
-  };
-
-  const clearFilters = () => {
-    setQuery('');
-    setActiveCategory(null);
-  };
+  const filteredPosts = (posts ?? []).filter((post: LensPost) =>
+    post.tags.includes(selectedTag)
+  );
 
   return (
-    <div className="h-full w-full flex flex-col bg-mesh text-white">
-      <header className="shrink-0 pt-4 px-6 pb-4">
-        <h1 className="text-2xl font-bold font-heading text-white mb-4">Discover</h1>
-        <div className="relative">
-          <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#888]" />
-          <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search markets..."
-          className="w-full pl-12 pr-4 py-4 rounded-2xl glass-panel border border-[#444] text-white placeholder-white/30 focus:outline-none focus:border-[#00d4aa]/50"
-          />
+    <div className="min-h-dvh w-full flex flex-col bg-mesh text-white">
+      <header className="shrink-0 pt-4 px-4 pb-4 border-b border-white/10">
+        <h1 className="text-lg font-bold mb-4">Search Markets</h1>
+
+        <div className="overflow-x-auto -mx-4 px-4 pb-2">
+          <div className="flex gap-2">
+            {TAGS.map((tag) => (
+              <TagChip
+                key={tag}
+                tag={tag}
+                isActive={selectedTag === tag}
+                onClick={() => setSelectedTag(tag)}
+              />
+            ))}
+          </div>
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto px-6 pb-32">
-        {(query || activeCategory) ? (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-[10px] text-[#888] uppercase font-bold tracking-widest">
-                {activeCategory
-                  ? `${CATEGORIES.find((c) => c.id === activeCategory)?.label} Markets`
-                  : 'Results'}
-                {filteredMarkets.length > 0 && ` (${filteredMarkets.length})`}
-              </p>
-              <button
-                onClick={clearFilters}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg glass-panel text-xs text-[#888] hover:text-white border border-[#444]"
-              >
-                <X className="w-4 h-4" />
-                Clear
-              </button>
-            </div>
-            {filteredMarkets.length > 0 ? (
-              <div className="space-y-3">
-                {filteredMarkets.map((market) => (
-                  <button
-                    key={market.address}
-                    onClick={() => navigate(`/?marketId=${market.address}`)}
-                    className="w-full p-4 rounded-2xl glass-panel text-left hover:bg-[#444] transition-colors border border-[#444]"
-                  >
-                    <div className="text-white font-normal line-clamp-2">{parseTextWithLinks(market.question)}</div>
-                    <p className="text-[#00d4aa] text-sm font-bold mt-2">
-                      {Math.round((market.yesProbability ?? 0.5) * 100)}% YES
-                    </p>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="text-[#888] text-center py-12">No markets found</p>
-            )}
-          </div>
+      <div className="flex-1 overflow-y-auto">
+        {isLoading ? (
+          <LoadingState />
+        ) : filteredPosts.length === 0 ? (
+          <EmptyState tag={selectedTag} />
         ) : (
-          <>
-            <div className="mb-8">
-              <p className="text-[10px] text-[#888] uppercase font-bold tracking-widest mb-4">
-                Categories
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                {CATEGORIES.map(({ id, label, icon: Icon, color }) => (
-                  <button
-                    key={id}
-                    onClick={() => handleCategoryClick(id)}
-                    className="p-5 rounded-2xl glass-panel flex items-center gap-3 hover:bg-[#444] transition-colors border border-[#444]"
-                  >
-                    <Icon className={`w-6 h-6 ${color}`} />
-                    <span className="text-white font-semibold">{label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <TrendingUp className="w-4 h-4 text-[#ffd700]" />
-                <p className="text-[10px] text-[#888] uppercase font-bold tracking-widest">
-                  Trending
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {TRENDING.map((term) => (
-                  <button
-                    key={term}
-                    onClick={() => setQuery(term)}
-                    className="px-4 py-2 rounded-lg glass-panel text-sm text-[#888] hover:text-white border border-[#444] transition-colors"
-                  >
-                    {term}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </>
+          <div className="divide-y divide-white/10">
+            {filteredPosts.map((post) => (
+              <LensPostCard key={post.id} post={post} />
+            ))}
+          </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }

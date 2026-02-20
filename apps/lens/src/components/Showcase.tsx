@@ -1,5 +1,4 @@
 import { ReactNode, useState } from 'react';
-import { useMarkets } from '../hooks/useMarkets';
 import { PhoneFrame } from './PhoneFrame';
 import { TrendingUp, Clock, Trophy, Code, Globe, Target, Layers, Bot, Plug, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -36,13 +35,12 @@ const MEDAL = ['🥇', '🥈', '🥉'];
 const PAGE_SIZE = 5;
 
 export function Showcase({ children }: ShowcaseProps) {
-  const { data: markets } = useMarkets();
   const [lbPage, setLbPage] = useState(0);
   const [mktsPage, setMktsPage] = useState(0);
 
-  const openMarkets = markets?.filter(m => m.stage === 'bonding' || m.stage === 'live') ?? [];
-  const settledMarkets = markets?.filter(m => m.stage === 'settled' || m.stage === 'finalized') ?? [];
-  const totalMarkets = markets?.length ?? 0;
+  const openMarkets: { address: string; question: string; stage: string; deadline?: bigint; yesProbability?: number }[] = [];
+  const settledMarkets: typeof openMarkets = [];
+  const totalMarkets = 0;
 
   return (
     <div className="min-h-screen bg-[#0a0a0b] text-white">
@@ -281,21 +279,21 @@ export function Showcase({ children }: ShowcaseProps) {
                   <div className="text-xs text-white/30 mt-0.5">@SoothSayer</div>
                 </a>
                 <a
-                  href="https://monad.xyz"
+                  href="https://lens.xyz"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-amber-500/30 transition-all group"
                 >
                   <Globe className="w-5 h-5 text-amber-400 mb-2" />
-                  <div className="font-semibold text-sm group-hover:text-amber-400 transition-colors">Monad</div>
-                  <div className="text-xs text-white/30 mt-0.5">Mainnet</div>
+                  <div className="font-semibold text-sm group-hover:text-amber-400 transition-colors">Lens</div>
+                  <div className="text-xs text-white/30 mt-0.5">Chain</div>
                 </a>
               </div>
 
               {/* Footer Badge */}
               <div className="flex items-center gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/5 text-xs text-white/30 font-mono">
                 <div className="w-2 h-2 rounded-full bg-[#00d4aa] animate-pulse" />
-                SoothSayer · Prediction market plugin for agents · Powered by Sooth Protocol on Monad
+                SoothSayer · Prediction market plugin for agents · Powered by Sooth Protocol on Lens
               </div>
             </div>
           </div>
