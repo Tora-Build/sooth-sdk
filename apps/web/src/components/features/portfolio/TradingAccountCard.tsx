@@ -145,38 +145,38 @@ export const TradingAccountCard: React.FC = () => {
           </div>
         </div>
 
-        {/* Detailed Breakdown */}
-        <div className="grid grid-cols-2 gap-1.5">
+        {/* Detailed Breakdown — single inline row */}
+        <div className="flex items-stretch gap-1.5">
 
           {/* Liquid Cash */}
-          <div className="p-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/10 backdrop-blur-md">
-            <div className="text-xs text-emerald-400/60 uppercase tracking-widest font-bold mb-0.5 flex items-center gap-1">
+          <div className="flex-1 flex flex-col justify-between p-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/10 backdrop-blur-md">
+            <div className="text-xs text-emerald-400/60 uppercase tracking-widest font-bold flex items-center gap-1">
               <Coins size={9} /> Liquid
             </div>
-            <div className="text-base font-mono font-bold text-emerald-400 leading-none">
+            <div className="text-sm font-mono font-bold text-emerald-400 leading-none mt-1">
               {formatCurrency(available)}
             </div>
           </div>
 
           {/* Reserved (Collateral) */}
-          <div 
-            className="p-2.5 rounded-lg bg-slate-500/5 border border-slate-500/10 backdrop-blur-md"
+          <div
+            className="flex-1 flex flex-col justify-between p-2.5 rounded-lg bg-slate-500/5 border border-slate-500/10 backdrop-blur-md"
             title="On-chain reserved collateral for open orders or short positions. May differ from visible orders if orders were placed in a previous session."
           >
-            <div className="text-xs text-slate-400/60 uppercase tracking-widest font-bold mb-0.5 flex items-center gap-1">
+            <div className="text-xs text-slate-400/60 uppercase tracking-widest font-bold flex items-center gap-1">
               <Lock size={9} /> Reserved
             </div>
-            <div className="text-base font-mono font-bold text-slate-400 leading-none">
+            <div className="text-sm font-mono font-bold text-slate-400 leading-none mt-1">
               {formatCurrency(reserved)}
             </div>
           </div>
 
           {/* Position Value */}
-          <div className="p-2.5 rounded-lg bg-cyan-500/5 border border-cyan-500/10 backdrop-blur-md flex justify-between items-center">
+          <div className="flex-1 flex flex-col justify-between p-2.5 rounded-lg bg-cyan-500/5 border border-cyan-500/10 backdrop-blur-md">
             <div className="text-xs text-cyan-400/60 uppercase tracking-widest font-bold flex items-center gap-1">
-              <TrendingUp size={9} /> Open Positions
+              <TrendingUp size={9} /> Positions
             </div>
-            <div className="text-base font-mono font-bold text-cyan-400 leading-none">
+            <div className="text-sm font-mono font-bold text-cyan-400 leading-none mt-1">
               {formatCurrency(vaultValue)}
             </div>
           </div>
