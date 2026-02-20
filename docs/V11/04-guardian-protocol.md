@@ -3,7 +3,7 @@
 > Protocol-level guardian management and emergency pause mechanism
 
 **Status**: Implemented
-**Last Updated**: 2026-01-25
+**Last Updated**: 2026-02-20
 
 ---
 
@@ -53,8 +53,7 @@ When `protocolConfig.isPaused()` returns `true`:
 | Contract | Blocked | Allowed |
 |----------|---------|---------|
 | LaunchpadEngine | `createMarket`, `tradePositions` | `claimRefund`, `redeemLP` |
-| TickBookPoolManager | `placeOrder`, `placeSpotSell` | `cancelOrder`, `claimFills` |
-| TickBookVault | `depositUsdc` | `withdrawUsdc`, `redeemResolved` |
+| SoothBook | `buyYes`, `buyNo`, `mint` | `cancel`, `redeem`, `merge` |
 | AMMEngine | `tradePositions` | - |
 
 **Design principle**: Pause blocks new risk-taking actions, but allows users to exit positions and claim funds.
@@ -85,4 +84,4 @@ event ProtocolUnpaused(address indexed caller);
 
 ---
 
-*Last Updated: 2026-01-25*
+*Last Updated: 2026-02-20*

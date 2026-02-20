@@ -2,9 +2,9 @@
 
 > Interactive REPL for multi-actor protocol testing on live testnets
 
-**Status**: Implemented
+**Status**: Implemented (V12 SoothBook)
 **Location**: `packages/contracts-testing/script/interactive/`
-**Last Updated**: 2026-01-25
+**Last Updated**: 2026-02-20
 
 ---
 
@@ -18,7 +18,6 @@ bun run interactive
 
 # Or specify chain
 bun run interactive:base
-bun run interactive:monad
 
 # Auto-run a scenario
 bun run interactive:base -- --scenario=market-lifecycle-multi-actor
@@ -29,10 +28,10 @@ bun run interactive:base -- --scenario=market-lifecycle-multi-actor
 | Actor | Role | Env Var | Typical Actions |
 |-------|------|---------|-----------------|
 | Alice | Creator | `PRIVATE_KEY_ALICE` | Create market, provide LP, redeem LP |
-| Bob | AMM Trader | `PRIVATE_KEY_BOB` | AMM trades, graduate market, place orders |
-| Charlie | TickBook Trader | `PRIVATE_KEY_CHARLIE` | Cross orders, spot sell, redeem |
+| Bob | AMM Trader | `PRIVATE_KEY_BOB` | AMM trades, graduate market, SoothBook orders |
+| Charlie | SoothBook Trader | `PRIVATE_KEY_CHARLIE` | buyYes/buyNo, mint, merge, redeem |
 | David | Adjudicator | `PRIVATE_KEY_DAVID` | Settle, finalize markets |
-| Ellen | Keeper | `PRIVATE_KEY_ELLEN` | Claim fills, verify invariants |
+| Ellen | Keeper | `PRIVATE_KEY_ELLEN` | Verify invariants, redeem LP |
 
 ## Actor-to-Contract Mapping
 
@@ -40,10 +39,10 @@ bun run interactive:base -- --scenario=market-lifecycle-multi-actor
 |-------|-------------|---------|
 | Creator | LaunchpadEngine | `createMarket`, `dismissMarket` |
 | AMM Trader | LaunchpadEngine | `tradePositions` |
-| TickBook Trader | TickBookPoolManager | `placeOrder`, `placeSpotSell`, `cancelOrder` |
+| SoothBook Trader | SoothBook | `buyYes`, `buyNo`, `mint`, `merge`, `cancel` |
 | Adjudicator | TruthMarket | `settle`, `finalize` |
 | Guardian | ProtocolConfig, TruthMarket | `pause`, `unpause`, `veto` |
-| Keeper | TickBookPoolManager | `claimFillsFor`, permissionless maintenance |
+| Keeper | SoothBook | `redeem`, permissionless view calls |
 
 ## Command Categories
 
@@ -53,12 +52,11 @@ actor <name>     Switch to actor (alice, bob, charlie, david, ellen)
 actors           List all actors with addresses
 ```
 
-### Wallet & Vault
+### Wallet
 ```
 balance          Show USDC balances
 mint <amount>    Mint MockUSDC
-deposit <amt>    Deposit to TickBookVault
-withdraw <amt>   Withdraw from vault
+approve all      Approve all contracts for USDC spending
 ```
 
 ### AMM Trading
@@ -68,12 +66,24 @@ sell <shares> [outcome]   Sell via LaunchpadEngine
 ammquote <shares>         Get price quote
 ```
 
-### TickBook Trading
+### SoothBook Trading (V12)
 ```
-order <side> <low>-<high> <shares>   Place range order
-spotsell <outcome> <tick> <shares>   Place spot sell
-cancel <orderId>                     Cancel order
-claim                                Claim fills
+buyyes <tick> <amount> [escrow] [maxCost]    Buy YES at tick price
+buyno <tick> <amount> [escrow] [maxCost]     Buy NO at tick price
+sbmint <amount>                               Mint complete YES+NO set
+sbmerge <amount>                              Burn YES+NO set, get USDC
+sbcancel <side> <tick>                        Cancel resting orders at tick
+sbredeem                                      Redeem after market resolution
+```
+
+### SoothBook Views (V12)
+```
+sbstate          Show market state (active, finalized, outcome, prices)
+sbbook           Show orderbook depth (top YES and NO ticks)
+sbbalance        Show YES/NO token balances
+sbprice          Show implied YES/NO prices
+sbhistory [page] [pageSize]    Show order history for connected wallet
+sbsetmarket <key|index>        Select SoothBook market by key
 ```
 
 ### Settlement
@@ -89,6 +99,58 @@ market <id>         Switch to market
 markets             List all markets
 createmarket        Create new market
 dismiss             Dismiss trial market
+```
+
+## SoothBook Command Details
+
+### buyyes / buyno
+Place a limit order to buy YES or NO tokens at a specified tick (price).
+
+```bash
+# Buy 100 YES tokens at tick 600 (60¢)
+buyyes 600 100
+
+# Buy 50 NO tokens at tick 450 (45¢)
+buyno 450 50
+
+# Sell YES by buying NO with escrow (burns YES tokens as collateral)
+buyno 400 100 escrow
+
+# Sell NO by buying YES with escrow (burns NO tokens as collateral)
+buyyes 550 100 escrow
+```
+
+### sbmint / sbmerge
+Mint or burn complete token sets.
+
+```bash
+# Mint 100 USDC worth of YES+NO pairs
+sbmint 100
+
+# Burn 50 YES+NO pairs back to USDC
+sbmerge 50
+```
+
+### sbcancel
+Cancel resting orders at a specific tick.
+
+```bash
+# Cancel all YES orders at tick 600
+sbcancel yes 600
+
+# Cancel all NO orders at tick 450
+sbcancel no 450
+```
+
+### sbstate / sbbook
+View market state and orderbook depth.
+
+```bash
+# View full market state
+sbstate
+
+# View orderbook (top 10 ticks per side)
+sbbook
 ```
 
 ## Scenarios
@@ -114,8 +176,7 @@ interactive/
 │   ├── amm.ts
 │   ├── market.ts
 │   ├── settlement.ts
-│   ├── tickbook.ts
-│   └── vault.ts
+│   └── soothbook.ts    # V12 SoothBook commands
 ├── scenarios/          # Pre-built test scenarios
 ├── config.ts           # Chain & contract config
 ├── interactive-test.ts # Main REPL entry
@@ -124,4 +185,4 @@ interactive/
 
 ---
 
-*Last Updated: 2026-01-25*
+*Last Updated: 2026-02-20*

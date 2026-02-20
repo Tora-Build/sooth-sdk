@@ -1,8 +1,8 @@
 # Sooth Protocol Architecture
 
-**Version:** 11
+**Version:** 12 (SoothBook)
 **Status:** Alpha (Testnet Deployments)
-**Last Updated:** 2026-01-23
+**Last Updated:** 2026-02-20
 
 ---
 
@@ -14,7 +14,7 @@
 4. [Contract Specifications](#contract-specifications)
 5. [V11 Features](#v11-features)
 6. [LMSR Mathematics](#lmsr-mathematics)
-7. [TickBook Orderbook](#tickbook-orderbook)
+7. [SoothBook Orderbook](#soothbook-orderbook)
 8. [Market Lifecycle](#market-lifecycle)
 9. [Fee Economics](#fee-economics)
 10. [Settlement & Redemption](#settlement--redemption)
@@ -28,7 +28,7 @@
 Sooth Protocol is a decentralized prediction market platform with a **dual-venue architecture**:
 
 1. **AMM (Automated Market Maker)** — LMSR-based continuous pricing for retail trading
-2. **TickBook (Orderbook)** — Concentrated range orders for professional trading
+2. **SoothBook (Orderbook)** — 4-atomic orderbook for professional trading (V12)
 
 ### V11 Key Additions
 
@@ -79,21 +79,17 @@ Sooth Protocol is a decentralized prediction market platform with a **dual-venue
 │            ┌─────────────┴─────────────┐                                    │
 │            ▼                           ▼                                    │
 │   ┌─────────────────┐        ┌─────────────────┐                           │
-│   │   AMM ENGINE    │        │   TICKBOOK      │                           │
-│   │   (LMSR)        │        │   POOL MANAGER  │                           │
+│   │   AMM ENGINE    │        │   SOOTHBOOK     │                           │
+│   │   (LMSR)        │        │  (V12 Orderbook)│                           │
 │   │                 │        │                 │                           │
-│   │ • Continuous    │        │ • Range Orders  │                           │
-│   │   Pricing       │        │ • Spot Sells    │                           │
-│   │ • Dual-Balance  │        │ • Unified       │                           │
-│   │   Positions     │        │   Crossing      │                           │
-│   │ • 24h Lock      │        │ • O(overlap)    │                           │
+│   │ • Continuous    │        │ • buyYes/buyNo  │                           │
+│   │   Pricing       │        │ • mint/merge    │                           │
+│   │ • Dual-Balance  │        │ • FIFO Matching │                           │
+│   │   Positions     │        │ • ERC20 Tokens  │                           │
+│   │ • 24h Lock      │        │ • No Vault      │                           │
 │   └────────┬────────┘        └────────┬────────┘                           │
 │            │                          │                                     │
-│            │                          ▼                                     │
-│            │                 ┌─────────────────┐                           │
-│            │                 │  TICKBOOK VAULT │                           │
-│            │                 │  (Collateral)   │                           │
-│            │                 └─────────────────┘                           │
+│            │                          │                                     │
 │            │                                                                │
 │            └──────────────┬─────────────────────────────────────────────   │
 │                           ▼                                                 │
@@ -138,9 +134,9 @@ ProtocolConfig (V11)
             │       │
             │       └──► TruthMarket (Lifecycle Query)
             │
-            ├──► TickBookPoolManager (Orderbook)
+            ├──► SoothBook (V12: 4-Atomic Orderbook)
             │       │
-            │       └──► TickBookVault (Collateral)
+            │       └──► OutcomeToken (YES/NO ERC20, deployed by factory)
             │
             ├──► Collateralizer (Token Ops)
             │       │
@@ -235,48 +231,16 @@ struct MarketConfig {
 }
 ```
 
-### Range Order (TickBook)
+### SoothBook Order (V12)
 
 ```
-struct RangeOrder {
-    address owner;
-    uint8 outcome;                   // 0=NO, 1=YES
-    uint16 tickLower;                // Lower tick bound (1-999)
-    uint16 tickUpper;                // Upper tick bound
-    bool active;
-    bool liquidityRemoved;           // For cleanup tracking
-    uint128 sharesTotal;             // Total shares to place
-    uint128 liquidity;               // Density per tick
-    uint128 collateralDepositedWad;  // Initial collateral
-    uint128 filledShares;            // Accumulated fills
-    uint128 collateralUsedWad;       // Accumulated collateral used
+struct Order {
+    address maker;
+    uint128 amount;              // Remaining unfilled amount (WAD)
 }
 ```
 
-### Spot Sell Order (TickBook)
-
-```
-struct SpotSellOrder {
-    address owner;
-    uint8 outcome;           // 0=NO, 1=YES
-    uint16 tickLower;        // Min price willing to accept
-    uint16 tickUpper;        // Max price (usually same as lower)
-    bool active;
-    uint128 sharesTotal;     // Total shares to sell
-    uint128 sharesFilled;    // Filled so far
-    uint128 proceedsWad;     // Accumulated proceeds
-}
-```
-
-### Tick Liquidity (Unified)
-
-```
-struct TickLiquidity {
-    int128 rangeLiquidityNet;    // Net liquidity change at tick
-    uint128 rangeLiquidityGross; // Gross liquidity (for cleanup)
-    uint128 spotLiquidity;       // Spot sell liquidity
-}
-```
+**Key design:** Orders in SoothBook are stored as simple FIFO arrays per tick per side. No range orders, no spot sells — just single-tick limit orders managed by the 4 atomic actions.
 
 ### Balance Lock Entry
 
@@ -346,8 +310,7 @@ IProtocolConfig protocolConfig;                                 // V11
 
 address ammEngine;
 address collateralizer;
-address tickBookPoolManager;
-address tickBookVault;
+address soothBook;
 address protocolTreasury;
 address usdc;
 
@@ -666,71 +629,83 @@ return state == LIVE && block.timestamp >= startTime && block.timestamp < deadli
 return state == SETTLED || state == FINALIZED
 ```
 
-### 7. TickBookPoolManager
+### 7. SoothBook (V12)
 
-**Purpose:** Unified orderbook with range orders and spot sells
+**Purpose:** 4-atomic orderbook with FIFO matching and ERC20 outcome tokens
 
-*(Same as V10 - no V11 changes)*
+*(V12 replacement for the V10 orderbook)*
 
 #### State Variables
 
 ```
-mapping(bytes32 => Market) _markets;
-mapping(bytes32 => MarketState) _state;
-mapping(bytes32 => mapping(uint256 => RangeOrder)) _orders;
-mapping(bytes32 => mapping(uint256 => SpotSellOrder)) _spotSellOrders;
-mapping(bytes32 => mapping(uint8 => mapping(uint16 => TickLiquidity))) _tickLiquidity;
-mapping(bytes32 => mapping(uint8 => Bitmap)) _bitmaps;
-mapping(bytes32 => mapping(uint8 => Bitmap)) _spotBitmaps;
+mapping(bytes32 => Market) markets;           // Market metadata
+mapping(bytes32 => mapping(uint8 => mapping(uint16 => Order[]))) orders;  // FIFO order arrays
+mapping(bytes32 => mapping(uint8 => TickBitmap.Bitmap)) bitmaps;          // Tick discovery
+mapping(bytes32 => mapping(uint8 => uint16)) bestTick;                    // Best bid per side
 
-mapping(bytes32 => mapping(uint8 => uint256)) _fillGrowthGlobalX128;
-mapping(bytes32 => mapping(uint8 => uint256)) _collateralUsedGrowthGlobalX128;
-
-TickBookVault vault;
-address registrar;
-uint256 nextOrderId;
-uint256 nextSpotSellId;
+uint256 constant MAX_MATCHES_PER_TX = 128;    // Gas limit safety
 ```
 
-#### Key Functions
+**No vault contract.** SoothBook holds collateral (USDC) directly.
 
-**placeOrder(marketKey, outcome, tickLower, tickUpper, shares, maxCost) → orderId**
-```
-1. Calculate collateral required
-2. Reserve collateral via vault
-3. Create RangeOrder struct
-4. Update tick liquidity
-5. Set bitmap bits for active ticks
-6. Attempt crossing (_crossUnified)
-7. Return order ID
-```
+#### Market Factory
 
-**placeSpotSell(marketKey, outcome, tickLower, tickUpper, shares) → spotSellId**
 ```
-1. Pull outcome tokens from user
-2. Create SpotSellOrder struct
-3. Update spot liquidity at price tick
-4. Set spot bitmap bit
-5. Return spot sell ID
+createMarket(bytes32 key, address collateral, string name) → (yesToken, noToken)
 ```
+Deploys YES + NO OutcomeToken ERC20s, registers market, sets SoothBook as minter.
 
-**cancelOrder(marketKey, orderId)**
+#### Key Functions — The 4 Atomics
+
+**buyYes(marketKey, tick, amount, escrow, maxCollateral)**
 ```
-1. Verify ownership
-2. Calculate unclaimed fills
-3. Return unfilled collateral
-4. Credit filled shares
-5. Remove liquidity from ticks
-6. Clear bitmap if tick now empty
-7. Mark order inactive
+1. If escrow: burn caller's NO tokens as collateral
+   Else: pull USDC collateral = tick × amount / 1000
+2. Create order at tick in YES side
+3. Set bitmap bit for tick
+4. Attempt auto-match: scan best NO tick
+   If bestYesTick + bestNoTick >= 1000:
+     → Mint complete set from combined collateral
+     → Distribute YES to YES buyer, NO to NO buyer
+     → Surplus to taker
+5. FIFO: fill oldest orders first, up to MAX_MATCHES_PER_TX
 ```
 
-**claimFills(marketKey, orderId) → (filledShares, collateralReturned)**
+**buyNo(marketKey, tick, amount, escrow, maxCollateral)**
 ```
-1. Calculate fills since last claim using accumulator
-2. Credit shares to owner via vault
-3. Return unused collateral
-4. Update order's fill/collateral snapshots
+Same as buyYes but for NO side.
+escrow=true: burns YES tokens, auto-merges on fill (sell YES for USDC).
+```
+
+**mint(marketKey, amount)**
+```
+1. Pull amount USDC from caller
+2. Mint amount YES tokens to caller
+3. Mint amount NO tokens to caller
+```
+
+**merge(marketKey, amount)**
+```
+1. Burn amount YES tokens from caller
+2. Burn amount NO tokens from caller
+3. Return amount USDC to caller
+```
+
+#### Additional Actions
+
+**cancel(marketKey, side, tick)**
+```
+1. Remove caller's orders at the given tick
+2. Return unfilled collateral (USDC or escrowed tokens)
+3. Clear bitmap bit if tick now empty
+```
+
+**redeem(marketKey)**
+```
+1. Require market is resolved
+2. If outcome=YES: burn caller's YES tokens, return USDC
+3. If outcome=NO: burn caller's NO tokens, return USDC
+4. If outcome=INVALID: burn both, return 50/50
 ```
 
 ### 8. Collateralizer
@@ -964,7 +939,7 @@ ExRate     = Floor / LP_Supply           // LP token value
 
 ---
 
-## TickBook Orderbook
+## SoothBook Orderbook
 
 ### Tick System
 
@@ -1005,36 +980,50 @@ findNextDown(startTick) → prevTick:
     // O(1) via word-level scan
 ```
 
-### Unified Crossing Algorithm
+### Auto-Match Algorithm (V12)
 
-**Order Types:**
-1. **Range Orders** — Provide liquidity across tick range
-2. **Spot Sells** — Sell existing tokens at specific price
+When a new order arrives (buyYes or buyNo), the engine checks for matchable opposing orders:
 
-**Crossing Priority:**
-1. Spot sells first (recycle existing tokens)
-2. Range orders second (mint synthetic tokens)
+**Matching condition:**
+```
+bestYesTick + bestNoTick >= 1000
+```
 
 **Pseudocode:**
 ```
-function crossUnified(newOrder):
-    // Phase 1: Fill from spot sells
-    overlapRange = calculateOverlap(newOrder)
-    spotFilled = fillSpotLiquidity(newOrder, overlapRange)
+function autoMatch(newOrder, side):
+    opposingSide = (side == YES) ? NO : YES
+    matchCount = 0
 
-    // Phase 2: Fill from range orders
-    remainingShares = newOrder.shares - spotFilled
-    rangeFilled = fillRangeLiquidity(newOrder, remainingShares, overlapRange)
+    while matchCount < MAX_MATCHES_PER_TX:
+        bestYes = getBestTick(YES)
+        bestNo = getBestTick(NO)
+        if bestYes + bestNo < 1000: break  // No match possible
 
-    // Phase 3: Handle unfilled
-    unfilled = newOrder.shares - spotFilled - rangeFilled
-    if unfilled > dustThreshold:
-        createRestingOrder(newOrder, unfilled)
-    else:
-        refundDust(newOrder.owner, unfilled)
+        // Mint complete set from combined collateral
+        mintAmount = min(yesFrontOrder.amount, noFrontOrder.amount)
+        cost = 1000 ticks per pair (= 1 USDC)
+        surplus = (bestYes + bestNo - 1000) × mintAmount / 1000
 
-    return (spotFilled + rangeFilled)
+        // Distribute
+        mint YES to YES buyer, NO to NO buyer
+        surplus → taker (whoever placed the later order)
+        maker fills at exact price
+
+        // Update FIFO: consume front orders
+        dequeue(filled orders)
+        matchCount++
+
+    // Any unfilled portion becomes a resting order
+    if newOrder.remaining > 0:
+        enqueue(newOrder.remaining at tick)
 ```
+
+**Key differences from V10:**
+- No range orders — single-tick only
+- No spot sells — use `buyNo(escrow=true)` to sell YES
+- FIFO (not pro-rata) — simpler, fairer
+- Auto-mint complete sets on cross (no accumulator pattern)
 
 ### Overlap Calculation (Price Inversion)
 
@@ -1056,20 +1045,25 @@ NO order at tick 580 = willing to accept 42% for YES (100% - 58%)
 440 + 580 = 1020 >= 1000 ✓
 ```
 
-### Maker Attribution (Pro-Rata Fills)
+### FIFO Order Matching
 
-Uses accumulator pattern for O(1) fill claims:
+Orders at each tick are stored in a simple array with a head pointer:
 
 ```
-// Global accumulator (updated on each fill)
-fillGrowthGlobalX128 += (filledShares × 2^128) / totalActiveLiquidity
+// Each tick level has a FIFO queue of orders
+orders[marketKey][side][tick] = [Order0, Order1, Order2, ...]
+head[marketKey][side][tick] = 0  // Index of first unfilled order
 
-// Per-order snapshot (set at order creation, updated on claim)
-fillGrowthLastX128[orderId] = fillGrowthGlobalX128
-
-// Pending fills for order
-pendingFills = ((fillGrowthGlobalX128 - fillGrowthLastX128[orderId]) × order.liquidity) / 2^128
+// On match: consume from head
+while head < orders.length && remaining > 0:
+    fill = min(orders[head].amount, remaining)
+    orders[head].amount -= fill
+    remaining -= fill
+    if orders[head].amount == 0:
+        head++  // Move to next order
 ```
+
+**No accumulator pattern needed** — fills are immediate (tokens minted and transferred at match time).
 
 ---
 
@@ -1138,7 +1132,7 @@ Graduation occurs when:
 On graduation:
 1. isGraduated = true
 2. Outcome tokens registered via Collateralizer
-3. Market registered in TickBook for orderbook trading
+3. Market registered in SoothBook for orderbook trading
 4. Fee distribution switches to post-grad splits
 ```
 
@@ -1236,12 +1230,12 @@ Example:
 3. User positions redeemable via Collateralizer
 ```
 
-### TickBook Settlement
+### SoothBook Settlement
 
 ```
-1. Active orders can be cancelled
-2. Filled shares become outcome tokens
-3. Outcome tokens redeemable via Collateralizer
+1. Active orders can be cancelled via cancel()
+2. Winning outcome tokens redeemable via SoothBook.redeem()
+3. Or via Collateralizer.redeem() for markets using Collateralizer
 ```
 
 ---
@@ -1255,9 +1249,9 @@ Example:
    supply(YES) == supply(NO) (always)
    ```
 
-2. **Vault Solvency:**
+2. **SoothBook Solvency:**
    ```
-   vault.totalCollateral >= sum(all order collateral requirements)
+   SoothBook.USDC_balance >= sum(all resting order collateral + all redeemable backing)
    ```
 
 3. **Lock Invariant:**
@@ -1306,7 +1300,7 @@ Example:
 | TruthMarket.veto() | Guardian (via ProtocolConfig) |
 | ProtocolConfig.pause() | Owner or Guardian |
 | ProtocolConfig.setGuardians() | Owner only |
-| TickBookPoolManager.registerMarket() | Registrar only |
+| SoothBook.createMarket() | Owner only |
 | ValidatedAdjudicator.settle() | Anyone (with valid attestation) |
 | LaunchpadLPToken.mint/burn() | LaunchpadEngine only |
 
@@ -1314,7 +1308,7 @@ Example:
 
 All state-changing functions must be protected:
 - AMM trades
-- Orderbook operations
+- SoothBook operations (buyYes, buyNo, mint, merge, cancel, redeem)
 - Collateral transfers
 - LP redemptions
 - Trial dismissal/refunds
@@ -1401,6 +1395,7 @@ error InsufficientValidators();             // V11: ValidatedAdjudicator
 
 ## Version History
 
+- **V12** — SoothBook 4-atomic orderbook, ERC20 outcome tokens, FIFO matching, no vault
 - **V11** — Trial Period, ERC20 LP Tokens, ValidatedAdjudicator, ProtocolConfig
 - **V10.8** — Unified crossing, spot-first settlement
 - **V10.0** — Package split (core/testing)

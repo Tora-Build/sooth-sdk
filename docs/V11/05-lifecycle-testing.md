@@ -12,8 +12,8 @@ End-to-end test demonstrating complete market lifecycle with 5 distinct actor ro
 │  Phase 1-3      Phase 4-6       Phase 7      Phase 8     Phase 8.5     Phase 9-12        │
 │ ┌─────────┐   ┌───────────┐   ┌────────┐   ┌────────┐   ┌─────────┐   ┌───────────┐     │
 │ │ CREATE  │──▶│  TRADE    │──▶│TRANSFER│──▶│ SETTLE │──▶│ VERIFY  │──▶│  REDEEM   │     │
-│ │  AMM    │   │ TickBook  │   │  LP    │   │        │   │ STOPPED │   │   P&L     │     │
-│ │GRADUATE │   │ SpotSell  │   │        │   │        │   │         │   │           │     │
+│ │  AMM    │   │ SoothBook │   │  LP    │   │        │   │ STOPPED │   │   P&L     │     │
+│ │GRADUATE │   │ buyYes/No │   │        │   │        │   │         │   │           │     │
 │ └─────────┘   └───────────┘   └────────┘   └────────┘   └─────────┘   └───────────┘     │
 │      │              │              │            │             │              │            │
 │   Alice          Bob,Charlie    Alice→Ellen   David       Bob (fail)   All Actors       │
@@ -28,9 +28,9 @@ End-to-end test demonstrating complete market lifecycle with 5 distinct actor ro
 |-------|------|--------------|-------------|
 | **Alice** | Creator | 50,000 | Create market, provide liquidity, transfer LP to Ellen, redeem LP |
 | **Bob** | Trader/Maker | 50,000 | AMM trades, graduate market, place NO orders, redeem |
-| **Charlie** | Trader/Taker | 50,000 | AMM trades, cross orders, spot sell, redeem |
+| **Charlie** | Trader/Taker | 50,000 | AMM trades, SoothBook buyYes/buyNo, redeem |
 | **David** | Adjudicator | 0 | Settle market as YES |
-| **Ellen** | Keeper | 10,000 | Receive LP from Alice, claim spot sell proceeds, verify invariants, redeem LP |
+| **Ellen** | Keeper | 10,000 | Receive LP from Alice, verify invariants, redeem LP |
 
 ## Phase Diagram
 
@@ -57,16 +57,16 @@ End-to-end test demonstrating complete market lifecycle with 5 distinct actor ro
     graduate (8 steps) │     ●     │     │     │
     ↳ fees → LP pool   │     │     │     │     │
                        │     │     │     │     │
-  Phase 4: TICKBOOK    │     │     │     │     │
+  Phase 4: SOOTHBOOK   │     │     │     │     │
   ─────────────────────┼─────┼─────┼─────┼─────┼─────
-    order NO 45-55%    │     ●─────┐     │     │
-    order YES 40-60%   │     │     ●     │     │
-    ↳ crossing fills   │     ◄─────●     │     │
+    buyNo at tick      │     ●─────┐     │     │
+    buyYes at tick     │     │     ●     │     │
+    ↳ auto-match       │     ◄─────●     │     │
                        │     │     │     │     │
-  Phase 5: SPOT SELL   │     │     │     │     │
+  Phase 5: MINT/MERGE  │     │     │     │     │
   ─────────────────────┼─────┼─────┼─────┼─────┼─────
-    spotsell YES       │     │     ●     │     │
-    claimspotsellfor   │     │     ◄─────────────●
+    mint YES+NO set    │     │     ●     │     │
+    merge YES+NO set   │     │     ●─────────────●
                        │     │     │     │     │
   Phase 6: SETTLE      │     │     │     │     │
   ─────────────────────┼─────┼─────┼─────┼─────┼─────
@@ -107,7 +107,7 @@ End-to-end test demonstrating complete market lifecycle with 5 distinct actor ro
 │   │ 8 steps │         │ fees: ~367  │     │ Charlie: 1% │    │
 │   └─────────┘         └─────────────┘     └─────────────┘    │
 │                                                               │
-│   POST-GRADUATION (TickBook trades, 1% fee)                   │
+│   POST-GRADUATION (SoothBook trades, 1% fee)                  │
 │   ┌─────────┐         ┌─────────────────────────────────┐    │
 │   │ Orders  │────────▶│      Fee Split (1% of volume)   │    │
 │   │ Crosses │         │  ┌─────────────┬──────────────┐ │    │
@@ -187,7 +187,7 @@ End-to-end test demonstrating complete market lifecycle with 5 distinct actor ro
 |--------|-------|
 | Creator Deposit | 346.57 USDC |
 | Pre-grad Fees | ~367 USDC (5% AMM trades → LP Pool) |
-| Post-grad Fees | varies (1% TickBook trades) |
+| Post-grad Fees | varies (1% SoothBook trades) |
 | → LP Yield Pool | 80% of post-grad fees |
 | → Protocol Treasury | 20% of post-grad fees |
 | Pool Total | ~713+ USDC |
@@ -205,10 +205,10 @@ End-to-end test demonstrating complete market lifecycle with 5 distinct actor ro
 
 | Invariant | Description | Status |
 |-----------|-------------|--------|
-| `vault.solvent` | Total claims ≤ vault USDC balance | ✅ PASS |
-| `orders.noOverflow` | filledShares ≤ sharesTotal for all orders | ✅ PASS |
+| `soothbook.solvent` | Total collateral backing ≥ outstanding claims | ✅ PASS |
+| `orders.noOverflow` | Order amounts consistent across all ticks | ✅ PASS |
 | `market.tickValid` | Tick in range 1-999, consistent with probability | ✅ PASS |
-| `vault.reservedBounds` | Reserved ≤ available for all actors | ✅ PASS |
+| `tokens.balanced` | YES supply == NO supply for each market | ✅ PASS |
 
 ## Contract Interactions
 
@@ -223,18 +223,13 @@ End-to-end test demonstrating complete market lifecycle with 5 distinct actor ro
 │  ├── sellOutcome(market, outcome, shares, minReturn) [AMM]                   │
 │  └── redeemLP(market, lpAmount)                                              │
 │                                                                              │
-│  TickBookPoolManager                                                         │
-│  ├── placeOrder(marketKey, outcome, tickLower, tickUpper, shares)            │
-│  ├── placeSpotSell(marketKey, outcome, tickLower, tickUpper, shares)         │
-│  ├── cancelOrder(orderId)                                                    │
-│  ├── claimOrder(orderId)                                                     │
-│  └── claimSpotSellFor(marketKey, sellId)                                     │
-│                                                                              │
-│  TickBookVault                                                               │
-│  ├── depositUsdc(amount)                                                     │
-│  ├── withdrawUsdc(amount)                                                    │
-│  ├── redeemResolved(market)                                                  │
-│  └── getInternalOutcomes(market, user) [view]                                │
+│  SoothBook                                                                   │
+│  ├── buyYes(marketKey, tick, amount, escrow, maxCollateral)                  │
+│  ├── buyNo(marketKey, tick, amount, escrow, maxCollateral)                   │
+│  ├── mint(marketKey, amount)                                                 │
+│  ├── merge(marketKey, amount)                                                │
+│  ├── cancel(marketKey, side, tick)                                           │
+│  └── redeem(marketKey)                                                       │
 │                                                                              │
 │  Collateralizer                                                              │
 │  ├── redeem(market, amount)                                                  │
@@ -270,14 +265,16 @@ bun run script/interactive/interactive-test.ts \
 |---------|-------------|---------|
 | `mint <amount>` | Mint test USDC | `mint 50000` |
 | `approve all` | Approve all contracts | `approve all` |
-| `deposit <amount>` | Deposit to vault | `deposit 20000` |
 | `createmarket <template> <liquidity> --adjudicator=<actor>` | Create market | `createmarket alien 500 --adjudicator=david` |
 | `setmarket created` | Set context to created market | `setmarket created` |
 | `market buy\|sell <outcome> <shares>` | AMM trade | `market buy yes 100` |
 | `graduate [steps]` | Graduate via fee trades | `graduate 8` |
-| `order <outcome> <tickRange> <shares>` | Place TickBook order | `order no 450-550 50` |
-| `spotsell <outcome> <tickRange> <shares>` | Place spot sell | `spotsell yes 500-540 20` |
-| `claimspotsellfor <sellId>` | Keeper claim | `claimspotsellfor 0` |
+| `buyyes <tick> <amount>` | SoothBook: buy YES at tick | `buyyes 600 50` |
+| `buyno <tick> <amount>` | SoothBook: buy NO at tick | `buyno 450 50` |
+| `sbmint <amount>` | SoothBook: mint YES+NO set | `sbmint 100` |
+| `sbmerge <amount>` | SoothBook: burn YES+NO, get USDC | `sbmerge 100` |
+| `sbcancel <side> <tick>` | SoothBook: cancel resting orders | `sbcancel yes 600` |
+| `sbredeem` | SoothBook: redeem after resolution | `sbredeem` |
 | `settle <outcome>` | Settle market | `settle yes` |
 | `redeem` | Redeem winning positions | `redeem` |
 | `redeemlp <amount\|max>` | Redeem LP tokens | `redeemlp max` |

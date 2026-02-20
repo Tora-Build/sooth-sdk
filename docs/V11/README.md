@@ -1,4 +1,6 @@
-# Sooth Protocol V11 Documentation
+# Sooth Protocol V12 Documentation
+
+> **Updated for V12 (SoothBook)** — TickBook has been replaced by SoothBook, a 4-atomic orderbook. See `docs/V12/SOOTHBOOK.md` for the full V12 spec.
 
 ## Document Index
 
@@ -16,11 +18,16 @@
 - **New to Sooth?** Start with [01-whitepaper](./01-whitepaper.md)
 - **Building integrations?** See [02-architecture](./02-architecture.md)
 - **Understanding settlement?** See [03-state-machine](./03-state-machine.md)
+- **V12 Orderbook details?** See [docs/V12/SOOTHBOOK.md](../V12/SOOTHBOOK.md)
 
-## V11 Key Features
+## V12 Key Features
 
 | Feature | Status | Description |
 |---------|--------|-------------|
+| SoothBook Orderbook | Implemented | 4-atomic orderbook (buyYes, buyNo, mint, merge) — replaces TickBook |
+| ERC20 Outcome Tokens | Implemented | Real transferable YES/NO tokens (not internal balances) |
+| FIFO Matching | Implemented | First-in-first-out matching at each tick level |
+| Auto-Match Engine | Implemented | yesTick + noTick ≥ 1000 → auto-mint complete set |
 | Trial Period | Implemented | 7-day creator protection window |
 | Finalization-Gated Redemption | Implemented | Payouts only after FINALIZED (veto-safe) |
 | ProtocolConfig | Implemented | Protocol-level guardian list & pause |
@@ -28,12 +35,12 @@
 | ERC20 LP Tokens | Implemented | Transferable LP tokens |
 | ValidatedAdjudicator | Implemented | TEE attestation-based settlement |
 
-## Recent Changes (2026-01-25)
+## Recent Changes (2026-02-20)
 
-- Fixed veto-window insolvency: redemption now requires `isFinalized()`
-- Updated 03-state-machine.md to reflect implementation
-- Updated 04-guardian-protocol.md from plan to implementation
+- V12 SoothBook replaces TickBook entirely (4 atomic actions, no vault)
+- Documentation updated to reflect V12 architecture
+- See `docs/V12/SOOTHBOOK.md` for complete V12 specification
 
 ---
 
-*Version: V11.0 | Last Updated: 2026-01-25*
+*Version: V12.0 (SoothBook) | Last Updated: 2026-02-20*

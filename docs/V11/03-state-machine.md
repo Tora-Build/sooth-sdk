@@ -115,7 +115,7 @@ All redemption/payout paths now require `FINALIZED`:
 | Collateralizer | `redeem()` | `isFinalized()` |
 | Collateralizer | `redeemOutcome()` | `isFinalized()` |
 | AMMEngine | `settlePosition()` | `isFinalized()` |
-| TickBookVault | `redeemResolved()` | `isFinalized()` |
+| SoothBook | `sbredeem()` | `isFinalized()` |
 
 ---
 
@@ -123,7 +123,7 @@ All redemption/payout paths now require `FINALIZED`:
 
 ```
 1. Creator creates market (state = LIVE)
-2. Trading occurs on AMM and TickBook
+2. Trading occurs on AMM and SoothBook
 3. Deadline passes (isSettling() returns true, but state still LIVE)
 4. Adjudicator calls settle(outcome, tStar) → state = SETTLED
 5. Veto window begins
@@ -133,7 +133,7 @@ All redemption/payout paths now require `FINALIZED`:
 7. Redemption enabled:
    - Collateralizer.redeem() for outcome tokens
    - AMMEngine.settlePosition() for AMM positions
-   - TickBookVault.redeemResolved() for orderbook fills
+   - SoothBook.sbredeem() for orderbook fills
 ```
 
 ---

@@ -1,3 +1,5 @@
+> **SUPERSEDED** — This V11 plan has been superseded by V12 (SoothBook). See `docs/V12/` for current architecture.
+
 # V11 User & Market Flow Refactoring Plan
 
 > **Status**: Planning

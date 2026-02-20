@@ -1,3 +1,5 @@
+> **SUPERSEDED** — This V11 plan has been superseded by V12 (SoothBook). See `docs/V12/` for current architecture.
+
 # ERC-8004 × Sooth Protocol Integration Spec
 
 > **Status**: Planning

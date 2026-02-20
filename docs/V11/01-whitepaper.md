@@ -68,13 +68,13 @@ Gatekeepers decide which markets exist. Settlement depends on single oracles. Us
 ┌─────────────────────────────────────────────────────────────┐
 │                    DUAL VENUE DESIGN                         │
 ├─────────────────────────────┬───────────────────────────────┤
-│         AMM (Retail)        │       TickBook (Pro)          │
+│         AMM (Retail)        │     SoothBook (Pro)           │
 ├─────────────────────────────┼───────────────────────────────┤
-│ LMSR market maker           │ Limit orderbook               │
-│ Always-on liquidity         │ Zero slippage                 │
-│ One-click trading           │ Professional execution        │
-│ LP yield opportunities      │ Maker-taker spreads           │
-│ 24h sell lock (proceeds)    │ Instant settlement            │
+│ LMSR market maker           │ 4-atomic orderbook            │
+│ Always-on liquidity         │ FIFO matching, zero slippage  │
+│ One-click trading           │ ERC20 outcome tokens          │
+│ LP yield opportunities      │ Auto-match engine             │
+│ 24h sell lock (proceeds)    │ No vault — direct collateral  │
 └─────────────────────────────┴───────────────────────────────┘
 ```
 
@@ -120,7 +120,7 @@ fees_accrued >= deposit × 2
 ```
 
 When a market graduates:
-- TickBook orderbook activates
+- SoothBook orderbook activates
 - ERC20 LP tokens become transferable
 - Lower fees attract higher volume
 
@@ -177,21 +177,33 @@ Where:
 - `qYes`, `qNo` = inventory positions
 - `b` = liquidity depth parameter
 
-### 4.2 TickBook Orderbook
+### 4.2 SoothBook Orderbook (V12)
 
-The on-chain central limit order book provides:
+The on-chain orderbook provides 4 atomic actions:
+
+| Action | What it does | Collateral flow |
+|--------|-------------|-----------------|
+| `buyYes(tick, amount)` | Limit order to buy YES at tick price | USDC → SoothBook |
+| `buyNo(tick, amount)` | Limit order to buy NO at tick price | USDC → SoothBook |
+| `mint(amount)` | Deposit USDC, receive equal YES + NO | USDC → SoothBook, YES+NO → user |
+| `merge(amount)` | Burn equal YES + NO, receive USDC | YES+NO burned, USDC → user |
+
+**Key properties:**
 - **1,000 price ticks** (0.1% to 99.9%)
-- **Two-level bitmap** for O(1) best price discovery
-- **Unified crossing** with spot-first execution
-- **Flash accounting** via EIP-1153 transient storage
+- **FIFO matching** at each tick level
+- **ERC20 outcome tokens** (real transferable YES/NO tokens)
+- **No vault** — SoothBook holds collateral directly
+- **No sell action** — selling YES = `buyNo(escrow=true)`, selling NO = `buyYes(escrow=true)`
 
-**Crossing Logic:**
+**Auto-Match Logic:**
 ```
-YES_tick + NO_tick >= 1000 → Orders cross
+bestYesTick + bestNoTick >= 1000 → Auto-mint complete set
 
 Example:
-YES bid at 440 (44%) + NO ask at 580 (58% for NO = 42% for YES)
-440 + 580 = 1020 >= 1000 → CROSS at market-clearing price
+Alice: buyYes(tick=600) — willing to pay 60¢ for YES
+Bob: buyNo(tick=450) — willing to pay 45¢ for NO
+Sum: 600 + 450 = 1050 >= 1000 → MATCH
+Surplus: 5¢ → goes to taker (whoever placed the later order)
 ```
 
 ### 4.3 Arbitrage Keeps Prices Tight
@@ -199,9 +211,9 @@ YES bid at 440 (44%) + NO ask at 580 (58% for NO = 42% for YES)
 ```
 Scenario: Price divergence detected
 ├─ AMM: YES = 62%
-├─ TickBook: YES ask = 58%
+├─ SoothBook: YES ask = 58%
 └─ Arbitrage:
-   → Buy YES on TickBook at 58¢
+   → Buy YES on SoothBook at 58¢
    → Sell YES on AMM at 62¢
    → Pocket 4¢ per share (risk-free)
    → Prices converge
@@ -356,8 +368,8 @@ ExRate = Floor / LP_Supply       ← Redemption rate
          │                   │                   │
          ▼                   ▼                   ▼
 ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│LaunchpadEngine  │ │TickBookPoolMgr  │ │  Collateralizer │
-│  + LPToken      │ │Unified Crossing │ │  Split/Merge    │
+│LaunchpadEngine  │ │   SoothBook     │ │  Collateralizer │
+│  + LPToken      │ │ 4-Atomic CLOB   │ │  Split/Merge    │
 └────────┬────────┘ └─────────────────┘ └─────────────────┘
          │
          ▼
@@ -376,7 +388,7 @@ ExRate = Floor / LP_Supply       ← Redemption rate
 
 | Principle | Implementation |
 |-----------|----------------|
-| **Domain Isolation** | AMM and TickBook don't share state |
+| **Domain Isolation** | AMM and SoothBook don't share state |
 | **Pull-Based Lifecycle** | Venues query TruthMarket |
 | **No Custody** | Users keep funds until trade |
 | **Pure WAD Math** | All internal math uses 18 decimals |
@@ -403,16 +415,12 @@ function tradePositions(
 ) external returns (uint256 actualCost);
 ```
 
-**TickBookPoolManager (Pro)**
+**SoothBook (Pro)**
 ```solidity
-function placeOrder(
-    bytes32 marketKey,
-    uint8 outcome,
-    uint16 tickLower,
-    uint16 tickUpper,
-    uint128 shares,
-    address recipient
-) external returns (uint256 orderId);
+function buyYes(bytes32 marketKey, uint24 tick, uint256 amount, bool escrow, uint256 maxCollateral) external;
+function buyNo(bytes32 marketKey, uint24 tick, uint256 amount, bool escrow, uint256 maxCollateral) external;
+function mint(bytes32 marketKey, uint256 amount) external;
+function merge(bytes32 marketKey, uint256 amount) external;
 ```
 
 **ValidatedAdjudicator (Settlement)**
@@ -450,27 +458,27 @@ function settleWithAttestation(
 | Dimension | Description |
 |-----------|-------------|
 | **Profile** | Market makers, arbitrageurs, bots |
-| **Entry** | `Collateralizer.split()` → TickBook |
-| **Asset** | Transferable ERC20 tokens |
-| **Liquidity** | Limit orderbook |
+| **Entry** | `SoothBook.buyYes()` / `SoothBook.buyNo()` / `SoothBook.mint()` |
+| **Asset** | Transferable ERC20 outcome tokens |
+| **Liquidity** | SoothBook limit orderbook |
 | **Constraint** | None (instant) |
 | **Reward** | Spread capture, arbitrage |
 
 **Journey:**
-1. Mint tokens: 1 USDC → 1 YES + 1 NO
-2. Place limit orders at desired prices
-3. Capture spreads, arbitrage AMM ↔ TickBook
+1. Mint tokens: `SoothBook.mint()` — 1 USDC → 1 YES + 1 NO
+2. Place limit orders: `buyYes(tick)` or `buyNo(tick)`
+3. Capture spreads, arbitrage AMM ↔ SoothBook
 4. Redeem winners after settlement
 
 ### 9.3 Why Two Venues?
 
-| Need | AMM | TickBook |
-|------|-----|----------|
+| Need | AMM | SoothBook |
+|------|-----|-----------|
 | Guaranteed liquidity | ✅ | ❌ |
 | Precise pricing | ❌ | ✅ |
 | Large orders | ❌ (slippage) | ✅ |
 | Instant execution | ✅ | ❌ (wait for fill) |
-| API trading | Basic | Full |
+| ERC20 tokens | ❌ | ✅ |
 | Retail simplicity | ✅ | ❌ |
 
 ---
@@ -563,12 +571,16 @@ function settleWithAttestation(
 - [x] Launchpad with graduation
 - [x] Basic settlement
 
-### Phase 2: V11 Launch (Current)
-- [x] TickBook orderbook
-- [x] Unified crossing
+### Phase 2: V11 Launch (Complete)
 - [x] Trial period protection
 - [x] ZK settlement (ValidatedAdjudicator)
 - [x] ERC20 LP tokens
+
+### Phase 2.5: V12 SoothBook (Complete)
+- [x] SoothBook 4-atomic orderbook
+- [x] ERC20 outcome tokens (YES/NO)
+- [x] FIFO auto-match engine
+- [x] No vault — direct collateral
 - [ ] Multi-chain deployment
 
 ### Phase 3: Scale
@@ -648,8 +660,8 @@ Sooth Protocol proves that **decentralization is a competitive advantage**, not 
 
 ---
 
-**Version:** 2.0 (V11 Architecture)
-**Updated:** January 2026
+**Version:** 3.0 (V12 SoothBook Architecture)
+**Updated:** February 2026
 
 ---
 
