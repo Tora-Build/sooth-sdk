@@ -22,7 +22,8 @@ function MobileApp() {
   return (
     <div className="h-full w-full bg-mesh">
       <Routes>
-        <Route path="/" element={<Feed />} />
+        <Route path="/" element={<Home />} />
+        <Route path="/feed" element={<Feed />} />
         <Route path="/create" element={<CreateMarket />} />
         <Route path="/markets" element={<Home />} />
         <Route path="/search" element={<Search />} />
@@ -37,7 +38,8 @@ function MobileApp() {
 export { PhoneRouteContext };
 
 const PHONE_PAGES: Record<string, (props: { onBack?: () => void }) => JSX.Element> = {
-  '/': Feed,
+  '/': Home,
+  '/feed': Feed,
   '/create': CreateMarket,
   '/markets': Home,
   '/search': Search,

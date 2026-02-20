@@ -20,6 +20,7 @@ import {
   type Hex,
 } from 'viem';
 import { useLensAuth } from '../hooks/useLensAuth';
+import { useShowcase } from '../hooks/useShowcase';
 import { useWGHOBalance } from '../hooks/useWGHOBalance';
 import {
   ACTION_HUB_MAINNET,
@@ -149,6 +150,7 @@ export function CreateMarket() {
   const { isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
   const auth = useLensAuth();
+  const inShowcase = useShowcase();
 
   const [step, setStep] = useState<Step>(1);
   const [question, setQuestion] = useState('');
@@ -411,7 +413,7 @@ export function CreateMarket() {
   };
 
   return (
-    <div className="h-dvh w-full bg-[#1a1a1b] text-white flex flex-col">
+    <div className={`${inShowcase ? 'h-full' : 'h-dvh'} w-full bg-[#1a1a1b] text-white flex flex-col`}>
       <header className="shrink-0 border-b border-[#2d2d2e] px-4 py-3 flex items-center gap-3">
         <button
           type="button"
