@@ -405,7 +405,6 @@ export class SoothSDK {
   }
 
   private showHelp(): { result: CommandResult; output: OutputLine[] } {
-    const sep = '┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄';
     return {
       result: { success: true },
       output: [
@@ -417,21 +416,15 @@ export class SoothSDK {
         plain('    createmarket <template>   Create (alien, btcath, lakers)'),
         plain('    graduate [steps]          Graduate via trades'),
         plain('    marketstatus              Lifecycle status'),
-        plain(''),
-        info('  Trial Period (V11)'),
         plain('    trialstatus               Show trial period status'),
         plain('    dismiss                   Dismiss market (creator only)'),
         plain('    claimrefund               Claim refund after dismissal'),
-        plain(''),
-        info('  LP Tokens (V11 ERC20)'),
         plain('    lpbalance                 Show LP token balance'),
         plain('    redeemlp [amount|max]     Redeem LP tokens for USDC'),
         plain('    transferlp <to> <amount>  Transfer LP tokens'),
-        plain(''),
-        info('  Protocol (V11)'),
         plain('    pausestatus               Check protocol pause status'),
         plain(''),
-        info('  SoothBook (V12)'),
+        info('  SoothBook'),
         plain('    buyyes <tick> <amount> [escrow]    Buy YES tokens'),
         plain('    buyno <tick> <amount> [escrow]     Buy NO tokens'),
         plain('    sbmint <amount>                    Mint YES+NO set'),
@@ -439,9 +432,9 @@ export class SoothSDK {
         plain('    sbcancel <yes|no> <tick>           Cancel order'),
         plain('    sbredeem                           Redeem winning tokens'),
         plain('    sbbook                             Show orderbook'),
-        plain('    sbhistory [page] [size]           Show your order history'),
+        plain('    sbhistory [page] [size]            Show your order history'),
         plain('    sbbalance / sbstate / sbprice      Query state'),
-        plain('    sbsetmarket <key|index>            Select V12 market'),
+        plain('    sbsetmarket <key|index>            Select market'),
         plain(''),
       ],
     };
