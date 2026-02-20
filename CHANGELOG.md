@@ -4,6 +4,11 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Changed (Docs & CLI Housekeeping — 2026-02-20)
+- **Docs migration**: Moved `V11/` root docs to `docs/V11/` and rewrote all 6 files to reflect V12 SoothBook architecture (replaced TickBook references, updated CLI commands, corrected contract names).
+- **Stale plans**: Added `SUPERSEDED` headers to `.agent/plans/user-market-flow-refactoring-v11.md` and `.agent/plans/erc8004-sooth-integration-v11.md`.
+- **SDK help text**: Fixed `SoothSDK.showHelp()` — removed phantom `sbpositions` command (never existed), removed `lw` section (handled by `Geek.tsx` not SDK), removed stale V11 section labels, collapsed Trial Period / LP Tokens / Protocol into Market section.
+
 ### Added (Pro Order History — 2026-02-19)
 - **Web (`UserOrdersPanel`)**: Added `Refund Amt` column in historical orders with explicit legend text.
 - **SDK (`soothbook.ts`)**: Added `sbhistory [page] [pageSize]` command (default page size 50) with columns:
