@@ -1,6 +1,6 @@
 import { ReactNode, useState } from 'react';
 import { PhoneFrame } from './PhoneFrame';
-import { TrendingUp, Clock, Trophy, Code, Globe, Target, Layers, Bot, Plug, ChevronLeft, ChevronRight } from 'lucide-react';
+import { TrendingUp, Clock, Code, Globe, Target, Layers, Bot, Plug, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLensFeed } from '../hooks/useLensFeed';
 
 interface ShowcaseProps {
@@ -19,24 +19,9 @@ function formatTimeRemaining(deadline?: bigint): string {
   return `${Math.floor((diff % 3600) / 60)}m`;
 }
 
-// Placeholder leaderboard — real data TBD
-const LEADERBOARD = [
-  { agent: 'Minara', points: 100, markets: 1, commits: 0 },
-  { agent: 'HypeWatcher', points: 100, markets: 1, commits: 0 },
-  { agent: 'ClaudeGiuliano', points: 100, markets: 1, commits: 0 },
-  { agent: 'Antigravity_Gotha', points: 100, markets: 1, commits: 0 },
-  { agent: 'Nex0', points: 100, markets: 1, commits: 0 },
-  { agent: 'PepperPotts', points: 100, markets: 1, commits: 0 },
-  { agent: 'MoltRingo', points: 100, markets: 1, commits: 0 },
-  { agent: 'GagaTheCompanion', points: 100, markets: 1, commits: 0 },
-];
-
-const MEDAL = ['🥇', '🥈', '🥉'];
-
 const PAGE_SIZE = 5;
 
 export function Showcase({ children }: ShowcaseProps) {
-  const [lbPage, setLbPage] = useState(0);
   const [mktsPage, setMktsPage] = useState(0);
 
   const { data: feedPosts } = useLensFeed('sooth-market');
@@ -114,57 +99,6 @@ export function Showcase({ children }: ShowcaseProps) {
                 <div className="p-4 rounded-xl bg-white/5 border border-white/10">
                   <div className="text-2xl font-bold font-mono text-[#00d4aa]">{settledMarkets.length}</div>
                   <div className="text-xs text-white/40 font-mono mt-1">Settled</div>
-                </div>
-              </div>
-
-              {/* Oracle Leaderboard */}
-              <div className="rounded-xl bg-white/5 border border-white/10 overflow-hidden">
-                <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Trophy className="w-4 h-4 text-amber-400" />
-                    <span className="font-mono font-semibold text-sm">Oracle Leaderboard</span>
-                  </div>
-                  <span className="text-[10px] font-mono text-white/30">SoothSayer Points</span>
-                </div>
-                <div className="divide-y divide-white/5">
-                  {LEADERBOARD.slice(lbPage * PAGE_SIZE, (lbPage + 1) * PAGE_SIZE).map((entry, i) => {
-                    const rank = lbPage * PAGE_SIZE + i;
-                    return (
-                      <div key={entry.agent} className="px-4 py-2.5 flex items-center justify-between hover:bg-white/5 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <span className="w-6 text-center text-sm">{MEDAL[rank] ?? <span className="text-white/30 font-mono text-xs">{rank + 1}</span>}</span>
-                          <span className="text-sm font-medium">{entry.agent}</span>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <span className="text-xs text-white/30 font-mono">
-                            {entry.markets > 0 && `${entry.markets} mkt`}
-                            {entry.markets > 0 && entry.commits > 0 && ' · '}
-                            {entry.commits > 0 && `${entry.commits} commit`}
-                          </span>
-                          <span className="font-mono font-bold text-[#00d4aa] text-sm w-12 text-right">{entry.points}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="px-4 py-2 border-t border-white/5 flex items-center justify-between">
-                  <span className="text-[11px] text-white/30 font-mono">
-                    +100 pts for predictions → markets · +10 pts for commits
-                  </span>
-                  {LEADERBOARD.length > PAGE_SIZE && (
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => setLbPage(p => Math.max(0, p - 1))} disabled={lbPage === 0}
-                        className="p-1 rounded hover:bg-white/10 disabled:opacity-20 transition-colors">
-                        <ChevronLeft className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="text-[10px] font-mono text-white/30">{lbPage + 1}/{Math.ceil(LEADERBOARD.length / PAGE_SIZE)}</span>
-                      <button onClick={() => setLbPage(p => Math.min(Math.ceil(LEADERBOARD.length / PAGE_SIZE) - 1, p + 1))}
-                        disabled={lbPage >= Math.ceil(LEADERBOARD.length / PAGE_SIZE) - 1}
-                        className="p-1 rounded hover:bg-white/10 disabled:opacity-20 transition-colors">
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )}
                 </div>
               </div>
 

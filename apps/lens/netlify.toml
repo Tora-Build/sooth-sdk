@@ -5,7 +5,6 @@
 [build.environment]
   NODE_VERSION = "20"
   VITE_INDEXER_URL = "https://sooth-indexer.onrender.com"
-  VITE_MONAD_RPC_URL = "https://rpc.sooth.market/monad"
 
 [[redirects]]
   from = "/*"
