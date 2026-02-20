@@ -36,6 +36,8 @@ export const useOrderStore = create<OrderState>()(
         }),
         {
             name: 'sooth-active-orders',
+            version: 1,
+            migrate: () => ({ activeOrders: [] }),
         }
     )
 );
