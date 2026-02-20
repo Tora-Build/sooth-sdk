@@ -256,7 +256,15 @@ export function SoothTradeDrawer({ postIdStr, feedAddress, question, isOpen, onC
             ) : !auth.isAuthenticated ? (
               auth.missingLensAccountMessage ? (
                 <div className="p-4 bg-[#2d2d2e] rounded-2xl border border-[#444] text-center">
-                  <p className="text-[#888] text-sm">{auth.missingLensAccountMessage}</p>
+                  <p className="text-[#888] text-sm mb-2">{auth.missingLensAccountMessage}</p>
+                  <a
+                    href="https://onboarding.lens.xyz"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-center text-sm font-semibold text-[#00d4aa] underline"
+                  >
+                    Create a Lens account →
+                  </a>
                 </div>
               ) : (
                 <button

@@ -579,7 +579,17 @@ export function CreateMarket() {
                 </button>
               ) : !auth.isAuthenticated ? (
                 auth.missingLensAccountMessage ? (
-                  <p className="text-sm text-[#e01b24]">{auth.missingLensAccountMessage}</p>
+                  <div className="space-y-2">
+                    <p className="text-sm text-[#e01b24]">{auth.missingLensAccountMessage}</p>
+                    <a
+                      href="https://onboarding.lens.xyz"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block text-center text-sm font-semibold text-[#00d4aa] underline"
+                    >
+                      Create a Lens account →
+                    </a>
+                  </div>
                 ) : (
                   <button
                     type="button"
