@@ -14,6 +14,7 @@
     "@lens-chain/sdk": "^1.0.3",
     "@lens-chain/storage-client": "^1.0.6",
     "@lens-protocol/client": "0.0.0-canary-20250820102520",
+    "@lens-protocol/metadata": "^2.1.0",
     "@reown/appkit": "^1.8.14",
     "@reown/appkit-adapter-wagmi": "^1.8.14",
     "@sooth/sdk-core": "workspace:*",

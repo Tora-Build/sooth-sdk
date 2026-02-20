@@ -111,7 +111,7 @@ function IdentityCard({
 }
 
 function BalanceCard({ address }: { address: string | undefined }) {
-  const { data, isLoading } = useWGHOBalance(address as any);
+  const { data, isLoading } = useWGHOBalance(address as Address | undefined);
 
   return (
     <div className="mx-4 mt-4 p-4 rounded-2xl bg-white/5 border border-white/10">

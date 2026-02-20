@@ -9,6 +9,7 @@ import { useSoothMarket } from '../hooks/useSoothMarket';
 import { useLensFeed, type LensPost } from '../hooks/useLensFeed';
 import { IS_TESTNET } from '../lib/lensConfig';
 import { useShowcase } from '../hooks/useShowcase';
+import { SoothTradeDrawer } from '../components/SoothTradeDrawer';
 
 const TOKEN_LABEL = IS_TESTNET ? 'WGRASS' : 'WGHO';
 
@@ -90,6 +91,7 @@ function PositionRow({
 
   const position = useSoothPosition(feed, postIdBig, user);
   const market = useSoothMarket(feed, postIdBig);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const yesShares = position.data?.yesShares ?? 0n;
   const noShares = position.data?.noShares ?? 0n;
@@ -114,6 +116,7 @@ function PositionRow({
     post.content?.replace(/#ORB-INTERNAL_ID:\w+/g, '').trim() ?? 'Untitled Market';
 
   return (
+    <>
     <div className="mx-4 mb-3 p-4 rounded-2xl bg-white/5 border border-white/10">
       <p className="text-sm text-[#e0e0e0] leading-snug mb-3 line-clamp-2 text-pretty">
         {question}
@@ -150,12 +153,25 @@ function PositionRow({
         )}
 
         {canRedeem && (
-          <button className="text-xs px-3 py-1.5 rounded-xl bg-[#00d4aa] text-black font-bold hover:bg-[#00d4aa]/90 active:scale-95 transition-all">
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className="text-xs px-3 py-1.5 rounded-xl bg-[#00d4aa] text-black font-bold hover:bg-[#00d4aa]/90 active:scale-95 transition-all"
+          >
             Redeem
           </button>
         )}
       </div>
     </div>
+    {canRedeem && (
+      <SoothTradeDrawer
+        postIdStr={post.id}
+        feedAddress={post.feedAddress}
+        question={question}
+        isOpen={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+      />
+    )}
+    </>
   );
 }
 
