@@ -5,7 +5,7 @@
 import type { PublicClient, WalletClient, Address } from 'viem';
 import type { SDKConfig, SDKContext, CommandResult, OutputLine } from './types';
 import deployments from '../../config/deployments.json';
-import { plain, error as errorLine, success as successLine, bold, dim, info } from './utils';
+import { plain, error as errorLine, success as successLine, bold, dim, info, warn } from './utils';
 import { SOOTHBOOK_ABI } from '../../config/abis';
 
 import { walletCommands } from './commands/wallet';
@@ -396,6 +396,9 @@ export class SoothSDK {
         return this.setMarket(args[0]);
       case 'info':
         return this.showInfo();
+      case 'markets':
+      case 'm':
+        return this.showMarkets();
       default:
         return {
           result: { success: false, message: `Unknown command: ${cmd}` },
@@ -436,6 +439,20 @@ export class SoothSDK {
         plain('    sbbalance / sbstate / sbprice      Query state'),
         plain('    sbsetmarket <key|index>            Select market'),
         plain(''),
+        info('  Local Wallet'),
+        plain('    lw [status]              Show local wallet status'),
+        plain('    lw create                Generate new local wallet'),
+        plain('    lw enable                Activate stored wallet'),
+        plain('    lw disable               Deactivate (keep key)'),
+        plain('    lw clear                 Remove wallet permanently'),
+        plain(''),
+        info('  Other'),
+        plain('    markets / m              List available markets'),
+        plain('    simulate                 (Node CLI only — not available in browser)'),
+        plain('    info                     Show current context (chain, address, market)'),
+        plain('    bal                      Alias for balance'),
+        plain('    sbbal / sbm              Aliases for sbbalance / sbsetmarket'),
+        plain(''),
       ],
     };
   }
@@ -450,6 +467,36 @@ export class SoothSDK {
       plain(`  Market Key: ${this.marketKey || 'N/A'}`),
       plain(''),
     ];
+    return { result: { success: true }, output };
+  }
+
+  private showMarkets(): { result: CommandResult; output: OutputLine[] } {
+    const output: OutputLine[] = [
+      plain(''),
+      bold('Markets'),
+      plain('  ' + '─'.repeat(60)),
+    ];
+
+    if (this.marketKey) {
+      output.push(plain(`  Current Key: ${this.marketKey}`));
+    } else {
+      output.push(warn('  No market selected. Use: sbsetmarket <index>'));
+    }
+
+    output.push(plain(''));
+    output.push(info('  SoothBook Test Markets:'));
+    const labels = [
+      'BTC $150k 2026',
+      'ETH flip BTC 2027',
+      'SOL ETF 2026',
+    ];
+    SOOTHBOOK_TEST_MARKETS.forEach((key, i) => {
+      const isCurrent = key === this.marketKey;
+      output.push(plain(`  [${i}] ${labels[i]}${isCurrent ? '  ← current' : ''}`));
+      output.push(dim(`      ${key}`));
+    });
+    output.push(plain(''));
+
     return { result: { success: true }, output };
   }
 }
