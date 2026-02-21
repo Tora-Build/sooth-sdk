@@ -6,6 +6,7 @@ import { useSoothMarket } from "../hooks";
 import { useUpvote, useBookmark } from "../hooks/useReactions";
 import { SoothTradeDrawer } from "./SoothTradeDrawer";
 import { CommentThread } from "./CommentThread";
+import { IS_TESTNET } from "../lib/lensConfig";
 
 function timeAgo(timestamp: string): string {
   if (!timestamp) return "";
@@ -75,6 +76,8 @@ export function LensPostCard({ post }: { post: LensPost }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerOutcome, setDrawerOutcome] = useState<0 | 1>(1);
   const [showComments, setShowComments] = useState(false);
+
+  const EXPLORER_BASE = IS_TESTNET ? 'https://explorer.testnet.lens.xyz' : 'https://explorer.lens.xyz';
 
   const upvote = useUpvote(post.id, post.stats.upvotes);
   const bookmark = useBookmark(post.id);
@@ -174,11 +177,11 @@ export function LensPostCard({ post }: { post: LensPost }) {
               <Bookmark className={`w-4 h-4 group-hover:scale-110 transition-transform ${bookmark.isBookmarked ? "fill-current" : ""}`} />
             </button>
             <a
-              href={`https://hey.xyz/posts/${post.id}`}
+              href={IS_TESTNET && feed ? `${EXPLORER_BASE}/address/${feed}` : `https://hey.xyz/posts/${post.id}`}
               target="_blank"
               rel="noopener noreferrer"
               className="ml-auto text-[#888] hover:text-[#00d4aa] transition-colors"
-              aria-label="View on Hey"
+              aria-label={IS_TESTNET && feed ? 'View Market on Explorer' : 'View on Hey'}
             >
               <ExternalLink className="w-4 h-4" />
             </a>

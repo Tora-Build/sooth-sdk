@@ -126,7 +126,7 @@ async function resolvePostUrl(
       });
 
       if (match && match.__typename === 'Post') {
-        return `https://hey.xyz/posts/${match.id}`;
+        return IS_TESTNET ? 'indexed' : `https://hey.xyz/posts/${match.id}`;
       }
     }
 
@@ -404,7 +404,7 @@ export function CreateMarket() {
       }
 
       const postUrl = await resolvePostUrl(auth.sessionClient, auth.lensAccount, question.trim());
-      setCreatedPostUrl(postUrl);
+      setCreatedPostUrl(postUrl === 'indexed' ? null : postUrl);
     } catch (error) {
       setCreateError(error instanceof Error ? error.message : 'Failed to create market');
     } finally {
