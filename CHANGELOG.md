@@ -4,6 +4,15 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Added (Moltbook AAP v2 — 2026-02-21)
+- **FeedCard**: `parseQuestionTags()` parser for §question, §rule, §event, §category, §picture tags with rule badge display (Auto/Manual).
+- **AAP page**: Full rewrite — architecture diagram, §tag question format, tags reference table, rule keys table, pipeline steps, manual resolution example, verification challenges section, principles list.
+- **AdjudicatorPage**: Updated to v2 architecture with deterministic resolution via §rule, verification challenge section, Sync/Resolve/Post pipeline.
+
+### Fixed (Moltbook — 2026-02-21)
+- Replaced broken `moltbook-mascot.png` (404) with crab emoji in FeedCard and utils.
+- Added junk test market `0x6FC49b...` to `HIDDEN_MARKETS`.
+
 ### Changed (Docs & CLI Housekeeping — 2026-02-20)
 - **Docs migration**: Moved `V11/` root docs to `docs/V11/` and rewrote all 6 files to reflect V12 SoothBook architecture (replaced TickBook references, updated CLI commands, corrected contract names).
 - **Stale plans**: Added `SUPERSEDED` headers to `.agent/plans/user-market-flow-refactoring-v11.md` and `.agent/plans/erc8004-sooth-integration-v11.md`.

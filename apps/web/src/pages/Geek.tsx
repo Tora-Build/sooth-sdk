@@ -181,29 +181,31 @@ export function Geek() {
     }
     
     if (!hasWallet) {
-      const readOnlyCommands = ['help', 'state', 'book', 'info', 'markets', 'simulate'];
+      const readOnlyCommands = ['help', 'state', 'book', 'info', 'markets'];
       if (cmd && !readOnlyCommands.includes(cmd)) {
         return [{ type: 'error', text: 'No wallet. Use "lw create" or connect via navbar.' }];
       }
     }
 
     if (cmd === 'createmarket') {
-      const out = (line: OutputLine) => stream?.(line);
-      await sdk.createmarket(parts.slice(1), out);
-      return [];
+      let streamed = false;
+      const out = (line: OutputLine) => { streamed = true; stream?.(line); };
+      const { output } = await sdk.createmarket(parts.slice(1), out);
+      return streamed ? [] : output;
     }
 
     if (cmd === 'graduate') {
-      const out = (line: OutputLine) => stream?.(line);
-      await sdk.graduate(parts.slice(1), out);
-      return [];
+      let streamed = false;
+      const out = (line: OutputLine) => { streamed = true; stream?.(line); };
+      const { output } = await sdk.graduate(parts.slice(1), out);
+      return streamed ? [] : output;
     }
 
     if (cmd === 'simulate') {
-      return [
-        { type: 'info', text: 'simulate is not available in the browser terminal.' },
-        { type: 'dim', text: 'Use the Node.js CLI: pnpm dev:cli:base' },
-      ];
+      let streamed = false;
+      const out = (line: OutputLine) => { streamed = true; stream?.(line); };
+      const { output } = await sdk.simulate(parts.slice(1), out);
+      return streamed ? [] : output;
     }
 
     const { output } = await sdk.executeCommand(input);

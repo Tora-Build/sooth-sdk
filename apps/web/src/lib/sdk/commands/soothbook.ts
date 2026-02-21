@@ -567,7 +567,6 @@ export async function buyyes(ctx: SDKContext, args: string[]): Promise<{ result:
     const maxCost = parseOptionalMaxCost(args[3]);
 
     const hash = await config.walletClient.sendTransaction({
-      account: address,
       to: soothBook,
       data: encodeFunctionData({
         abi: ABIS.SoothBook,
@@ -611,7 +610,6 @@ export async function buyno(ctx: SDKContext, args: string[]): Promise<{ result: 
     const maxCost = parseOptionalMaxCost(args[3]);
 
     const hash = await config.walletClient.sendTransaction({
-      account: address,
       to: soothBook,
       data: encodeFunctionData({
         abi: ABIS.SoothBook,
@@ -652,7 +650,6 @@ export async function sbmint(ctx: SDKContext, args: string[]): Promise<{ result:
     const amount = parseWad(args[0]);
 
     const hash = await config.walletClient.sendTransaction({
-      account: address,
       to: soothBook,
       data: encodeFunctionData({
         abi: ABIS.SoothBook,
@@ -693,7 +690,6 @@ export async function sbmerge(ctx: SDKContext, args: string[]): Promise<{ result
     const amount = parseWad(args[0]);
 
     const hash = await config.walletClient.sendTransaction({
-      account: address,
       to: soothBook,
       data: encodeFunctionData({
         abi: ABIS.SoothBook,
@@ -735,7 +731,6 @@ export async function sbcancel(ctx: SDKContext, args: string[]): Promise<{ resul
     const tick = parseTick(args[1]);
 
     const hash = await config.walletClient.sendTransaction({
-      account: address,
       to: soothBook,
       data: encodeFunctionData({
         abi: ABIS.SoothBook,
@@ -774,7 +769,6 @@ export async function sbredeem(ctx: SDKContext, args: string[]): Promise<{ resul
 
   try {
     const hash = await config.walletClient.sendTransaction({
-      account: address,
       to: soothBook,
       data: encodeFunctionData({
         abi: ABIS.SoothBook,

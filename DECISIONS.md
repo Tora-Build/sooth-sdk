@@ -1,5 +1,20 @@
 # Architectural Decision Records (ADRs)
 
+## ADR-086: SoothBook Escrow Payout Must Use Complement Pricing
+- **Date**: 2026-02-21
+- **Status**: Proposed (pending fix)
+- **Context**:
+  - Code review of SoothBook.sol `_match()` found that escrow payouts use the escrowed party's own tick price (`oppTick * fill / 1000`).
+  - When an escrow maker at tick 700 matches a normal taker at tick 400, the maker gets 70 USDC but only 40 USDC was deposited by the taker, creating a 30 USDC shortfall.
+  - The both-escrow case would underflow (revert), but single-escrow succeeds and leaves the contract insolvent.
+- **Decision**:
+  1. Fix escrow payout to `(1000 - counterpartyTick) * fill / 1000` — the complement of the crossing price, not the order's own tick.
+  2. Add invariant fuzz test asserting `_collateralBacking[marketKey] >= max(yesToken.totalSupply(), noToken.totalSupply())` after every operation.
+  3. Test specifically: high-tick escrow vs low-tick normal, both-escrow, and symmetric-tick cases.
+- **Consequences**:
+  - Escrow sellers at high ticks will receive less payout (correct economic behavior).
+  - Requires contract redeployment since SoothBook is not upgradeable.
+
 ## ADR-085: Unified Order History Refund Semantics Across Web/SDK/CLI
 - **Date**: 2026-02-19
 - **Status**: Accepted
