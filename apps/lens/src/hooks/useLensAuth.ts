@@ -86,11 +86,10 @@ export function useLensAuth(): LensAuthState {
   const [error, setError] = useState<string | null>(null);
   const [missingLensAccountMessage, setMissingLensAccountMessage] = useState<string | null>(null);
 
-  const discoverLensAccount = useCallback(async (owner: string): Promise<string | null> => {
-    const available = await fetchAccountsAvailable(lensClient, {
-      managedBy: evmAddress(owner),
-      pageSize: 'FIFTY',
-    });
+   const discoverLensAccount = useCallback(async (owner: string): Promise<string | null> => {
+     const available = await fetchAccountsAvailable(lensClient, {
+       managedBy: evmAddress(owner),
+     });
 
     if (available.isErr()) {
       throw new Error(available.error.message);
