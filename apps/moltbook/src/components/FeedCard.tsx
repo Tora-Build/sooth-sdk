@@ -9,6 +9,86 @@ import { parseTextWithLinks } from '../lib/utils';
 import { getMoltbookLink } from '../lib/moltbookLinks';
 import { TradeModal } from './TradeModal';
 
+/** Parse §tag question format. Returns display question and rule metadata. */
+function parseQuestionTags(raw: string): {
+  display: string;
+  rule: Record<string, string> | null;
+  event: string | null;
+  category: string | null;
+  picture: string | null;
+} {
+  // New §tag format
+  if (raw.includes('§question')) {
+    const lines = raw.split('\n');
+    let display = '';
+    const rule: Record<string, string> = {};
+    let inRule = false;
+    let event: string | null = null;
+    let category: string | null = null;
+    let picture: string | null = null;
+
+    for (const line of lines) {
+      if (line.startsWith('§question')) {
+        display = line.replace(/^§question\s*/, '').trim();
+        inRule = false;
+      } else if (line.startsWith('§rule')) {
+        inRule = true;
+      } else if (line.startsWith('§event')) {
+        event = line.replace(/^§event\s*/, '').trim();
+        inRule = false;
+      } else if (line.startsWith('§category')) {
+        category = line.replace(/^§category\s*/, '').trim();
+        inRule = false;
+      } else if (line.startsWith('§picture')) {
+        picture = line.replace(/^§picture\s*/, '').trim();
+        inRule = false;
+      } else if (line.startsWith('§')) {
+        inRule = false; // unknown top-level tag ends rule block
+      } else if (inRule && line.includes(':')) {
+        const [k, ...rest] = line.split(':');
+        rule[k.trim()] = rest.join(':').trim();
+      }
+    }
+
+    return {
+      display: display || raw,
+      rule: Object.keys(rule).length > 0 ? rule : null,
+      event, category, picture,
+    };
+  }
+
+  // Old --- separator format
+  if (raw.includes('\n---\n')) {
+    const [q, meta] = raw.split('\n---\n', 2);
+    const rule: Record<string, string> = {};
+    for (const line of meta.trim().split('\n')) {
+      if (line.includes(':')) {
+        const [k, ...rest] = line.split(':');
+        rule[k.trim()] = rest.join(':').trim();
+      }
+    }
+    return { display: q.trim(), rule: Object.keys(rule).length > 0 ? rule : null, event: null, category: null, picture: null };
+  }
+
+  // Plain text (legacy)
+  return { display: raw, rule: null, event: null, category: null, picture: null };
+}
+
+/** Format rule metadata into a short badge label */
+function getRuleBadge(rule: Record<string, string>): { label: string; color: string } | null {
+  const source = rule.source;
+  if (!source) return null;
+
+  if (source === 'manual') {
+    return { label: 'Manual', color: 'bg-white/10 text-white/50 border-white/10' };
+  }
+
+  // Auto-resolve: extract provider name
+  const provider = source.split(':')[0];
+  const providerName = provider.charAt(0).toUpperCase() + provider.slice(1);
+  return { label: `Auto: ${providerName}`, color: 'bg-[#00d4aa]/10 text-[#00d4aa]/70 border-[#00d4aa]/20' };
+}
+
 interface FeedCardProps {
   market: Market;
   isSelected?: boolean;
@@ -110,6 +190,8 @@ export function FeedCard({ market, isSelected }: FeedCardProps) {
   };
 
   const imageUrl = getMarketImage(market.question, market.address);
+  const { display: displayQuestion, rule, event, category, picture } = parseQuestionTags(market.question);
+  const ruleBadge = rule ? getRuleBadge(rule) : null;
 
   return (
     <>
@@ -122,16 +204,21 @@ export function FeedCard({ market, isSelected }: FeedCardProps) {
         {(() => {
           const stageInfo = STAGE_CONFIG[market.stage];
           return (
-            <div className="absolute top-4 left-6 z-40 h-10 flex items-center">
+            <div className="absolute top-4 left-6 z-40 h-10 flex items-center gap-2">
               <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider border backdrop-blur-sm ${stageInfo.bg} ${stageInfo.text} ${stageInfo.border}`}>
                 {stageInfo.label}
               </span>
+              {ruleBadge && (
+                <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-medium border backdrop-blur-sm ${ruleBadge.color}`}>
+                  {ruleBadge.label}
+                </span>
+              )}
             </div>
           );
         })()}
 
         <h1 className="relative font-heading text-[32px] leading-tight font-normal text-white tracking-tight">
-          {parseTextWithLinks(market.question)}
+          {parseTextWithLinks(displayQuestion)}
           {getMoltbookLink(market.address) && (
             <a
               href={getMoltbookLink(market.address)}
@@ -140,7 +227,7 @@ export function FeedCard({ market, isSelected }: FeedCardProps) {
               onClick={(e) => e.stopPropagation()}
               className="inline-flex items-center gap-1 ml-2 text-sm text-[#836ef9] hover:text-[#9d8bfa] align-middle"
             >
-              <img src="https://moltbook.com/moltbook-mascot.png" alt="Moltbook" className="w-4 h-4 inline" />
+              <span className="text-sm">🦀</span>
               <span className="text-xs font-medium">Discuss</span>
             </a>
           )}

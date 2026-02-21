@@ -17,7 +17,7 @@ const CHUNK_SIZE = 2;
  * Key: lowercase market address.
  */
 const HIDDEN_MARKETS: Set<string> = new Set([
-  // Fresh mainnet deployment — no hidden markets yet
+  '0x6fc49bbcd4666684404325cac3492be5795074cf', // junk "test" market created during deploy script testing
 ]);
 
 async function readContractSafe<T>(
