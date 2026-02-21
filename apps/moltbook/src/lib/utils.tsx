@@ -54,11 +54,7 @@ export function parseTextWithLinks(text: string): React.ReactNode[] {
           className="inline-flex items-center gap-1.5 text-[#00d4aa] hover:text-[#00b894] underline underline-offset-2"
         >
           {isMoltbook ? (
-            <img 
-              src="https://moltbook.com/moltbook-mascot.png" 
-              alt="Moltbook" 
-              className="w-5 h-5 inline-block"
-            />
+            <span className="text-base">🦀</span>
           ) : null}
           {displayText}
           <ExternalLink className="w-4 h-4" />
