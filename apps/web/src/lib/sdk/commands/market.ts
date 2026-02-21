@@ -2,7 +2,7 @@ import type { SDKContext, CommandResult, OutputLine } from '../types';
 import { WAD, MAX_UINT256 } from '../types';
 import { ABIS, MOCK_ERC20_ABI } from '../../../config/abis';
 import { formatWad, shortAddress, shortTx, success, error, plain, bold, info, warn, dim, separator } from '../utils';
-import { decodeEventLog } from 'viem';
+import { decodeEventLog, encodeFunctionData } from 'viem';
 
 const MARKET_TEMPLATES: Record<string, { question: string; name: string; deadline: string }> = {
   alien: {
@@ -33,7 +33,8 @@ export async function createmarket(
   onProgress?: (line: OutputLine) => void
 ): Promise<{ result: CommandResult; output: OutputLine[] }> {
   const { config, address } = ctx;
-  const out = (line: OutputLine) => { onProgress?.(line); };
+  const output: OutputLine[] = [];
+  const out = (line: OutputLine) => { output.push(line); onProgress?.(line); };
 
   if (!address || !config.walletClient) {
     return { result: { success: false, message: 'No wallet connected' }, output: [error('No wallet connected')] };
@@ -68,7 +69,6 @@ export async function createmarket(
   }
 
   const liquidityWad = args[1] ? BigInt(Math.floor(parseFloat(args[1]))) * WAD : 500n * WAD;
-  const output: OutputLine[] = [];
 
   out(plain(''));
   out(bold(`Creating Market: ${template.name}`));
@@ -93,11 +93,11 @@ export async function createmarket(
     if (usdcBalance < required) {
       out(warn(`  Low USDC. Minting ${formatWad(required * 2n)}...`));
       const mintHash = await config.walletClient.writeContract({
-        account: address,
         address: config.contracts.MockUSDC,
         abi: MOCK_ERC20_ABI,
         functionName: 'mint',
         args: [address, required * 2n],
+        account: null,
         chain: null,
       });
       await config.publicClient.waitForTransactionReceipt({ hash: mintHash });
@@ -108,11 +108,11 @@ export async function createmarket(
 
     out(info('[2/4] Approving USDC...'));
     const approveHash = await config.walletClient.writeContract({
-      account: address,
       address: config.contracts.MockUSDC,
       abi: MOCK_ERC20_ABI,
       functionName: 'approve',
       args: [config.contracts.LaunchpadEngine, MAX_UINT256],
+      account: null,
       chain: null,
     });
     await config.publicClient.waitForTransactionReceipt({ hash: approveHash });
@@ -131,11 +131,11 @@ export async function createmarket(
     }) as `0x${string}`;
 
     const createHash = await config.walletClient.writeContract({
-      account: address,
       address: config.contracts.LaunchpadEngine,
       abi: ABIS.LaunchpadEngine,
       functionName: 'createMarket',
       args: [template.question, startTime, deadline, address, protocolConfig, liquidityWad, 0n, 0n],
+      account: null,
       chain: null,
     });
 
@@ -208,17 +208,19 @@ export async function graduate(
   onProgress?: (line: OutputLine) => void
 ): Promise<{ result: CommandResult; output: OutputLine[] }> {
   const { config, address, marketAddress } = ctx;
-  const out = (line: OutputLine) => { onProgress?.(line); };
+  const output: OutputLine[] = [];
+  const out = (line: OutputLine) => { output.push(line); onProgress?.(line); };
 
-  if (!address || !config.walletClient) {
-    return { result: { success: false, message: 'No wallet connected' }, output: [error('No wallet connected')] };
+  if (!address) {
+    return { result: { success: false, message: 'No wallet address' }, output: [error('No wallet address. Connect wallet or use "lw create".')] };
+  }
+  if (!config.walletClient) {
+    return { result: { success: false, message: 'No wallet signer' }, output: [error('Wallet connected but signer unavailable. Try reconnecting or use "lw create".'), warn(`Address: ${address}`)] };
   }
 
   if (!marketAddress) {
-    return { result: { success: false, message: 'No market selected' }, output: [error('No market selected. Use: setmarket <address>')] };
+    return { result: { success: false, message: 'No market selected' }, output: [error('No market selected. Use: setmarket <index>')] };
   }
-
-  const output: OutputLine[] = [];
 
   try {
     out(info('Checking graduation status...'));
@@ -261,20 +263,20 @@ export async function graduate(
       out(warn('Fees reached threshold. Triggering graduation...'));
 
       await config.walletClient.writeContract({
-        account: address,
         address: config.contracts.MockUSDC,
         abi: MOCK_ERC20_ABI,
         functionName: 'approve',
         args: [config.contracts.LaunchpadEngine, MAX_UINT256],
+        account: null,
         chain: null,
       });
 
       const hash = await config.walletClient.writeContract({
-        account: address,
         address: config.contracts.LaunchpadEngine,
         abi: ABIS.LaunchpadEngine,
         functionName: 'tradePositions',
         args: [marketAddress, 1, WAD, MAX_UINT256],
+        account: null,
         chain: null,
       });
       await config.publicClient.waitForTransactionReceipt({ hash });
@@ -314,11 +316,11 @@ export async function graduate(
     if (usdcBalance < requiredUsdc) {
       out(warn('Minting USDC...'));
       const mintHash = await config.walletClient.writeContract({
-        account: address,
         address: config.contracts.MockUSDC,
         abi: MOCK_ERC20_ABI,
         functionName: 'mint',
         args: [address, requiredUsdc * 2n],
+        account: null,
         chain: null,
       });
       await config.publicClient.waitForTransactionReceipt({ hash: mintHash });
@@ -327,11 +329,11 @@ export async function graduate(
 
     out(info('Approving...'));
     const approveHash = await config.walletClient.writeContract({
-      account: address,
       address: config.contracts.MockUSDC,
       abi: MOCK_ERC20_ABI,
       functionName: 'approve',
       args: [config.contracts.LaunchpadEngine, MAX_UINT256],
+      account: null,
       chain: null,
     });
     await config.publicClient.waitForTransactionReceipt({ hash: approveHash });
@@ -350,11 +352,11 @@ export async function graduate(
 
       try {
         const hash = await config.walletClient.writeContract({
-          account: address,
           address: config.contracts.LaunchpadEngine,
           abi: ABIS.LaunchpadEngine,
           functionName: 'tradePositions',
           args: [marketAddress, 1, delta, maxCostOrMinProceeds],
+          account: null,
           chain: null,
         });
         await config.publicClient.waitForTransactionReceipt({ hash });
@@ -602,7 +604,8 @@ export async function dismiss(
   onProgress?: (line: OutputLine) => void
 ): Promise<{ result: CommandResult; output: OutputLine[] }> {
   const { config, address, marketAddress } = ctx;
-  const out = (line: OutputLine) => { onProgress?.(line); };
+  const output: OutputLine[] = [];
+  const out = (line: OutputLine) => { output.push(line); onProgress?.(line); };
 
   if (!address || !config.walletClient) {
     return { result: { success: false, message: 'No wallet connected' }, output: [error('No wallet connected')] };
@@ -611,8 +614,6 @@ export async function dismiss(
   if (!marketAddress) {
     return { result: { success: false, message: 'No market selected' }, output: [error('No market selected. Use: setmarket <index>')] };
   }
-
-  const output: OutputLine[] = [];
 
   try {
     // Check trial state first
@@ -638,11 +639,11 @@ export async function dismiss(
     out(info(`Dismissing market (${formatWad(totalLockedCost)} USDC locked)...`));
 
     const hash = await config.walletClient.writeContract({
-      account: address,
       address: config.contracts.LaunchpadEngine,
       abi: ABIS.LaunchpadEngine,
       functionName: 'dismissMarket',
       args: [marketAddress],
+      account: null,
       gas: 200000n,
       chain: null,
     });
@@ -679,7 +680,8 @@ export async function claimrefund(
   onProgress?: (line: OutputLine) => void
 ): Promise<{ result: CommandResult; output: OutputLine[] }> {
   const { config, address, marketAddress } = ctx;
-  const out = (line: OutputLine) => { onProgress?.(line); };
+  const output: OutputLine[] = [];
+  const out = (line: OutputLine) => { output.push(line); onProgress?.(line); };
 
   if (!address || !config.walletClient) {
     return { result: { success: false, message: 'No wallet connected' }, output: [error('No wallet connected')] };
@@ -688,8 +690,6 @@ export async function claimrefund(
   if (!marketAddress) {
     return { result: { success: false, message: 'No market selected' }, output: [error('No market selected. Use: setmarket <index>')] };
   }
-
-  const output: OutputLine[] = [];
 
   try {
     // Check if market is dismissed
@@ -722,11 +722,11 @@ export async function claimrefund(
     out(info(`Claiming refund of ${formatWad(userLocked)} USDC...`));
 
     const hash = await config.walletClient.writeContract({
-      account: address,
       address: config.contracts.LaunchpadEngine,
       abi: ABIS.LaunchpadEngine,
       functionName: 'claimRefund',
       args: [marketAddress],
+      account: null,
       gas: 200000n,
       chain: null,
     });
@@ -819,7 +819,8 @@ export async function redeemlp(
   onProgress?: (line: OutputLine) => void
 ): Promise<{ result: CommandResult; output: OutputLine[] }> {
   const { config, address, marketAddress } = ctx;
-  const out = (line: OutputLine) => { onProgress?.(line); };
+  const output: OutputLine[] = [];
+  const out = (line: OutputLine) => { output.push(line); onProgress?.(line); };
 
   if (!address || !config.walletClient) {
     return { result: { success: false, message: 'No wallet connected' }, output: [error('No wallet connected')] };
@@ -828,8 +829,6 @@ export async function redeemlp(
   if (!marketAddress) {
     return { result: { success: false, message: 'No market selected' }, output: [error('No market selected. Use: setmarket <index>')] };
   }
-
-  const output: OutputLine[] = [];
 
   try {
     // Get market state
@@ -871,11 +870,11 @@ export async function redeemlp(
     out(info(`Redeeming ${formatWad(amount)} LP tokens...`));
 
     const hash = await config.walletClient.writeContract({
-      account: address,
       address: config.contracts.LaunchpadEngine,
       abi: ABIS.LaunchpadEngine,
       functionName: 'redeemLP',
       args: [marketAddress, amount],
+      account: null,
       gas: 500000n,
       chain: null,
     });
@@ -908,7 +907,8 @@ export async function transferlp(
   onProgress?: (line: OutputLine) => void
 ): Promise<{ result: CommandResult; output: OutputLine[] }> {
   const { config, address, marketAddress } = ctx;
-  const out = (line: OutputLine) => { onProgress?.(line); };
+  const output: OutputLine[] = [];
+  const out = (line: OutputLine) => { output.push(line); onProgress?.(line); };
 
   if (!address || !config.walletClient) {
     return { result: { success: false, message: 'No wallet connected' }, output: [error('No wallet connected')] };
@@ -938,7 +938,6 @@ export async function transferlp(
   }
 
   const toAddress = args[0] as `0x${string}`;
-  const output: OutputLine[] = [];
 
   try {
     // Get market state
@@ -980,11 +979,11 @@ export async function transferlp(
     out(info(`Transferring ${formatWad(amount)} LP to ${shortAddress(toAddress)}...`));
 
     const hash = await config.walletClient.writeContract({
-      account: address,
       address: lpTokenAddress,
       abi: MOCK_ERC20_ABI,
       functionName: 'transfer',
       args: [toAddress, amount],
+      account: null,
       gas: 200000n,
       chain: null,
     });
@@ -1046,4 +1045,215 @@ export async function pausestatus(ctx: SDKContext, _args: string[]): Promise<{ r
   }
 }
 
-export const marketCommands = { createmarket, graduate, marketstatus, trialstatus, dismiss, claimrefund, lpbalance, redeemlp, transferlp, pausestatus };
+/**
+ * Simulate orderbook activity with random orders
+ * Usage: simulate [numOrders] [avgSize] [seed]
+ */
+export async function simulate(
+  ctx: SDKContext,
+  args: string[],
+  onProgress?: (line: OutputLine) => void
+): Promise<{ result: CommandResult; output: OutputLine[] }> {
+  const { config, address, marketKey } = ctx;
+  const output: OutputLine[] = [];
+  const out = (line: OutputLine) => { output.push(line); onProgress?.(line); };
+
+  if (!address || !config.walletClient) {
+    return { result: { success: false, message: 'No wallet connected' }, output: [error('No wallet connected')] };
+  }
+
+  const soothBook = config.contracts.SoothBook;
+  if (!soothBook) {
+    return { result: { success: false, message: 'SoothBook not configured' }, output: [error('SoothBook not available on this chain')] };
+  }
+
+  if (!marketKey) {
+    return { result: { success: false, message: 'No market selected' }, output: [error('No market selected. Use: setmarket <index>')] };
+  }
+
+  const numOrders = args[0] ? parseInt(args[0], 10) : 100;
+  const avgSize = args[1] ? BigInt(Math.floor(parseFloat(args[1]))) * WAD : 100n * WAD;
+  const seed = args[2] ? parseInt(args[2], 10) : Date.now();
+
+  if (!Number.isInteger(numOrders) || numOrders <= 0) {
+    return { result: { success: false, message: 'numOrders must be a positive integer' }, output: [error('numOrders must be a positive integer')] };
+  }
+
+  // Simple seeded RNG (mulberry32)
+  let t = seed >>> 0;
+  const rng = () => {
+    t += 0x6D2B79F5;
+    let r = Math.imul(t ^ (t >>> 15), t | 1);
+    r ^= r + Math.imul(r ^ (r >>> 7), r | 61);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+
+  out(plain(''));
+  out(bold('Orderbook Simulation'));
+  out(separator(40));
+  out(plain(`Orders:   ${numOrders}`));
+  out(plain(`Avg Size: ${formatWad(avgSize)}`));
+  out(plain(`Seed:     ${seed}`));
+  out(plain(''));
+
+  try {
+    // Ensure enough USDC
+    const estimatedUsdcNeeded = avgSize * BigInt(numOrders) * 2n;
+    const usdcBalance = await config.publicClient.readContract({
+      address: config.contracts.MockUSDC,
+      abi: MOCK_ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [address],
+    }) as bigint;
+
+    if (usdcBalance < estimatedUsdcNeeded) {
+      const mintAmount = estimatedUsdcNeeded - usdcBalance + avgSize * 5n;
+      out(warn(`Minting ${formatWad(mintAmount)} USDC...`));
+      const mintHash = await config.walletClient.writeContract({
+        address: config.contracts.MockUSDC,
+        abi: MOCK_ERC20_ABI,
+        functionName: 'mint',
+        args: [address, mintAmount],
+        account: null,
+        chain: null,
+      });
+      await config.publicClient.waitForTransactionReceipt({ hash: mintHash });
+      out(success('Minted ✓'));
+    }
+
+    // Approve SoothBook
+    out(info('Approving SoothBook...'));
+    const approveHash = await config.walletClient.writeContract({
+      address: config.contracts.MockUSDC,
+      abi: MOCK_ERC20_ABI,
+      functionName: 'approve',
+      args: [soothBook, MAX_UINT256],
+      account: null,
+      chain: null,
+    });
+    await config.publicClient.waitForTransactionReceipt({ hash: approveHash });
+    out(success('Approved ✓'));
+    out(plain(''));
+
+    let totalGas = 0n;
+    let ordersPlaced = 0;
+    let ordersCrossed = 0;
+    let consecutiveFailures = 0;
+
+    for (let i = 0; i < numOrders; i++) {
+      const r = rng();
+      const sizeMultiplierBps = 500n + BigInt(Math.floor(rng() * 1001));
+      const amount = ((avgSize * sizeMultiplierBps) / 1000n) || WAD;
+      const tick = 100 + Math.floor(rng() * 801);
+
+      let action: 'buyyes' | 'buyno' | 'mint' | 'merge' = 'buyyes';
+      if (r < 0.4) action = 'buyyes';
+      else if (r < 0.8) action = 'buyno';
+      else if (r < 0.9) action = 'mint';
+      else action = 'merge';
+
+      try {
+        let likelyCross = false;
+        let hash: `0x${string}`;
+
+        if (action === 'buyyes') {
+          const bestNoTick = await config.publicClient.readContract({
+            address: soothBook,
+            abi: ABIS.SoothBook,
+            functionName: 'getBestTick',
+            args: [marketKey, 0],
+          }) as number;
+          likelyCross = bestNoTick > 0 && tick + bestNoTick >= 1000;
+          hash = await config.walletClient.sendTransaction({
+            to: soothBook,
+            data: encodeFunctionData({
+              abi: ABIS.SoothBook,
+              functionName: 'buyYes',
+              args: [marketKey, tick, amount, false, 0n],
+            }),
+            chain: null,
+          } as Parameters<typeof config.walletClient.sendTransaction>[0]);
+        } else if (action === 'buyno') {
+          const bestYesTick = await config.publicClient.readContract({
+            address: soothBook,
+            abi: ABIS.SoothBook,
+            functionName: 'getBestTick',
+            args: [marketKey, 1],
+          }) as number;
+          likelyCross = bestYesTick > 0 && tick + bestYesTick >= 1000;
+          hash = await config.walletClient.sendTransaction({
+            to: soothBook,
+            data: encodeFunctionData({
+              abi: ABIS.SoothBook,
+              functionName: 'buyNo',
+              args: [marketKey, tick, amount, false, 0n],
+            }),
+            chain: null,
+          } as Parameters<typeof config.walletClient.sendTransaction>[0]);
+        } else if (action === 'mint') {
+          hash = await config.walletClient.sendTransaction({
+            to: soothBook,
+            data: encodeFunctionData({
+              abi: ABIS.SoothBook,
+              functionName: 'mint',
+              args: [marketKey, amount],
+            }),
+            chain: null,
+          } as Parameters<typeof config.walletClient.sendTransaction>[0]);
+        } else {
+          // merge
+          const balances = await config.publicClient.readContract({
+            address: soothBook,
+            abi: ABIS.SoothBook,
+            functionName: 'getBalance',
+            args: [marketKey, address],
+          }) as readonly [bigint, bigint];
+          const mergeAmount = balances[0] < balances[1] ? balances[0] : balances[1];
+          if (mergeAmount <= 0n) {
+            out(dim(`[${i + 1}/${numOrders}] MERGE skipped (no complete sets)`));
+            continue;
+          }
+          hash = await config.walletClient.sendTransaction({
+            to: soothBook,
+            data: encodeFunctionData({
+              abi: ABIS.SoothBook,
+              functionName: 'merge',
+              args: [marketKey, mergeAmount < amount ? mergeAmount : amount],
+            }),
+            chain: null,
+          } as Parameters<typeof config.walletClient.sendTransaction>[0]);
+        }
+
+        const receipt = await config.publicClient.waitForTransactionReceipt({ hash });
+        totalGas += receipt.gasUsed;
+        ordersPlaced++;
+        if (likelyCross) ordersCrossed++;
+        consecutiveFailures = 0;
+        out(success(`[${i + 1}/${numOrders}] ${action.toUpperCase()} (gas: ${receipt.gasUsed})`));
+      } catch (err) {
+        const msg = (err as Error).message.slice(0, 60);
+        out(error(`[${i + 1}/${numOrders}] ${action.toUpperCase()} failed: ${msg}`));
+        consecutiveFailures++;
+        if (consecutiveFailures >= 3) {
+          out(warn('Stopping after 3 consecutive failures'));
+          break;
+        }
+      }
+    }
+
+    out(plain(''));
+    out(separator(40));
+    out(bold('Simulation Complete'));
+    out(plain(`Orders placed:  ${ordersPlaced}`));
+    out(plain(`Orders crossed: ${ordersCrossed}`));
+    out(plain(`Total gas used: ${totalGas.toString()}`));
+    out(plain(''));
+
+    return { result: { success: true, data: { ordersPlaced, ordersCrossed, totalGas } }, output };
+  } catch (err) {
+    out(error(`Simulate failed: ${(err as Error).message}`));
+    return { result: { success: false, message: (err as Error).message }, output };
+  }
+}
+
+export const marketCommands = { createmarket, graduate, simulate, marketstatus, trialstatus, dismiss, claimrefund, lpbalance, redeemlp, transferlp, pausestatus };

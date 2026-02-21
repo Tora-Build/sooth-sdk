@@ -2,7 +2,7 @@
 
 > **Codebase Version**: V12.0 (SoothBook)  
 > **Active Testing**: Base Sepolia  
-> **Last Updated**: 2026-02-20
+> **Last Updated**: 2026-02-21
 
 ## V12 SoothBook (Current)
 
@@ -55,9 +55,11 @@ V12 replaces TickBook with **SoothBook** — an orderbook (602 lines) with 4 ato
 | Adjudicator-only finalize | `TruthMarket` | ✅ Implemented |
 
 ## Current Focus
-- **Housekeeping (2026-02-20)** — Docs and CLI help cleanup after V12 migration.
+- **SoothBook escrow insolvency fix** — Code review identified critical collateral accounting bug in escrow matching (high-tick escrow maker/taker can drain more USDC than available). Must fix before V12 mainnet.
+- **Moltbook AAP v2** — §tag parser and AAP page rewrite merged to `v12-4atomic-orderbook`.
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-02-21** — **PR #45 Review & Merge**: Reviewed and merged moltbook AAP v2 changes (5 files: FeedCard §tag parser, AAP page rewrite, AdjudicatorPage v2, crab emoji fix, hidden test market). Rebased PR base from `main` to `v12-4atomic-orderbook` before merge. Also performed deep code review of V12 SoothBook branch — identified critical escrow insolvency bug, `resolveMarket` re-resolution issue, 999-tick RPC scan perf issue, and WAD precision float round-trip.
 - **2026-02-20** — **Docs migration + CLI help fix**: Moved `V11/` docs to `docs/V11/`, rewrote all 6 files to replace TickBook with SoothBook. Added SUPERSEDED headers to stale `.agent/plans/` V11 files. Fixed `SoothSDK.showHelp()`: removed phantom `sbpositions`, removed `lw` section (handled by `Geek.tsx` not SDK), removed stale V11 section labels, collapsed Trial Period / LP Tokens / Protocol into Market section.
 - **2026-02-19** — **Order History + Deployment Handoff Sync**: Added historical order `Refund Amt` in `UserOrdersPanel` with event-driven semantics (filled taker surplus, cancelled non-escrow collateral return). Extended feed parsing to include `surplus`/`escrow`. Added pagination baseline of 50 entries in history flows. Added new SDK command `sbhistory [page] [size]` and interactive CLI command `history [page] [size]`, both with consistent columns (`ID`, `Side`, `Price`, `Size`, `Refund Amt`, `Event`). Added inline legend clarifying refund meaning. Added batch-cancel silent mode to avoid duplicate toasts. Captured deployment handoff in `.agent/HANDOFF_2026-02-19_DEPLOY_PROGRESS.md` with verification status for Monad/Base and current warnings.
 - **2026-02-16** — **V12 Migration Diagnostic & Repair**: Full audit of V11→V12 "standalone SoothBook" damage. Identified 24 items — 7 needed replacement, 5 were broken stubs. Fixed all: `useOrderbook.ts` + `useOrderbookTrade.ts` rewired to SoothBook (tick-depth reads, buyYes/buyNo/mint/merge/cancel/redeem, Polymarket-style mapping). `useTraderVault` → wallet mode (no vault). `useActivePositions` → SoothBook ERC20 YES/NO tokens + `getImpliedPrice`. `useLockedProceeds`/`useLockedFunds` → clean noops. `TradingAccountCard` → wallet USDC approval semantics. `PositionActionsModal` → wallet wording. Indexer `OrderFilled`/`OrderCancelled` handlers fixed + 6 API endpoints added. ~80 TS errors fixed (ABIS type spread, missing type exports). CLI `markets` command now discovers on-chain markets from LaunchpadEngine. Portfolio page integrated with TradingAccountCard + ActiveOrdersCard. Order store wired to useOrderbookTrade. Pro page findings written to `.agent/PRO_PAGE_FINDINGS.md`.
@@ -66,6 +68,11 @@ V12 replaces TickBook with **SoothBook** — an orderbook (602 lines) with 4 ato
 - **2026-02-15** — **V12 SoothBook Full Stack**: Deployed SoothBook V12 to Base Sepolia. Built full integration: CLI with 11 `sb*` commands, browser SDK with 11 commands, Ponder indexer with 8 event handlers + 4 tables. 45 unit tests passing.
 
 ## Pending/Blocked
+- **[CRITICAL] SoothBook escrow insolvency** — Escrow match payout uses order's own tick (`oppTick * fill / 1000`) instead of collateral economics. High-tick escrow maker + low-tick normal taker can drain more USDC than the system holds, leaving the contract insolvent at settlement. Fix: payout should be `(1000 - counterpartyTick) * fill / 1000`. Needs invariant fuzz test: `collateralBacking >= max(yesSupply, noSupply)`.
+- **[HIGH] `resolveMarket` allows re-resolution** — No `m.finalized` check. Owner can change winning outcome after settlement. Add `if (m.finalized) revert AlreadyFinalized();`.
+- **[HIGH] Fee mechanism unused** — `feeBps`/`feeRecipient` stored but never applied in `_buy()` or `_match()`. Protocol earns zero revenue.
+- **[HIGH] 999-tick RPC scan** — `useOrderbook.ts` queries all 999 ticks per side (~2000 reads/10s). Must use TickBitmap to find occupied ticks first.
+- **Alchemy API key in git** — `chainConfigs.ts:53` has hardcoded MegaETH testnet Alchemy key. Move to env var.
 - **IPFS Market Metadata** — Currently storing market metadata (name, category) in browser localStorage. Lost on browser clear or cross-device. Need to store on IPFS and emit CID in contract event for persistence.
 - **Multi-chain SoothBook deploy** — Monad V12 deployed + verified. MegaETH, Arc still need fresh deployments.
 - **Historical chart polish** — Remaining UX tuning for 1m rendering/dot alignment and stats formatting consistency under narrow widths.

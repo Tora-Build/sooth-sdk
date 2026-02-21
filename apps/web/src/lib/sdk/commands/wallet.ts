@@ -55,7 +55,7 @@ export async function mint(ctx: SDKContext, args: string[]): Promise<{ result: C
       abi: MOCK_ERC20_ABI,
       functionName: 'mint',
       args: [address, amount],
-      account: address,
+      account: null,
       chain: undefined,
     });
     await config.publicClient.waitForTransactionReceipt({ hash });
@@ -89,7 +89,7 @@ export async function approve(ctx: SDKContext, args: string[]): Promise<{ result
         abi: MOCK_ERC20_ABI,
         functionName: 'approve',
         args: [addr, amount],
-        account: address,
+        account: null,
         chain: undefined,
       });
       await config.publicClient.waitForTransactionReceipt({ hash });

@@ -6,6 +6,23 @@
 
 ## What Was Completed
 
+### 0. Smart Contract Upgrade (Critical)
+- **Contract**: `/Users/danieltang/GitHub/sooth-alpha/packages/contracts-core/src/SoothBook.sol`
+- **Upgrade intent**: Prevent gas blowups on deep order sweeps while preserving matching correctness.
+- **Key behavior in upgraded SoothBook**:
+  - `MAX_MATCHES_PER_TX = 128` hard cap on maker-order matches per taker transaction.
+  - `_match(...)` now returns `(remaining, maxMatchesHit)` and stops once cap is reached.
+  - `_buy(...)` applies IOC behavior when `maxMatchesHit == true`:
+    - unfilled remainder is **not** placed as resting order,
+    - unfilled collateral is returned to taker,
+    - prevents accidental long traversal and tx gas overrun.
+  - Fill events carry `surplus` and V2 maker order IDs (`OrderFilledV2`) for better post-trade accounting.
+- **Why this matters**:
+  - Directly addresses prior over-gas failures on large sweeps (`buyYes`/`buyNo` crossing many maker orders).
+  - Makes execution bounded by number of matches instead of potentially unbounded book traversal.
+- **Validation evidence**:
+  - Unit coverage in `/Users/danieltang/GitHub/sooth-alpha/packages/contracts-testing/test/unit/SoothBook.t.sol` includes cap/IOC behavior checks (e.g., capped-fill scenario with remainder refund).
+
 ### 1. Deployment Tooling Hardened (`contracts-core`)
 - Updated `/Users/danieltang/GitHub/sooth-alpha/packages/contracts-core/script/deploy-multichain.ts`:
   - Added explicit transaction propagation checks before waiting for receipts.
@@ -83,4 +100,3 @@ RPC_URL=<private_rpc> NETWORK=monadTestnet bash packages/contracts-core/script/v
 3. Before handoff completion, persist final addresses/version if changed:
 - `/Users/danieltang/GitHub/sooth-alpha/packages/contracts-core/deployments/monadTestnet.json`
 - `/Users/danieltang/GitHub/sooth-alpha/apps/web/src/config/deployments.json`
-

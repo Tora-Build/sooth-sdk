@@ -3,10 +3,11 @@
  */
 
 import type { PublicClient, WalletClient, Address } from 'viem';
+import { encodePacked, keccak256 } from 'viem';
 import type { SDKConfig, SDKContext, CommandResult, OutputLine } from './types';
 import deployments from '../../config/deployments.json';
 import { plain, error as errorLine, success as successLine, bold, dim, info, warn } from './utils';
-import { SOOTHBOOK_ABI } from '../../config/abis';
+import { ABIS, SOOTHBOOK_ABI } from '../../config/abis';
 
 import { walletCommands } from './commands/wallet';
 import { marketCommands } from './commands/market';
@@ -19,9 +20,9 @@ export * from './commands';
 type NetworkKey = keyof typeof deployments.networks;
 
 const STORAGE_KEY_MARKET = 'sooth_selected_market';
-// NOTE: These are bonding-stage market keys (pre-graduation).
-// SoothBook.markets(key) returns all zeros for these — they are NOT registered in SoothBook yet.
-// `sbsetmarket 0/1/2` will always fail until these markets graduate.
+// Seed market keys (may be bonding-stage or graduated).
+// `setmarket 0/1/2` discovers the address from LaunchpadEngine (works at any stage).
+// `sbsetmarket 0/1/2` validates SoothBook registration (only works post-graduation).
 const SOOTHBOOK_TEST_MARKETS: readonly `0x${string}`[] = [
   '0x28a722c5a9f901c47dda06574bb57ede6fc256dfbb821a7f17cae915b511fb3b',  // BTC $150k 2026
   '0x1b7e3a5e85ec8aaa17e7e7918496fd0b4637cf54a87cf3d031ebe50b8576f515',  // ETH flip BTC 2027
@@ -126,13 +127,76 @@ export class SoothSDK {
   }
 
   async setMarket(keyOrIndex: string): Promise<{ result: CommandResult; output: OutputLine[] }> {
-    if (!this.config.contracts.SoothBook) {
+    // Resolve market key from index or direct hex
+    let nextKey: `0x${string}`;
+    if (keyOrIndex.startsWith('0x') && keyOrIndex.length === 66) {
+      nextKey = keyOrIndex as `0x${string}`;
+    } else if (keyOrIndex.startsWith('0x')) {
+      // Treat short 0x as a market address directly
+      const addr = keyOrIndex as Address;
+      nextKey = keccak256(encodePacked(['address'], [addr]));
+      this.marketKey = nextKey;
+      this.marketAddress = addr;
+      this.persistMarketSelection();
       return {
-        result: { success: false, message: 'SoothBook not configured' },
-        output: [errorLine('SoothBook not available on this chain')],
+        result: { success: true, data: { marketKey: nextKey, marketAddress: addr } },
+        output: [
+          successLine(`Market set: ${addr}`),
+          dim(`Key: ${nextKey}`),
+        ],
+      };
+    } else {
+      const idx = parseInt(keyOrIndex.trim(), 10);
+      if (isNaN(idx) || idx < 0 || idx >= SOOTHBOOK_TEST_MARKETS.length) {
+        return {
+          result: { success: false, message: 'Index out of range' },
+          output: [errorLine(`Index out of range (0-${SOOTHBOOK_TEST_MARKETS.length - 1})`)],
+        };
+      }
+      nextKey = SOOTHBOOK_TEST_MARKETS[idx];
+    }
+
+    // Discover market address from LaunchpadEngine by matching key
+    try {
+      const allMarkets = await this.config.publicClient.readContract({
+        address: this.config.contracts.LaunchpadEngine,
+        abi: ABIS.LaunchpadEngine,
+        functionName: 'getMarkets',
+      }) as Address[];
+
+      let matchedAddress: Address | undefined;
+      for (const addr of allMarkets) {
+        const computed = keccak256(encodePacked(['address'], [addr]));
+        if (computed.toLowerCase() === nextKey.toLowerCase()) {
+          matchedAddress = addr;
+          break;
+        }
+      }
+
+      this.marketKey = nextKey;
+      this.marketAddress = matchedAddress;
+      this.persistMarketSelection();
+
+      const output: OutputLine[] = [successLine(`Market set: ${nextKey}`)];
+      if (matchedAddress) {
+        output.push(dim(`Address: ${matchedAddress}`));
+      } else {
+        output.push(warn('Address not found on-chain (key-only mode)'));
+      }
+      return { result: { success: true, data: { marketKey: nextKey, marketAddress: matchedAddress } }, output };
+    } catch {
+      // Fallback: set key without address discovery
+      this.marketKey = nextKey;
+      this.marketAddress = undefined;
+      this.persistMarketSelection();
+      return {
+        result: { success: true, data: { marketKey: nextKey } },
+        output: [
+          successLine(`Market key set: ${nextKey}`),
+          warn('Could not discover address from LaunchpadEngine'),
+        ],
       };
     }
-    return this.sbSetMarket(keyOrIndex);
   }
 
   getMarketInfo(): { marketKey?: `0x${string}`; marketAddress?: Address } {
@@ -169,6 +233,10 @@ export class SoothSDK {
 
   async graduate(args: string[] = [], onProgress?: (line: OutputLine) => void) {
     return marketCommands.graduate(this.getContext(), args, onProgress);
+  }
+
+  async simulate(args: string[] = [], onProgress?: (line: OutputLine) => void) {
+    return marketCommands.simulate(this.getContext(), args, onProgress);
   }
 
   async marketstatus(args: string[] = []) {
@@ -338,6 +406,8 @@ export class SoothSDK {
         return this.createmarket(args);
       case 'graduate':
         return this.graduate(args);
+      case 'simulate':
+        return this.simulate(args);
       case 'marketstatus':
         return this.marketstatus(args);
       case 'trialstatus':
@@ -448,7 +518,7 @@ export class SoothSDK {
         plain(''),
         info('  Other'),
         plain('    markets / m              List available markets'),
-        plain('    simulate                 (Node CLI only — not available in browser)'),
+        plain('    simulate [n] [size] [seed] Random orderbook activity (default: 100 orders)'),
         plain('    info                     Show current context (chain, address, market)'),
         plain('    bal                      Alias for balance'),
         plain('    sbbal / sbm              Aliases for sbbalance / sbsetmarket'),
@@ -480,7 +550,7 @@ export class SoothSDK {
     if (this.marketKey) {
       output.push(plain(`  Current Key: ${this.marketKey}`));
     } else {
-      output.push(warn('  No market selected. Use: sbsetmarket <index>'));
+      output.push(warn('  No market selected. Use: setmarket <index>'));
     }
 
     output.push(plain(''));

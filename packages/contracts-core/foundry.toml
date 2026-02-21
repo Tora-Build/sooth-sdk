@@ -18,6 +18,8 @@ monadTestnet = "https://blue-stylish-friday.monad-testnet.quiknode.pro/REDACTED_
 monadMainnet = "https://monad-mainnet.g.alchemy.com/v2/REDACTED_ALCHEMY_TOKEN"
 bnbTestnet = "https://data-seed-prebsc-1-s1.bnbchain.org:8545"
 arcTestnet = "https://rpc.testnet.arc.network"
+lensTestnet = "https://rpc.testnet.lens.xyz"
+lensMainnet = "https://rpc.lens.xyz"
 
 [profile.megaeth]
 gas_price = 100000000
