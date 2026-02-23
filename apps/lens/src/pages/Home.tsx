@@ -1,14 +1,14 @@
 import { useAppKit } from '@reown/appkit/react';
 import { useAccount } from 'wagmi';
-import { useNavigate } from 'react-router-dom';
-import { Rss, Wallet, Loader2, Plus } from 'lucide-react';
+
+import { Rss, Wallet, Loader2 } from 'lucide-react';
 import { useLensFeed } from '../hooks/useLensFeed';
 import { SnapMarketCard } from '../components/SnapMarketCard';
 import { useShowcase } from '../hooks/useShowcase';
 
 export function Home() {
   const { open } = useAppKit();
-  const navigate = useNavigate();
+
   const { isConnected } = useAccount();
   const { data: posts, isLoading, error } = useLensFeed('sooth-market');
   const inShowcase = useShowcase();
@@ -50,15 +50,7 @@ export function Home() {
         )}
       </main>
 
-      <button
-        type="button"
-        onClick={() => navigate('/create')}
-        className="absolute right-4 z-40 size-12 rounded-full bg-[#00d4aa] text-[#1a1a1b] flex items-center justify-center shadow-lg shadow-black/40 active:scale-95 transition-transform"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5rem)' }}
-        aria-label="Create market"
-      >
-        <Plus className="w-6 h-6" />
-      </button>
+
     </div>
   );
 }
