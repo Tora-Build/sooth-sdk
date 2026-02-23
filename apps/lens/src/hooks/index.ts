@@ -8,3 +8,4 @@ export { useLensFeed, type LensPost } from './useLensFeed';
 export { useIsMobile } from './useIsMobile';
 export { useShowcase } from './useShowcase';
 export { useUpvote, useBookmark, type UseUpvoteResult, type UseBookmarkResult } from './useReactions';
+export { usePhoneNavigate } from './usePhoneNavigate';

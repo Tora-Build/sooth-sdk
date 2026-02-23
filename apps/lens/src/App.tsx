@@ -1,9 +1,7 @@
-import { useState, createContext } from 'react';
+import { useState, useMemo, createContext } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Home } from './pages/Home';
 import { Feed } from './pages/Feed';
-import { Search } from './pages/Search';
-import { Portfolio } from './pages/Portfolio';
 import { Profile } from './pages/Profile';
 import { AAP } from './pages/AAP';
 import { SkillPage } from './pages/SkillPage';
@@ -26,9 +24,6 @@ function MobileApp() {
         <Route path="/" element={<Home />} />
         <Route path="/feed" element={<Feed />} />
         <Route path="/create" element={<CreateMarket />} />
-        <Route path="/markets" element={<Home />} />
-        <Route path="/search" element={<Search />} />
-        <Route path="/portfolio" element={<Portfolio />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/market/:feedAddress/:postId" element={<MarketDetail />} />
       </Routes>
@@ -43,20 +38,21 @@ const PHONE_PAGES: Record<string, (props: { onBack?: () => void }) => JSX.Elemen
   '/': Home,
   '/feed': Feed,
   '/create': CreateMarket,
-  '/markets': Home,
-  '/search': Search,
-  '/portfolio': Portfolio,
   '/profile': Profile,
 };
 
+function resolvePhonePage(route: string): { Component: (props: any) => JSX.Element } {
+  if (PHONE_PAGES[route]) return { Component: PHONE_PAGES[route] };
+  if (route.startsWith('/market/')) return { Component: MarketDetail };
+  return { Component: Home };
+}
 function PhoneContent({ initialRoute = '/' }: { initialRoute?: string }) {
   const [route, setRoute] = useState(initialRoute);
-  const Page = PHONE_PAGES[route] || Home;
-
+  const { Component } = useMemo(() => resolvePhonePage(route), [route]);
   return (
     <PhoneRouteContext.Provider value={{ route, setRoute }}>
       <div className="h-full w-full bg-mesh">
-        <Page />
+        <Component />
         <BottomNav />
       </div>
     </PhoneRouteContext.Provider>

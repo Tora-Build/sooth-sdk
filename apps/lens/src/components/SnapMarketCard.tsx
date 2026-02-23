@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Loader2, ChevronDown, Clock } from 'lucide-react';
 import type { LensPost } from '../hooks/useLensFeed';
 import type { Address } from 'viem';
 import { useSoothMarket } from '../hooks';
+import { usePhoneNavigate } from '../hooks/usePhoneNavigate';
 import { SoothTradeDrawer } from './SoothTradeDrawer';
 import { OnboardingGuard } from './OnboardingGuard';
 
@@ -80,7 +80,7 @@ export function SnapMarketCard({ post }: { post: LensPost }) {
   const market = useSoothMarket(feed, postIdBig);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerOutcome, setDrawerOutcome] = useState<0 | 1>(1);
-  const navigate = useNavigate();
+  const phoneNavigate = usePhoneNavigate();
 
   const displayName =
     post.author.displayName ?? post.author.username ?? post.author.address.slice(0, 10);
@@ -166,7 +166,7 @@ export function SnapMarketCard({ post }: { post: LensPost }) {
         {/* Question - center */}
         <div
           className="absolute inset-0 flex items-center justify-center px-8 z-10 cursor-pointer"
-          onClick={() => navigate(`/market/${post.feedAddress}/${post.id}`, {
+          onClick={() => phoneNavigate(`/market/${post.feedAddress}/${post.id}`, {
             state: {
               question: cleanContent,
               author: { displayName, handle, avatar: post.author.avatar, timestamp: post.timestamp }

@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppKit } from '@reown/appkit/react';
 import { post, fetchPosts } from '@lens-protocol/client/actions';
@@ -7,7 +6,7 @@ import { blockchainData, evmAddress, type SessionClient } from '@lens-protocol/c
 import { handleOperationWith } from '@lens-protocol/client/viem';
 import { article, MetadataAttributeType } from '@lens-protocol/metadata';
 import { StorageClient, immutable } from '@lens-chain/storage-client';
-import { CheckCircle2, ChevronLeft, Loader2, AlertCircle } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, Loader2, AlertCircle, X } from 'lucide-react';
 import { useAccount, useWalletClient } from 'wagmi';
 import {
   encodeAbiParameters,
@@ -21,6 +20,7 @@ import {
   type Hex,
 } from 'viem';
 import { useLensAuth } from '../hooks/useLensAuth';
+import { usePhoneNavigate } from '../hooks/usePhoneNavigate';
 import { useShowcase } from '../hooks/useShowcase';
 import { useWGHOBalance } from '../hooks/useWGHOBalance';
 import {
@@ -146,7 +146,7 @@ function formatTokenAmount(value: bigint): string {
 }
 
 export function CreateMarket() {
-  const navigate = useNavigate();
+  const phoneNavigate = usePhoneNavigate();
   const queryClient = useQueryClient();
   const { open: openWalletModal } = useAppKit();
   const { isConnected } = useAccount();
@@ -417,19 +417,33 @@ export function CreateMarket() {
 
   return (
     <div className={`${inShowcase ? 'h-full' : 'h-dvh'} w-full bg-[#1a1a1b] text-white flex flex-col`}>
-      <header className="shrink-0 border-b border-[#2d2d2e] px-4 py-3 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="size-9 rounded-full bg-[#2d2d2e] border border-[#444] flex items-center justify-center"
-          aria-label="Go back"
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </button>
-        <div>
-          <h1 className="text-base font-bold">Create Market</h1>
-          <p className="text-xs text-[#888]">Step {step} of 3</p>
+      <header className="shrink-0 border-b border-[#2d2d2e] px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {step > 1 && !createdTxHash && (
+            <button
+              type="button"
+              onClick={() => setStep(step === 3 ? 2 : 1)}
+              className="size-9 rounded-full bg-[#2d2d2e] border border-[#444] flex items-center justify-center active:scale-90 transition-transform"
+              aria-label="Back to previous step"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+          )}
+          <div>
+            <h1 className="text-base font-bold">{createdTxHash ? 'Market Created' : 'Create Market'}</h1>
+            {!createdTxHash && <p className="text-xs text-[#888]">Step {step} of 3</p>}
+          </div>
         </div>
+        {!createdTxHash && (
+          <button
+            type="button"
+            onClick={() => phoneNavigate('/', { replace: true })}
+            className="size-9 rounded-full bg-[#2d2d2e] border border-[#444] flex items-center justify-center active:scale-90 transition-transform"
+            aria-label="Cancel and exit"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </header>
 
       <div className="px-4 pt-4 pb-2 grid grid-cols-3 gap-2">
@@ -673,19 +687,19 @@ export function CreateMarket() {
             )}
 
             {createdTxHash && (
-              <div className="rounded-xl border border-[#00d4aa]/40 bg-[#00d4aa]/10 px-3 py-2 text-sm text-[#00d4aa] space-y-2">
+              <div className="rounded-xl border border-[#00d4aa]/40 bg-[#00d4aa]/10 px-3 py-3 text-sm text-[#00d4aa] space-y-2">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  <span>Market created!</span>
+                  <span className="font-semibold">Market created!</span>
                 </div>
                 {postOrExplorerUrl && (
                   <a
                     href={postOrExplorerUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="underline"
+                    className="underline text-xs"
                   >
-                    {createdPostUrl ? 'View post' : 'View transaction'}
+                    {createdPostUrl ? 'View post on Hey →' : 'View transaction →'}
                   </a>
                 )}
               </div>
@@ -695,58 +709,72 @@ export function CreateMarket() {
       </main>
 
       <footer
-        className="glass-nav border-t border-[#333] px-4 py-3 flex gap-2"
+        className="glass-nav border-t border-[#333] px-4 py-3"
         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
-        {step > 1 ? (
-          <button
-            type="button"
-            onClick={() => setStep((prev) => (prev === 3 ? 2 : 1))}
-            className="flex-1 rounded-xl border border-[#444] bg-[#2d2d2e] py-2.5 text-sm font-semibold"
-          >
-            Back
-          </button>
+        {createdTxHash ? (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => phoneNavigate('/feed', { replace: true })}
+              className="flex-1 rounded-xl bg-[#00d4aa] text-[#1a1a1b] py-3 text-sm font-bold active:scale-[0.98] transition-transform"
+            >
+              Go to Feed
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setStep(1);
+                setQuestion('');
+                setResolutionCriteria('');
+                setDeadline('');
+                setLiquidityB('100');
+                setFeePercent('2');
+                setSelectedTags(['crypto']);
+                setErrors({});
+                setCreatedTxHash(null);
+                setCreatedPostUrl(null);
+                setCreateError(null);
+              }}
+              className="flex-1 rounded-xl border border-[#00d4aa]/40 text-[#00d4aa] py-3 text-sm font-bold active:scale-[0.98] transition-transform"
+            >
+              Create Another
+            </button>
+          </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="flex-1 rounded-xl border border-[#444] bg-[#2d2d2e] py-2.5 text-sm font-semibold"
-          >
-            Cancel
-          </button>
-        )}
-
-        {step === 1 && (
-          <button
-            type="button"
-            onClick={handleContinueToPreview}
-            className="flex-1 rounded-xl bg-[#00d4aa] text-[#1a1a1b] py-2.5 text-sm font-bold"
-          >
-            Continue
-          </button>
-        )}
-
+          <>
+            {step === 1 && (
+              <button
+                type="button"
+                onClick={handleContinueToPreview}
+                className="w-full rounded-xl bg-[#00d4aa] text-[#1a1a1b] py-3 text-sm font-bold active:scale-[0.98] transition-transform"
+              >
+                Continue
+              </button>
+            )}
         {step === 2 && (
-          <button
-            type="button"
-            onClick={() => setStep(3)}
-            disabled={!isConnected || !auth.isAuthenticated || !hasEnoughBalance || !hasEnoughAllowance}
-            className="flex-1 rounded-xl bg-[#00d4aa] text-[#1a1a1b] py-2.5 text-sm font-bold disabled:opacity-50"
-          >
-            Continue
-          </button>
-        )}
+              <button
+                type="button"
+                onClick={() => setStep(3)}
+                disabled={!isConnected || !auth.isAuthenticated || !hasEnoughBalance || !hasEnoughAllowance}
+                className="w-full rounded-xl bg-[#00d4aa] text-[#1a1a1b] py-3 text-sm font-bold disabled:opacity-50 active:scale-[0.98] transition-transform"
+              >
+                Continue
+              </button>
+            )}
 
-        {step === 3 && (
-          <button
-            type="button"
-            onClick={handleCreateMarket}
-            disabled={isCreating || Boolean(createdTxHash)}
-            className="flex-1 rounded-xl bg-[#00d4aa] text-[#1a1a1b] py-2.5 text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {isCreating && <Loader2 className="w-4 h-4 animate-spin" />}
-            {createdTxHash ? 'Created' : 'Create Market'}
-          </button>
+            {step === 3 && (
+              <button
+                type="button"
+                onClick={handleCreateMarket}
+                disabled={isCreating}
+                className="w-full rounded-xl bg-[#00d4aa] text-[#1a1a1b] py-3 text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+              >
+                {isCreating && <Loader2 className="w-4 h-4 animate-spin" />}
+                Create Market
+              </button>
+            )}
+          </>
         )}
       </footer>
     </div>
