@@ -39,9 +39,9 @@ The separation of concerns is deliberate:
 │  │ Adjudicator  │  │    Fee     │  │    Income    │  │   Data &    │    │
 │  │  Selection   │  │ Allocation │  │ Distribution │  │  Analytics  │    │
 │  └──────┬───────┘  └─────┬──────┘  └──────┬───────┘  └──────┬──────┘    │
-│         │                │                │                  │          │
-│         │  chooses       │  configures    │  manages         │  uses    │
-│         ▼                ▼                ▼                  ▼          │
+│         │                │                │                 │           │
+│         │  chooses       │  configures    │  manages        │  uses     │
+│         ▼                ▼                ▼                 ▼           │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                         │
 │  LAYER 2 — ADJUDICATOR LAYER (Extension)                                │
@@ -158,10 +158,10 @@ types and trust models.
 ┌─────────────────────────────────────────────────┐
 │               ADJUDICATOR                       │
 │                                                 │
-│   ┌─────────────┐      ┌────────────────────┐   │
+│   ┌──────────────┐      ┌────────────────────┐  │
 │   │   Oracle     │      │     Resolver       │  │
 │   │  (data feed) │ ───► │  (settlement logic)│  │
-│   └─────────────┘      └────────────────────┘   │
+│   └──────────────┘      └────────────────────┘  │
 │                                                 │
 │   Examples:                                     │
 │   • TEE attestation + ERC-8004 validation       │
@@ -439,11 +439,11 @@ Creators leverage data services to optimize market parameters:
       │ Launchpad  │  │Adjudicator│  │  Fee Config  │
       │  Engine    │  │ (Layer 2) │  │  (bps, split)│
       └─────┬──────┘  └───────────┘  └──────┬───────┘
-            │                                │
-            │         TRADING ACTIVITY       │
-            │         ═══════════════        │
-            │                │               │
-            ▼                ▼               │
+            │                               │
+            │         TRADING ACTIVITY      │
+            │         ═══════════════       │
+            │                │              │
+            ▼                ▼              │
      ┌────────────┐   ┌───────────┐         │
      │ AMMEngine  │   │ SoothBook │◄────────┘
      │ (pre-grad) │   │(post-grad)│
