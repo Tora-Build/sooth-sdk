@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sooth.Market | Aggregator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwindcss.config = {
+      theme: {
+        extend: {
+          colors: {
+            zinc: {
+              50: '#fafafa',
+              400: '#a1a1aa',
+              800: '#27272a',
+              900: '#18181b',
+              950: '#09090b',
+            },
+            amber: {
+              500: '#f59e0b',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <style>
+    body { background-color: #09090b; color: #fafafa; }
+    table { width: 100%; border-collapse: separate; border-spacing: 0; }
+    th { text-align: left; padding: 12px 16px; border-bottom: 1px solid #27272a; color: #a1a1aa; font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+    td { padding: 16px; border-bottom: 1px solid #27272a; font-size: 14px; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background-color: #18181b; }
+    .badge { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+    .badge-amber { background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2); }
+    .badge-emerald { background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
+    .badge-blue { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2); }
+    .badge-zinc { background: rgba(161, 161, 170, 0.1); color: #a1a1aa; border: 1px solid rgba(161, 161, 170, 0.2); }
+  </style>
+</head>
+<body class="min-h-screen font-sans">
+  <header class="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-10">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 bg-amber-500 rounded-sm"></div>
+        <span class="font-bold text-lg tracking-tight">Sooth.Market</span>
+        <span class="text-zinc-400 text-sm ml-2 px-2 py-0.5 border border-zinc-800 rounded bg-zinc-900">Registry</span>
+      </div>
+      <div class="flex gap-4 text-sm text-zinc-400">
+        <div class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-emerald-500"></div>Base Sepolia</div>
+        <div class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-emerald-500"></div>Monad Testnet</div>
+        <div class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-amber-500"></div>Lens Testnet (Soon)</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-6 py-8">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div class="bg-zinc-900 border border-zinc-800 p-6 rounded-lg">
+        <div class="text-zinc-400 text-sm mb-2">Total Markets</div>
+        <div class="text-3xl font-semibold" id="stat-total">-</div>
+      </div>
+      <div class="bg-zinc-900 border border-zinc-800 p-6 rounded-lg">
+        <div class="text-zinc-400 text-sm mb-2">Total Volume (USDC)</div>
+        <div class="text-3xl font-semibold text-amber-500" id="stat-vol">-</div>
+      </div>
+      <div class="bg-zinc-900 border border-zinc-800 p-6 rounded-lg">
+        <div class="text-zinc-400 text-sm mb-2">Active Instances</div>
+        <div class="text-3xl font-semibold">2</div>
+      </div>
+    </div>
+
+    <div class="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+      <div class="px-6 py-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-950/50">
+        <h2 class="font-semibold">Market Instance Directory</h2>
+        <div class="text-xs text-zinc-400 font-mono">V12.0 Protocol</div>
+      </div>
+      <div class="overflow-x-auto">
+        <table id="markets-table">
+          <thead>
+            <tr>
+              <th>Network</th>
+              <th>Market Address</th>
+              <th>Question</th>
+              <th>Creator</th>
+              <th>Status</th>
+              <th>Deposit</th>
+            </tr>
+          </thead>
+          <tbody id="markets-body">
+            <tr>
+              <td colspan="6" class="text-center text-zinc-400 py-8">Fetching cross-chain market data...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js"></script>
+  <script>
+    const NETWORKS = [
+      {
+        name: 'Base Sepolia',
+        chainId: 84532,
+        rpc: 'https://sepolia.base.org',
+        launchpad: '0xf00fb446d1262d1f4100e6d899cf0c8c298a6e61'
+      },
+      {
+        name: 'Monad Testnet',
+        chainId: 10143,
+        rpc: 'https://testnet-rpc.monad.xyz',
+        launchpad: '0x6fd82b76045af934354a2033fde5cb64772ae615'
+      }
+    ];
+
+    const ABIS = {
+      launchpad: [
+        "function getMarkets() view returns (address[])",
+        "function markets(address) view returns (address creator, address lpToken, uint256 bBase, uint256 bCurrent, uint256 creatorDeposit, uint256 feesAccrued, uint256 totalLPSupply, uint256 lpYieldPool, bool isGraduated, uint64 createdAt, uint64 graduatedAt)",
+        "function trialStates(address) view returns (uint256, bool, uint256)"
+      ],
+      market: [
+        "function question() view returns (string)",
+        "function isSettled() view returns (bool)",
+        "function isFinalized() view returns (bool)"
+      ]
+    };
+
+    function formatAddress(addr) {
+      if (!addr) return '';
+      return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+    }
+
+    function formatWad(wad) {
+      return (Number(ethers.formatUnits(wad || 0n, 18))).toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD'
+      });
+    }
+
+    function getBadge(isGraduated, isSettled, isFinalized, isDismissed) {
+      if (isDismissed) return '<span class="badge badge-zinc">Dismissed</span>';
+      if (isFinalized) return '<span class="badge badge-blue">Finalized</span>';
+      if (isSettled) return '<span class="badge badge-zinc">Settled</span>';
+      if (isGraduated) return '<span class="badge badge-emerald">Live</span>';
+      return '<span class="badge badge-amber">Bonding</span>';
+    }
+
+    async function loadData() {
+      const allMarkets = [];
+      let totalDeposits = 0n;
+
+      for (const net of NETWORKS) {
+        try {
+          const provider = new ethers.JsonRpcProvider(net.rpc);
+          const launchpad = new ethers.Contract(net.launchpad, ABIS.launchpad, provider);
+          
+          const addresses = await launchpad.getMarkets();
+          
+          for (const address of addresses) {
+            try {
+              const [marketData, trialState] = await Promise.all([
+                launchpad.markets(address),
+                launchpad.trialStates(address)
+              ]);
+              
+              const marketContract = new ethers.Contract(address, ABIS.market, provider);
+              
+              let question = "Unknown";
+              let settled = false;
+              let finalized = false;
+              
+              try { question = await marketContract.question(); } catch(e) {}
+              try { settled = await marketContract.isSettled(); } catch(e) {}
+              try { finalized = await marketContract.isFinalized(); } catch(e) {}
+
+              totalDeposits += marketData.creatorDeposit;
+
+              allMarkets.push({
+                network: net.name,
+                address,
+                question,
+                creator: marketData.creator,
+                isGraduated: marketData.isGraduated,
+                isDismissed: trialState[1],
+                isSettled: settled,
+                isFinalized: finalized,
+                deposit: marketData.creatorDeposit
+              });
+            } catch (err) {
+              console.error(`Failed to load market ${address} on ${net.name}`, err);
+            }
+          }
+        } catch (err) {
+          console.error(`Failed to load network ${net.name}`, err);
+        }
+      }
+
+      const tbody = document.getElementById('markets-body');
+      tbody.innerHTML = '';
+      
+      if (allMarkets.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-zinc-400 py-8">No markets found across networks</td></tr>';
+        return;
+      }
+
+      allMarkets.forEach(m => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td><span class="text-zinc-300">${m.network}</span></td>
+          <td class="font-mono text-zinc-400 text-xs">${formatAddress(m.address)}</td>
+          <td class="font-medium text-zinc-100">${m.question}</td>
+          <td class="font-mono text-zinc-400 text-xs">${formatAddress(m.creator)}</td>
+          <td>${getBadge(m.isGraduated, m.isSettled, m.isFinalized, m.isDismissed)}</td>
+          <td class="text-zinc-300 font-mono text-xs">${formatWad(m.deposit)}</td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      document.getElementById('stat-total').innerText = allMarkets.length;
+      document.getElementById('stat-vol').innerText = formatWad(totalDeposits);
+    }
+
+    window.addEventListener('load', loadData);
+  </script>
+</body>
+</html>
