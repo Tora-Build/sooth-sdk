@@ -57,7 +57,7 @@ export function Showcase({ children }: ShowcaseProps) {
 
           {/* Header */}
           <div className="text-center mb-10">
-            <h1 className="text-4xl lg:text-5xl font-black tracking-tighter mb-4 lowercase flex flex-wrap items-center justify-center gap-x-[0.25em] gap-y-2">
+            <h1 className="text-4xl lg:text-5xl font-black tracking-tighter leading-tight mb-6 lowercase flex flex-wrap items-center justify-center gap-x-[0.25em] gap-y-2">
               <span>the prediction market</span>
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#836ef9] via-[#00d4aa] to-cyan-400">plugin</span>
               <span>for</span>
