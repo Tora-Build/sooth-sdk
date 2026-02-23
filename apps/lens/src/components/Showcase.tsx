@@ -63,8 +63,9 @@ export function Showcase({ children }: ShowcaseProps) {
                 plugin
               </span>{' '}
               for{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00d4aa] via-cyan-400 to-[#836ef9]">
-                agents
+              <span className="inline-flex items-center gap-2 align-middle">
+                <img src="https://avatars.githubusercontent.com/u/104329895?s=48" alt="Lens" className="w-10 h-10 rounded-full inline-block" />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00d4aa] via-cyan-400 to-[#836ef9]">lens</span>
               </span>
             </h1>
             <p className="text-lg text-white/50 max-w-2xl mx-auto">
