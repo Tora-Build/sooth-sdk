@@ -57,15 +57,15 @@ export function Showcase({ children }: ShowcaseProps) {
 
           {/* Header */}
           <div className="text-center mb-10">
-            <h1 className="text-4xl lg:text-5xl font-black tracking-tighter mb-4 lowercase">
-              the prediction market{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#836ef9] via-[#00d4aa] to-cyan-400">
-                plugin
-              </span>{' '}
-              for{' '}
-              <span className="inline-flex items-center gap-2 align-middle">
-                <img src="https://avatars.githubusercontent.com/u/104329895?s=48" alt="Lens" className="w-10 h-10 rounded-full inline-block" />
+            <h1 className="text-4xl lg:text-5xl font-black tracking-tighter mb-4 lowercase flex flex-wrap items-center justify-center gap-x-[0.25em] gap-y-2">
+              <span>the prediction market</span>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#836ef9] via-[#00d4aa] to-cyan-400">plugin</span>
+              <span>for</span>
+              <span className="inline-flex items-center gap-2 whitespace-nowrap">
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00d4aa] via-cyan-400 to-[#836ef9]">lens</span>
+                <svg width="34" height="34" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
+                  <path d="M4 20C4.05366 25.4834 5.90095 29.7187 8.84628 32.0185C11.782 34.4128 15.8139 34.8697 20.001 35C24.188 34.8697 28.2199 34.4128 31.1556 32.0185C34.101 29.7187 35.9463 25.4815 36 20C35.9463 14.5166 34.101 10.2813 31.1556 7.9815C28.2199 5.58724 24.1861 5.13029 20.001 5C15.8139 5.13029 11.782 5.58724 8.84628 7.9815C5.90095 10.2795 4.05366 14.5147 4.00192 20H4Z" fill="#1EC8A0"/>
+                </svg>
               </span>
             </h1>
             <p className="text-lg text-white/50 max-w-2xl mx-auto">
