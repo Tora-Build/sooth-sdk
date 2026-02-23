@@ -1,6 +1,6 @@
 import { useContext } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Rss, BarChart3, Search, User } from 'lucide-react';
+import { Rss, BarChart3, Plus, User } from 'lucide-react';
 import { ShowcaseContext } from '../hooks/useShowcase';
 import { PhoneRouteContext } from '../App';
 
@@ -13,7 +13,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { to: '/feed', icon: Rss, label: 'FEED' },
   { to: '/markets', icon: BarChart3, label: 'MARKETS' },
-  { to: '/search', icon: Search, label: 'DISCOVER' },
+  { to: '/create', icon: Plus, label: 'CREATE' },
   { to: '/profile', icon: User, label: 'PROFILE' },
 ];
 
