@@ -1,5 +1,5 @@
 [build]
-  command = "cd ../.. && pnpm install && cd apps/soothsayer && ./node_modules/.bin/vite build"
+  command = "cd ../.. && pnpm install && cd apps/lens && ./node_modules/.bin/vite build"
   publish = "dist"
 
 [build.environment]
