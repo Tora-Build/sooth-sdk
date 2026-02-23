@@ -9,6 +9,7 @@ import { AAP } from './pages/AAP';
 import { SkillPage } from './pages/SkillPage';
 import { AdjudicatorPage } from './pages/AdjudicatorPage';
 import { CreateMarket } from './pages/CreateMarket';
+import { MarketDetail } from './pages/MarketDetail';
 import { BottomNav } from './components/BottomNav';
 import { Showcase } from './components/Showcase';
 import { DesktopNav } from './components/DesktopNav';
@@ -29,6 +30,7 @@ function MobileApp() {
         <Route path="/search" element={<Search />} />
         <Route path="/portfolio" element={<Portfolio />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/market/:feedAddress/:postId" element={<MarketDetail />} />
       </Routes>
       <BottomNav />
     </div>

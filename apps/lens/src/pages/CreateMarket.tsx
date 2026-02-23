@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAppKit } from '@reown/appkit/react';
 import { post, fetchPosts } from '@lens-protocol/client/actions';
 import { blockchainData, evmAddress, type SessionClient } from '@lens-protocol/client';
@@ -146,6 +147,7 @@ function formatTokenAmount(value: bigint): string {
 
 export function CreateMarket() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { open: openWalletModal } = useAppKit();
   const { isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
@@ -405,6 +407,7 @@ export function CreateMarket() {
 
       const postUrl = await resolvePostUrl(auth.sessionClient, auth.lensAccount, question.trim());
       setCreatedPostUrl(postUrl === 'indexed' ? null : postUrl);
+      queryClient.invalidateQueries({ queryKey: ['lens-feed'] });
     } catch (error) {
       setCreateError(error instanceof Error ? error.message : 'Failed to create market');
     } finally {

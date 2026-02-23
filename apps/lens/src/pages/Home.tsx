@@ -3,7 +3,7 @@ import { useAccount } from 'wagmi';
 import { useNavigate } from 'react-router-dom';
 import { Rss, Wallet, Loader2, Plus } from 'lucide-react';
 import { useLensFeed } from '../hooks/useLensFeed';
-import { LensPostCard } from '../components/LensPostCard';
+import { SnapMarketCard } from '../components/SnapMarketCard';
 import { useShowcase } from '../hooks/useShowcase';
 
 export function Home() {
@@ -44,7 +44,7 @@ export function Home() {
         ) : (
           posts.map((post) => (
             <div key={post.id} className="snap-card">
-              <LensPostCard post={post} />
+              <SnapMarketCard post={post} />
             </div>
           ))
         )}
