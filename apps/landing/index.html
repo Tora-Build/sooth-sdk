@@ -1,558 +1,400 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Sooth Protocol</title>
+  <title>Sooth Protocol | The Universal Prediction Engine</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <meta name="description" content="The permissionless prediction market launchpad. Dual venue trading, ZK settlement, creator economics." />
+  <meta name="description" content="A three-layer prediction market protocol separating core trading, adjudication, and creator economics." />
+  
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwindcss.config = {
       theme: {
         extend: {
-          colors: {
-            sooth: { purple: '#836ef9', teal: '#00d4aa', dark: '#0a0a0b' },
-          },
           fontFamily: {
-            mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+            sans: ['Outfit', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
           },
+          colors: {
+            brand: {
+              DEFAULT: '#10b981', // emerald-500
+              light: '#34d399',   // emerald-400
+              dark: '#047857',    // emerald-700
+            },
+            zinc: {
+              950: '#09090b',
+            }
+          }
         },
       },
     };
   </script>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <style>
-    html, body { overflow-x: hidden; width: 100%; }
-    body { background: #0a0a0b; color: #fff; font-family: 'JetBrains Mono', monospace; }
-    .glow-purple { box-shadow: 0 0 60px rgba(131, 110, 249, 0.12); }
-    .glow-teal { box-shadow: 0 0 60px rgba(0, 212, 170, 0.12); }
-    .gradient-text { background: linear-gradient(135deg, #836ef9, #00d4aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    .gradient-border { border: 1px solid transparent; background-image: linear-gradient(#0a0a0b, #0a0a0b), linear-gradient(135deg, #836ef9, #00d4aa); background-origin: border-box; background-clip: padding-box, border-box; }
-    .bg-grid { background-image: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px); background-size: 32px 32px; }
-  </style>
-</head>
-<body class="bg-grid min-h-screen antialiased">
+  
 
-  <!-- Nav -->
-  <nav class="fixed top-0 w-full z-50 bg-[#0a0a0b]/80 backdrop-blur-md border-b border-white/5">
-    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  
+  <style>
+    :root {
+      --bg: #09090b;
+    }
+    body {
+      background-color: var(--bg);
+      color: #fff;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    
+    /* Noise Overlay */
+    .noise-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E");
+    }
+
+    /* Liquid Glass Card */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    
+    /* Ambient Lighting */
+    .ambient-glow {
+      position: absolute;
+      width: 50vw;
+      height: 50vw;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.06) 0%, rgba(9, 9, 11, 0) 70%);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Utilities */
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+</head>
+<body class="relative">
+  <div class="noise-bg"></div>
+
+
+  <nav class="fixed top-0 w-full z-40 bg-zinc-950/70 backdrop-blur-xl border-b border-white/5">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <div class="w-8 h-8 flex items-center justify-center">
-          <svg width="28" height="28" viewBox="0 0 200 200" fill="none">
-            <path d="M100 50L180 120L100 190L20 120Z" fill="#818CF8" opacity="0.4" stroke="#818CF8" stroke-width="1"/>
-            <path d="M100 30L180 100L100 170L20 100Z" fill="#C084FC" opacity="0.4" stroke="#C084FC" stroke-width="1"/>
-            <path d="M100 10L180 80L100 150L20 80Z" fill="#22D3EE" opacity="0.6" stroke="#22D3EE" stroke-width="2"/>
-            <path d="M100 10V190" stroke="white" stroke-width="2" stroke-linecap="round" opacity="1.0"/>
-          </svg>
-        </div>
-        <span class="font-bold text-lg tracking-tight">Sooth</span>
+
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L2 22H22L12 2Z" stroke="#10b981" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M12 10L6 20H18L12 10Z" fill="#10b981" fill-opacity="0.1" stroke="#10b981" stroke-width="1"/>
+        </svg>
+        <span class="font-semibold text-sm tracking-widest uppercase text-zinc-100">Sooth</span>
       </div>
-      <div class="flex items-center gap-6">
-        <a href="#products" class="text-sm text-white/50 hover:text-white transition-colors hidden sm:block">Products</a>
-        <a href="#how-it-works" class="text-sm text-white/50 hover:text-white transition-colors hidden sm:block">How It Works</a>
-        <a href="#dual-venue" class="text-sm text-white/50 hover:text-white transition-colors hidden sm:block">Dual Venue</a>
-        <a href="https://github.com/Tora-Build/sooth-core" target="_blank" class="text-sm text-white/50 hover:text-white transition-colors">GitHub</a>
+      <div class="flex items-center gap-8 text-xs font-mono tracking-wider text-zinc-500">
+        <a href="#architecture" class="hover:text-white transition-colors hidden sm:block">Architecture</a>
+        <a href="#mechanics" class="hover:text-white transition-colors hidden sm:block">Mechanics</a>
+        <a href="https://github.com/Tora-Build/sooth-core" target="_blank" class="hover:text-brand transition-colors">GitHub ↗</a>
       </div>
     </div>
   </nav>
 
-  <!-- Hero -->
-  <section class="relative pt-28 pb-16 sm:pt-32 sm:pb-20 px-5 sm:px-6">
-    <div class="absolute top-20 left-1/4 w-[400px] h-[400px] bg-sooth-purple/10 rounded-full blur-[120px] pointer-events-none"></div>
-    <div class="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-sooth-teal/10 rounded-full blur-[120px] pointer-events-none"></div>
+  <main class="relative z-10">
 
-    <div class="relative z-10 max-w-4xl mx-auto text-center">
-      <h1 class="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tighter mb-6 lowercase">
-        permissionless<br/>
-        <span class="gradient-text">prediction market<br/>launchpad</span>
-      </h1>
+    <section class="min-h-[100dvh] w-full flex items-center pt-24 pb-16 px-4 sm:px-6 max-w-7xl mx-auto relative">
+      <div class="ambient-glow"></div>
+      
+      <div class="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-16 lg:gap-8 w-full items-center">
 
-      <p class="text-lg sm:text-xl text-white/40 max-w-2xl mx-auto mb-12 leading-relaxed">
-        Dual venue trading with AMM + orderbook. ZK settlement. Creator economics. Pluggable adjudicators.
-        Deploy prediction markets on any chain.
-      </p>
-
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
-        <a href="#products"
-           class="group px-8 py-3.5 rounded-xl bg-gradient-to-r from-sooth-purple to-sooth-teal text-white font-semibold text-sm tracking-wide hover:opacity-90 transition-all flex items-center gap-2">
-          Explore Products
-          <svg class="w-4 h-4 group-hover:translate-y-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
-        </a>
-        <a href="/whitepaper.html"
-           class="group gradient-border px-8 py-3.5 rounded-xl text-white/80 hover:text-white font-semibold text-sm tracking-wide transition-all flex items-center gap-2">
-          Whitepaper
-          <svg class="w-4 h-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-        </a>
-      </div>
-    </div>
-  </section>
-
-  <!-- Products (moved up) -->
-  <section id="products" class="py-20 px-6 border-t border-white/5">
-    <div class="max-w-5xl mx-auto">
-      <h2 class="text-3xl font-black tracking-tighter text-center mb-4 lowercase">live on sooth</h2>
-      <p class="text-center text-white/40 text-base mb-16 max-w-xl mx-auto">
-        Two adjudicators, two chains. Same protocol infrastructure.
-      </p>
-
-      <div class="grid sm:grid-cols-2 gap-8 max-w-4xl mx-auto">
-
-        <!-- Sooth dApp -->
-        <div class="p-8 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-sooth-purple/30 transition-all flex flex-col glow-purple">
-          <div class="flex items-center gap-3 mb-2">
-            <div class="w-10 h-10 rounded-xl bg-sooth-purple/10 flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#836ef9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
-            </div>
-            <h3 class="font-bold text-lg">Sooth dApp</h3>
-          </div>
-          <div class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-500/10 text-[10px] text-blue-400 font-semibold uppercase tracking-widest mb-4 w-fit">
-            <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
-            Base Sepolia · UMA Oracle
-          </div>
-          <p class="text-base text-white/50 leading-relaxed mb-6 flex-1">
-            Full prediction market trading interface. Mirrors Polymarket markets using UMA's optimistic oracle for trustless settlement on Base.
-          </p>
-          <ul class="text-sm text-white/40 space-y-2 mb-8">
-            <li class="flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-sooth-purple"></span>Dual venue: AMM + TickBook orderbook</li>
-            <li class="flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-sooth-purple"></span>UMA Mirror Adjudicator</li>
-            <li class="flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-sooth-purple"></span>Portfolio tracking & P&L</li>
-            <li class="flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-sooth-purple"></span>WalletConnect + MetaMask</li>
-          </ul>
-          <a href="https://app.sooth.market"
-             class="w-full px-6 py-3 rounded-xl gradient-border text-white/80 hover:text-white font-semibold text-sm transition-all flex items-center justify-center gap-2">
-            Launch dApp
-            <svg class="w-4 h-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-          </a>
-          <p class="text-xs text-white/20 text-center mt-3">Invite-only · request access in-app</p>
-        </div>
-
-        <!-- SoothSayer -->
-        <div class="p-8 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-sooth-teal/30 transition-all flex flex-col glow-teal">
-          <div class="flex items-center gap-3 mb-2">
-            <div class="w-10 h-10 rounded-xl bg-sooth-teal/10 flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 200 200" fill="none"><path d="M40 100 Q70 55 100 55 Q130 55 160 100 Q130 145 100 145 Q70 145 40 100 Z" stroke="#00d4aa" stroke-width="14" fill="none"/><circle cx="100" cy="100" r="22" stroke="#00d4aa" stroke-width="8" fill="none"/><circle cx="100" cy="100" r="9" fill="#00d4aa"/></svg>
-            </div>
-            <h3 class="font-bold text-lg">SoothSayer</h3>
-          </div>
-          <div class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-purple-500/10 text-[10px] text-purple-400 font-semibold uppercase tracking-widest mb-4 w-fit">
-            <span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
-            Monad · Moltbook Agents
-          </div>
-          <p class="text-base text-white/50 leading-relaxed mb-6 flex-1">
-            Agent-native prediction markets. AI agents create markets, stake convictions, and resolve outcomes through Moltbook's agent adjudicator.
-          </p>
-          <ul class="text-sm text-white/40 space-y-2 mb-8">
-            <li class="flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-sooth-teal"></span>Moltbook Agent Adjudicator</li>
-            <li class="flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-sooth-teal"></span>Drop-in skill for any AI framework</li>
-            <li class="flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-sooth-teal"></span>On-chain reputation & leaderboard</li>
-            <li class="flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-sooth-teal"></span>Async Agent Protocol (AAP)</li>
-          </ul>
-          <a href="https://sayer.sooth.market" target="_blank"
-             class="w-full px-6 py-3 rounded-xl gradient-border text-white/80 hover:text-white font-semibold text-sm transition-all flex items-center justify-center gap-2">
-            Open SoothSayer
-            <svg class="w-4 h-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-          </a>
-          <p class="text-xs text-white/20 text-center mt-3">Open access — try it now</p>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  <!-- How it Works -->
-  <section id="how-it-works" class="py-20 px-6 border-t border-white/5">
-    <div class="max-w-5xl mx-auto">
-      <h2 class="text-3xl font-black tracking-tighter text-center mb-4 lowercase">market lifecycle</h2>
-      <p class="text-center text-white/40 text-base mb-16 max-w-xl mx-auto">
-        Markets evolve through phases. Each phase aligns incentives differently.
-      </p>
-
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div class="p-5 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-sooth-purple/30 transition-all">
-          <div class="flex items-center gap-2 mb-3">
-            <span class="text-sooth-purple font-black text-xs bg-sooth-purple/10 px-2 py-1 rounded-lg">01</span>
-            <span class="text-xs text-white/30">→</span>
-          </div>
-          <h3 class="font-bold text-sm mb-2">Create</h3>
-          <p class="text-sm text-white/50 leading-relaxed">
-            Anyone deposits collateral to create a market. Creator becomes the first LP.
-          </p>
-        </div>
-
-        <div class="p-5 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-amber-500/30 transition-all">
-          <div class="flex items-center gap-2 mb-3">
-            <span class="text-amber-400 font-black text-xs bg-amber-500/10 px-2 py-1 rounded-lg">02</span>
-            <span class="text-xs text-white/30">→</span>
-          </div>
-          <h3 class="font-bold text-sm mb-2">Trial Period</h3>
-          <p class="text-sm text-white/50 leading-relaxed">
-            7-day proving ground. Trading happens, fees accrue. Failed markets can be dismissed with full refunds.
-          </p>
-        </div>
-
-        <div class="p-5 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-sooth-teal/30 transition-all">
-          <div class="flex items-center gap-2 mb-3">
-            <span class="text-sooth-teal font-black text-xs bg-sooth-teal/10 px-2 py-1 rounded-lg">03</span>
-            <span class="text-xs text-white/30">→</span>
-          </div>
-          <h3 class="font-bold text-sm mb-2">Graduate</h3>
-          <p class="text-sm text-white/50 leading-relaxed">
-            Hit fee threshold → TickBook activates, LP tokens transferable, fees drop to 1%.
-          </p>
-        </div>
-
-        <div class="p-5 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-cyan-500/30 transition-all">
-          <div class="flex items-center gap-2 mb-3">
-            <span class="text-cyan-400 font-black text-xs bg-cyan-500/10 px-2 py-1 rounded-lg">04</span>
-          </div>
-          <h3 class="font-bold text-sm mb-2">Settle</h3>
-          <p class="text-sm text-white/50 leading-relaxed">
-            Adjudicator submits outcome + T* timestamp. Veto window. Finalize. Winners redeem.
-          </p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Dual Venue -->
-  <section id="dual-venue" class="py-20 px-6 border-t border-white/5">
-    <div class="max-w-5xl mx-auto">
-      <h2 class="text-3xl font-black tracking-tighter text-center mb-4 lowercase">dual venue trading</h2>
-      <p class="text-center text-white/40 text-base mb-16 max-w-xl mx-auto">
-        AMM for retail. Orderbook for pros. Arbitrage keeps prices tight.
-      </p>
-
-      <div class="grid sm:grid-cols-2 gap-6 max-w-4xl mx-auto">
-        <!-- AMM -->
-        <div class="p-6 rounded-2xl bg-white/[0.03] border border-sooth-purple/20 glow-purple">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-10 h-10 rounded-xl bg-sooth-purple/10 flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#836ef9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg>
-            </div>
-            <div>
-              <h3 class="font-bold text-sm">LMSR AMM</h3>
-              <span class="text-[10px] text-white/30 uppercase tracking-widest">Retail</span>
-            </div>
-          </div>
-          <ul class="space-y-2.5 text-sm text-white/50">
-            <li class="flex items-start gap-2"><span class="text-sooth-purple mt-0.5">▸</span> Always-on liquidity at any price</li>
-            <li class="flex items-start gap-2"><span class="text-sooth-purple mt-0.5">▸</span> One-click trading, bounded LP loss</li>
-            <li class="flex items-start gap-2"><span class="text-sooth-purple mt-0.5">▸</span> 5% fee → LP tokens minted to trader</li>
-            <li class="flex items-start gap-2"><span class="text-sooth-purple mt-0.5">▸</span> 24h sell lock on proceeds</li>
-          </ul>
-          <div class="mt-5 p-3 rounded-lg bg-black/30 text-[11px] text-white/30 font-mono">
-            P(YES) = e<sup>qY/b</sup> / (e<sup>qY/b</sup> + e<sup>qN/b</sup>)
-          </div>
-        </div>
-
-        <!-- TickBook -->
-        <div class="p-6 rounded-2xl bg-white/[0.03] border border-sooth-teal/20 glow-teal">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-10 h-10 rounded-xl bg-sooth-teal/10 flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
-            </div>
-            <div>
-              <h3 class="font-bold text-sm">TickBook Orderbook</h3>
-              <span class="text-[10px] text-white/30 uppercase tracking-widest">Pro</span>
-            </div>
-          </div>
-          <ul class="space-y-2.5 text-sm text-white/50">
-            <li class="flex items-start gap-2"><span class="text-sooth-teal mt-0.5">▸</span> 1,000 price ticks (0.1%–99.9%)</li>
-            <li class="flex items-start gap-2"><span class="text-sooth-teal mt-0.5">▸</span> Zero slippage limit orders</li>
-            <li class="flex items-start gap-2"><span class="text-sooth-teal mt-0.5">▸</span> O(1) best-price via two-level bitmap</li>
-            <li class="flex items-start gap-2"><span class="text-sooth-teal mt-0.5">▸</span> EIP-1153 flash accounting</li>
-          </ul>
-          <div class="mt-5 p-3 rounded-lg bg-black/30 text-[11px] text-white/30 font-mono">
-            YES<sub>tick</sub> + NO<sub>tick</sub> ≥ 1000 → cross
-          </div>
-        </div>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- Economics -->
-  <section class="py-20 px-6 border-t border-white/5">
-    <div class="max-w-5xl mx-auto">
-      <h2 class="text-3xl font-black tracking-tighter text-center mb-4 lowercase">aligned economics</h2>
-      <p class="text-center text-white/40 text-base mb-16 max-w-xl mx-auto">
-        Everyone earns. Creators, traders, and LPs all have skin in the game.
-      </p>
-
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        <!-- Creators -->
-        <div class="p-6 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-sooth-purple/30 transition-all">
-          <div class="text-xs text-sooth-purple font-semibold uppercase tracking-widest mb-4">Creators</div>
-          <p class="text-sm text-white/50 leading-relaxed mb-4">
-            Deposit collateral to create markets. Earn LP tokens from trading fees. Markets that graduate unlock yield streams.
-          </p>
-          <div class="space-y-2 text-xs">
-            <div class="flex justify-between text-white/30">
-              <span>Deposit ($1K tier)</span><span class="text-white/50">$693</span>
-            </div>
-            <div class="flex justify-between text-white/30">
-              <span>Graduation threshold</span><span class="text-white/50">2× deposit</span>
-            </div>
-            <div class="flex justify-between text-white/30">
-              <span>LP share</span><span class="text-sooth-purple">50% of fees</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Traders -->
-        <div class="p-6 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-sooth-teal/30 transition-all">
-          <div class="text-xs text-sooth-teal font-semibold uppercase tracking-widest mb-4">Traders</div>
-          <p class="text-sm text-white/50 leading-relaxed mb-4">
-            Pay fees, get LP tokens back. Win on predictions AND earn from market activity. Trial period protects against rug pulls.
-          </p>
-          <div class="space-y-2 text-xs">
-            <div class="flex justify-between text-white/30">
-              <span>Bonding fee</span><span class="text-white/50">5% → LP tokens</span>
-            </div>
-            <div class="flex justify-between text-white/30">
-              <span>Graduated fee</span><span class="text-white/50">1%</span>
-            </div>
-            <div class="flex justify-between text-white/30">
-              <span>Trial protection</span><span class="text-sooth-teal">7-day refund</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Adjudicators -->
-        <div class="p-6 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-amber-500/30 transition-all">
-          <div class="text-xs text-amber-400 font-semibold uppercase tracking-widest mb-4">Adjudicators</div>
-          <p class="text-sm text-white/50 leading-relaxed mb-4">
-            Pluggable oracles settle markets. ZK proofs, agents, multisigs, or on-chain conditions. T* mechanism prevents latency exploitation.
-          </p>
-          <div class="space-y-2 text-xs">
-            <div class="flex justify-between text-white/30">
-              <span>ZK Validated</span><span class="text-white/50">Objective facts</span>
-            </div>
-            <div class="flex justify-between text-white/30">
-              <span>Optimistic</span><span class="text-white/50">Challenge period</span>
-            </div>
-            <div class="flex justify-between text-white/30">
-              <span>Oracle + ZK</span><span class="text-amber-400">Price thresholds</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Architecture -->
-  <section class="py-20 px-6 border-t border-white/5">
-    <div class="max-w-5xl mx-auto">
-      <h2 class="text-3xl font-black tracking-tighter text-center mb-4 lowercase">architecture</h2>
-      <p class="text-center text-white/40 text-base mb-16 max-w-xl mx-auto">
-        Modular contracts. Domain-isolated venues. Pluggable settlement.
-      </p>
-
-      <div class="max-w-2xl mx-auto space-y-2">
-        <!-- Top: ProtocolConfig -->
-        <div class="p-3.5 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-between">
+        <div class="flex flex-col gap-8 max-w-2xl relative z-10">
           <div class="flex items-center gap-3">
-            <span class="w-2 h-2 rounded-full bg-white/20"></span>
-            <span class="text-sm font-semibold text-white/60">ProtocolConfig</span>
+            <div class="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"></div>
+            <span class="text-xs font-mono text-brand tracking-widest uppercase">Protocol V12.0 Active</span>
           </div>
-          <span class="text-[10px] text-white/20 font-mono">guardian + pause</span>
+          
+          <h1 class="text-5xl sm:text-7xl lg:text-8xl font-medium tracking-tighter leading-[0.9] text-zinc-100 gs-reveal">
+            The universal <br/>
+            <span class="text-zinc-500 italic font-light">prediction</span> engine.
+          </h1>
+          
+          <p class="text-lg text-zinc-400 leading-relaxed max-w-[45ch] gs-reveal">
+            A deterministic three-layer architecture decoupling core trading mechanics from truth adjudication and creator economics. Deploy sovereign markets with absolute finality.
+          </p>
+          
+          <div class="flex flex-col sm:flex-row items-center gap-4 mt-2 gs-reveal">
+            <a href="https://app.sooth.market" class="w-full sm:w-auto px-8 py-4 bg-zinc-100 text-zinc-950 hover:bg-white rounded-none font-medium text-sm tracking-wide transition-all flex items-center justify-center gap-2 group">
+              Launch App
+              <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+            </a>
+            <a href="https://sooth.market" target="_blank" class="w-full sm:w-auto px-8 py-4 border border-zinc-800 text-zinc-300 hover:border-zinc-500 hover:text-white rounded-none font-medium text-sm tracking-wide transition-all flex items-center justify-center gap-2 group">
+              Market Registry
+            </a>
+          </div>
         </div>
+        
 
-        <div class="text-center text-white/10 text-xs">│</div>
-
-        <!-- Core trio -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <div class="p-3.5 rounded-xl bg-white/[0.03] border border-sooth-purple/20">
-            <span class="text-xs font-semibold text-sooth-purple">LaunchpadEngine</span>
-            <div class="text-[10px] text-white/30 mt-1">Creation + bonding + LP tokens</div>
+        <div class="relative w-full aspect-square max-w-lg mx-auto lg:ml-auto gs-visual hidden sm:block">
+          <div class="absolute inset-0 border border-white/5 rounded-full flex items-center justify-center spinning-slow">
+            <div class="w-[70%] h-[70%] border border-brand/20 rounded-full flex items-center justify-center spinning-reverse">
+              <div class="w-[50%] h-[50%] border border-white/10 rounded-full"></div>
+            </div>
           </div>
-          <div class="p-3.5 rounded-xl bg-white/[0.03] border border-sooth-teal/20">
-            <span class="text-xs font-semibold text-sooth-teal">TickBookPoolMgr</span>
-            <div class="text-[10px] text-white/30 mt-1">Orderbook + unified crossing</div>
-          </div>
-          <div class="p-3.5 rounded-xl bg-white/[0.03] border border-white/10">
-            <span class="text-xs font-semibold">Collateralizer</span>
-            <div class="text-[10px] text-white/30 mt-1">Split / merge tokens</div>
-          </div>
-        </div>
 
-        <div class="text-center text-white/10 text-xs">│</div>
+          <div class="absolute top-[20%] left-[25%] w-2 h-2 bg-brand rounded-full floating-1"></div>
+          <div class="absolute bottom-[30%] right-[25%] w-1 h-1 bg-zinc-500 rounded-full floating-2"></div>
+          <div class="absolute top-[50%] right-[40%] w-1.5 h-1.5 bg-white rounded-full floating-3"></div>
+          
 
-        <!-- AMM -->
-        <div class="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <span class="w-2 h-2 rounded-full bg-sooth-purple"></span>
-            <span class="text-sm font-semibold">AMMEngine</span>
-          </div>
-          <span class="text-[10px] text-white/20 font-mono">LMSR + 24h locks</span>
-        </div>
-
-        <div class="text-center text-white/10 text-xs">│</div>
-
-        <!-- Bottom duo -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <div class="p-3.5 rounded-xl bg-white/[0.03] border border-white/10">
-            <span class="text-xs font-semibold">TruthMarket</span>
-            <div class="text-[10px] text-white/30 mt-1">Per-market lifecycle + auth</div>
-          </div>
-          <div class="p-3.5 rounded-xl bg-white/[0.03] border border-amber-500/20">
-            <span class="text-xs font-semibold text-amber-400">ValidatedAdjudicator</span>
-            <div class="text-[10px] text-white/30 mt-1">ZK settlement + ERC-8004</div>
+          <div class="absolute -right-4 bottom-16 glass-card p-4 text-xs font-mono text-zinc-400 max-w-[220px] gs-float">
+            <div class="text-brand mb-1">TruthMarket.sol</div>
+            <div class="opacity-60">settle(bytes32 _id, uint8 _outcome)</div>
+            <div class="h-1 w-full bg-white/5 mt-4 rounded-full overflow-hidden">
+              <div class="h-full bg-brand w-[65%] animate-pulse"></div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- For Builders -->
-  <section class="py-20 px-6 border-t border-white/5">
-    <div class="max-w-5xl mx-auto">
-      <h2 class="text-3xl font-black tracking-tighter text-center mb-4 lowercase">for builders</h2>
-      <p class="text-center text-white/40 text-base mb-16 max-w-xl mx-auto">
-        SDK, APIs, and pluggable adjudicators. Build anything on Sooth.
-      </p>
 
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 max-w-4xl mx-auto">
-        <div class="p-5 rounded-2xl bg-white/[0.03] border border-white/5">
-          <div class="text-xs text-sooth-purple font-semibold uppercase tracking-widest mb-3">SDK</div>
-          <div class="bg-black/30 rounded-lg p-3 font-mono text-xs text-white/50 mb-3">
-            <span class="text-sooth-teal">npm</span> i @sooth/sdk-core
-          </div>
-          <p class="text-xs text-white/50">TypeScript SDK. Read markets, create markets, trade positions from any app.</p>
-        </div>
-
-        <div class="p-5 rounded-2xl bg-white/[0.03] border border-white/5">
-          <div class="text-xs text-sooth-teal font-semibold uppercase tracking-widest mb-3">Adjudicators</div>
-          <div class="bg-black/30 rounded-lg p-3 font-mono text-xs text-white/50 mb-3">
-            settle(outcome, tStar)<br/>finalize()
-          </div>
-          <p class="text-xs text-white/50">Two-step settlement. Build oracles with ZK proofs, agents, or multisigs.</p>
-        </div>
-
-        <div class="p-5 rounded-2xl bg-white/[0.03] border border-white/5">
-          <div class="text-xs text-amber-400 font-semibold uppercase tracking-widest mb-3">Open Source</div>
-          <div class="bg-black/30 rounded-lg p-3 font-mono text-xs text-white/50 mb-3">
-            MIT License<br/>github.com/Tora-Build
-          </div>
-          <p class="text-xs text-white/50">All contracts, SDK, and reference apps. Fork it, extend it, build on it.</p>
-        </div>
+    <section id="architecture" class="py-24 sm:py-32 px-4 sm:px-6 max-w-7xl mx-auto w-full relative z-10 border-t border-white/5">
+      <div class="flex flex-col lg:flex-row justify-between items-end mb-16 gap-8 gs-reveal">
+        <h2 class="text-4xl md:text-5xl font-medium tracking-tighter max-w-[15ch] leading-[1.1] text-zinc-100">
+          The Three-Layer <br/> <span class="text-zinc-500 italic font-light">Architecture</span>
+        </h2>
+        <p class="text-zinc-500 font-mono text-xs uppercase tracking-widest text-right hidden lg:block border-l border-brand/30 pl-4">
+          Modular Extensibility <br/> Absolute Finality
+        </p>
       </div>
-    </div>
-  </section>
+      
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+        
 
-  <!-- Comparison Strip -->
-  <section class="py-16 px-6 border-t border-white/5">
-    <div class="max-w-5xl mx-auto">
-      <h2 class="text-3xl font-black tracking-tighter text-center mb-4 lowercase">vs. the rest</h2>
-      <p class="text-center text-white/40 text-sm mb-12 max-w-xl mx-auto">
-        Prediction markets shouldn't be gatekept.
-      </p>
-      <!-- Mobile: stacked cards -->
-      <div class="sm:hidden space-y-3">
-        <div class="p-4 rounded-xl bg-white/[0.03] border border-white/5">
-          <div class="text-xs text-white/70 font-semibold mb-2">Market creation</div>
-          <div class="flex justify-between text-[11px]"><span class="text-white/30">Polymarket</span><span class="text-white/50">Gatekept</span></div>
-          <div class="flex justify-between text-[11px]"><span class="text-white/30">Kalshi</span><span class="text-white/50">Regulated</span></div>
-          <div class="flex justify-between text-[11px]"><span class="text-sooth-teal/60">Sooth</span><span class="text-sooth-teal font-semibold">Permissionless</span></div>
+        <div class="md:col-span-12 lg:col-span-8 glass-card rounded-[2rem] sm:rounded-[2.5rem] p-8 sm:p-10 flex flex-col justify-between min-h-[400px] relative overflow-hidden group gs-bento">
+
+          <div class="absolute -top-20 -right-20 w-64 h-64 bg-brand/5 rounded-full blur-3xl pointer-events-none group-hover:bg-brand/10 transition-colors duration-1000"></div>
+          
+          <div class="z-10 relative">
+            <span class="px-3 py-1 rounded-sm bg-zinc-900 text-zinc-400 text-xs font-bold uppercase tracking-widest mb-6 inline-block font-mono border border-white/5 shadow-sm">L1: Core Protocol</span>
+            <h3 class="text-3xl font-medium tracking-tight text-white mb-4">Immutable Mechanics</h3>
+            <p class="text-zinc-400 max-w-md leading-relaxed text-sm">
+              The foundational trading engine. Dual-venue AMM-to-Orderbook mechanics, token minting, and objective historical settlement state logic.
+            </p>
+          </div>
+          
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-12 z-10 relative text-xs font-mono text-zinc-500">
+            <div class="border-t border-white/10 pt-3 hover:text-zinc-300 transition-colors cursor-default">LaunchpadEngine</div>
+            <div class="border-t border-white/10 pt-3 hover:text-zinc-300 transition-colors cursor-default">TruthMarket</div>
+            <div class="border-t border-white/10 pt-3 hover:text-zinc-300 transition-colors cursor-default">AMMEngine</div>
+            <div class="border-t border-brand/30 text-brand pt-3 font-semibold relative">
+              SoothBook (CLOB)
+              <div class="absolute top-0 left-0 w-full h-[1px] bg-brand group-hover:shadow-[0_0_10px_rgba(16,185,129,0.5)] transition-shadow"></div>
+            </div>
+          </div>
         </div>
-        <div class="p-4 rounded-xl bg-white/[0.03] border border-white/5">
-          <div class="text-xs text-white/70 font-semibold mb-2">Price discovery</div>
-          <div class="flex justify-between text-[11px]"><span class="text-white/30">Polymarket</span><span class="text-white/50">Off-chain</span></div>
-          <div class="flex justify-between text-[11px]"><span class="text-white/30">Kalshi</span><span class="text-white/50">CLOB</span></div>
-          <div class="flex justify-between text-[11px]"><span class="text-sooth-teal/60">Sooth</span><span class="text-sooth-teal font-semibold">AMM + Orderbook</span></div>
+
+
+        <div class="md:col-span-6 lg:col-span-4 glass-card rounded-[2rem] sm:rounded-[2.5rem] p-8 sm:p-10 flex flex-col justify-between min-h-[400px] relative overflow-hidden group gs-bento">
+          <div class="absolute inset-0 bg-gradient-to-br from-transparent to-zinc-900/40 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+          
+          <div class="z-10 relative">
+            <span class="px-3 py-1 rounded-sm bg-zinc-900 text-zinc-400 text-xs font-bold uppercase tracking-widest mb-6 inline-block font-mono border border-white/5 shadow-sm">L2: Adjudicators</span>
+            <h3 class="text-2xl font-medium tracking-tight text-white mb-4">Truth Resolution</h3>
+            <p class="text-zinc-400 leading-relaxed text-sm">
+              Pluggable extension layer. Connect markets to TEEs, Optimistic Oracles, ZK-proofs, or DAO governance.
+            </p>
+          </div>
+          
+          <div class="mt-8 z-10 relative space-y-3">
+            <div class="flex items-center justify-between text-xs font-mono text-zinc-500 border-b border-white/5 pb-3 group-hover:border-white/10 transition-colors">
+              <span>Oracle Feeds</span>
+              <span class="text-brand">Active</span>
+            </div>
+            <div class="flex items-center justify-between text-xs font-mono text-zinc-500 border-b border-white/5 pb-3 group-hover:border-white/10 transition-colors">
+              <span>TEE Validated</span>
+              <span class="text-brand">Active</span>
+            </div>
+            <div class="flex items-center justify-between text-xs font-mono text-zinc-500 pb-1">
+              <span>Optimistic</span>
+              <span class="text-brand">Active</span>
+            </div>
+          </div>
         </div>
-        <div class="p-4 rounded-xl bg-white/[0.03] border border-white/5">
-          <div class="text-xs text-white/70 font-semibold mb-2">Settlement</div>
-          <div class="flex justify-between text-[11px]"><span class="text-white/30">Polymarket</span><span class="text-white/50">UMA oracle</span></div>
-          <div class="flex justify-between text-[11px]"><span class="text-white/30">Kalshi</span><span class="text-white/50">Centralized</span></div>
-          <div class="flex justify-between text-[11px]"><span class="text-sooth-teal/60">Sooth</span><span class="text-sooth-teal font-semibold">Multi-class + ZK</span></div>
+
+
+        <div class="md:col-span-12 glass-card rounded-[2rem] sm:rounded-[2.5rem] p-0 flex flex-col md:flex-row min-h-[300px] overflow-hidden group gs-bento">
+          <div class="md:w-[40%] p-8 sm:p-10 flex flex-col justify-center border-b md:border-b-0 md:border-r border-white/5 relative bg-zinc-950/40">
+            <span class="px-3 py-1 rounded-sm bg-zinc-900 text-zinc-400 text-xs font-bold uppercase tracking-widest mb-6 inline-block font-mono border border-white/5 shadow-sm w-max">L3: Creator Layer</span>
+            <h3 class="text-2xl font-medium tracking-tight text-white mb-4">Operator Economics</h3>
+            <p class="text-zinc-400 leading-relaxed text-sm">
+              Build sustainable businesses on top of Sooth. Creators configure fee structures, direct revenue streams, and manage liquidity natively.
+            </p>
+          </div>
+          <div class="md:w-[60%] p-8 sm:p-10 flex items-center justify-center relative bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjMDkwOTBiIiAvPgo8cmVjdCB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMDUiIC8+Cjwvc3ZnPg==')]">
+            <div class="grid grid-cols-2 gap-3 w-full max-w-sm">
+              <div class="bg-zinc-900/50 border border-white/5 p-4 flex flex-col gap-2 rounded-xl group-hover:-translate-y-1 transition-transform duration-500">
+                <span class="text-xs font-mono text-zinc-500 uppercase tracking-wider">Fee Allocation</span>
+                <span class="text-base text-white font-medium">Configurable</span>
+              </div>
+              <div class="bg-zinc-900/50 border border-white/5 p-4 flex flex-col gap-2 rounded-xl group-hover:translate-y-1 transition-transform duration-500 delay-100">
+                <span class="text-xs font-mono text-zinc-500 uppercase tracking-wider">LP Yield</span>
+                <span class="text-base text-white font-medium">Continuous</span>
+              </div>
+              <div class="bg-zinc-900/50 border border-brand/20 p-4 flex flex-col gap-2 rounded-xl group-hover:-translate-y-1 transition-transform duration-500 delay-75 shadow-[inset_0_1px_0_rgba(16,185,129,0.1)]">
+                <span class="text-xs font-mono text-zinc-500 uppercase tracking-wider">Distribution</span>
+                <span class="text-base text-brand font-medium">Trustless</span>
+              </div>
+              <div class="bg-zinc-900/50 border border-white/5 p-4 flex flex-col gap-2 rounded-xl group-hover:translate-y-1 transition-transform duration-500 delay-150">
+                <span class="text-xs font-mono text-zinc-500 uppercase tracking-wider">Data Access</span>
+                <span class="text-base text-white font-medium">Real-time</span>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="p-4 rounded-xl bg-white/[0.03] border border-white/5">
-          <div class="text-xs text-white/70 font-semibold mb-2">Creator rewards</div>
-          <div class="flex justify-between text-[11px]"><span class="text-white/30">Polymarket</span><span class="text-white/20">—</span></div>
-          <div class="flex justify-between text-[11px]"><span class="text-white/30">Kalshi</span><span class="text-white/20">—</span></div>
-          <div class="flex justify-between text-[11px]"><span class="text-sooth-teal/60">Sooth</span><span class="text-sooth-teal font-semibold">LP economics</span></div>
-        </div>
-        <div class="p-4 rounded-xl bg-white/[0.03] border border-white/5">
-          <div class="text-xs text-white/70 font-semibold mb-2">Trader protection</div>
-          <div class="flex justify-between text-[11px]"><span class="text-white/30">Polymarket</span><span class="text-white/20">—</span></div>
-          <div class="flex justify-between text-[11px]"><span class="text-white/30">Kalshi</span><span class="text-white/20">—</span></div>
-          <div class="flex justify-between text-[11px]"><span class="text-sooth-teal/60">Sooth</span><span class="text-sooth-teal font-semibold">7-day trial</span></div>
-        </div>
+
       </div>
+    </section>
 
-      <!-- Desktop: table -->
-      <div class="hidden sm:block">
-        <table class="w-full text-sm">
-          <thead>
-            <tr class="text-white/30 uppercase tracking-widest">
-              <th class="text-left py-3 pr-4 font-medium"></th>
-              <th class="py-3 px-4 font-medium">Polymarket</th>
-              <th class="py-3 px-4 font-medium">Kalshi</th>
-              <th class="py-3 px-4 font-medium text-sooth-teal">Sooth</th>
-            </tr>
-          </thead>
-          <tbody class="text-white/50">
-            <tr class="border-t border-white/5">
-              <td class="py-2.5 pr-4 text-white/70">Market creation</td>
-              <td class="py-2.5 px-4 text-center">Gatekept</td>
-              <td class="py-2.5 px-4 text-center">Regulated</td>
-              <td class="py-2.5 px-4 text-center text-sooth-teal font-semibold">Permissionless</td>
-            </tr>
-            <tr class="border-t border-white/5">
-              <td class="py-2.5 pr-4 text-white/70">Price discovery</td>
-              <td class="py-2.5 px-4 text-center">Off-chain</td>
-              <td class="py-2.5 px-4 text-center">CLOB</td>
-              <td class="py-2.5 px-4 text-center text-sooth-teal font-semibold">AMM + Orderbook</td>
-            </tr>
-            <tr class="border-t border-white/5">
-              <td class="py-2.5 pr-4 text-white/70">Settlement</td>
-              <td class="py-2.5 px-4 text-center">UMA oracle</td>
-              <td class="py-2.5 px-4 text-center">Centralized</td>
-              <td class="py-2.5 px-4 text-center text-sooth-teal font-semibold">Multi-class + ZK</td>
-            </tr>
-            <tr class="border-t border-white/5">
-              <td class="py-2.5 pr-4 text-white/70">Creator rewards</td>
-              <td class="py-2.5 px-4 text-center text-white/20">—</td>
-              <td class="py-2.5 px-4 text-center text-white/20">—</td>
-              <td class="py-2.5 px-4 text-center text-sooth-teal font-semibold">LP economics</td>
-            </tr>
-            <tr class="border-t border-white/5">
-              <td class="py-2.5 pr-4 text-white/70">Trader protection</td>
-              <td class="py-2.5 px-4 text-center text-white/20">—</td>
-              <td class="py-2.5 px-4 text-center text-white/20">—</td>
-              <td class="py-2.5 px-4 text-center text-sooth-teal font-semibold">7-day trial</td>
-            </tr>
-          </tbody>
-        </table>
+
+    <section id="mechanics" class="py-24 sm:py-32 px-4 sm:px-6 max-w-7xl mx-auto w-full border-t border-white/5">
+      <div class="mb-16 gs-reveal">
+        <h2 class="text-3xl md:text-4xl font-medium tracking-tighter text-zinc-100 mb-6">
+          Core Mechanics
+        </h2>
+        <div class="w-12 h-px bg-brand"></div>
       </div>
-    </div>
-  </section>
+      
+      <div class="grid md:grid-cols-3 gap-12 md:gap-8">
+        
+        <div class="border-t border-white/10 pt-6 group gs-mechanic">
+          <div class="text-brand font-mono text-xs mb-4">01</div>
+          <h3 class="text-xl font-medium text-white mb-3 tracking-tight group-hover:text-brand transition-colors">Dual-Venue Trading</h3>
+          <p class="text-sm text-zinc-400 leading-relaxed mb-6">
+            LMSR AMM guarantees retail liquidity, upgrading seamlessly to a 10,000-tick orderbook (SoothBook) upon graduation.
+          </p>
+          <ul class="text-xs font-mono text-zinc-500 space-y-3 opacity-80 group-hover:opacity-100 transition-opacity">
+            <li class="flex gap-2"><span>[+]</span> <span>Constant-time tick discovery</span></li>
+            <li class="flex gap-2"><span>[+]</span> <span>Zero-slippage limit orders</span></li>
+            <li class="flex gap-2"><span>[+]</span> <span>Bounded LP exposure</span></li>
+          </ul>
+        </div>
 
-  <!-- Footer -->
-  <footer class="py-12 px-6 border-t border-white/5">
-    <div class="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
-      <div class="flex items-center gap-3">
-        <div class="w-6 h-6 flex items-center justify-center">
-          <svg width="20" height="20" viewBox="0 0 200 200" fill="none">
-            <path d="M100 50L180 120L100 190L20 120Z" fill="#818CF8" opacity="0.4" stroke="#818CF8" stroke-width="1"/>
-            <path d="M100 30L180 100L100 170L20 100Z" fill="#C084FC" opacity="0.4" stroke="#C084FC" stroke-width="1"/>
-            <path d="M100 10L180 80L100 150L20 80Z" fill="#22D3EE" opacity="0.6" stroke="#22D3EE" stroke-width="2"/>
-            <path d="M100 10V190" stroke="white" stroke-width="2" stroke-linecap="round" opacity="1.0"/>
+        <div class="border-t border-white/10 pt-6 group gs-mechanic">
+          <div class="text-brand font-mono text-xs mb-4">02</div>
+          <h3 class="text-xl font-medium text-white mb-3 tracking-tight group-hover:text-brand transition-colors">Retroactive Finality</h3>
+          <p class="text-sm text-zinc-400 leading-relaxed mb-6">
+            Settlement uses truth-timestamping (T*). Trades executed post-event but prior to settlement are retroactively nullified.
+          </p>
+          <ul class="text-xs font-mono text-zinc-500 space-y-3 opacity-80 group-hover:opacity-100 transition-opacity">
+            <li class="flex gap-2"><span>[+]</span> <span>Neutralizes fast-finger exploitation</span></li>
+            <li class="flex gap-2"><span>[+]</span> <span>Removes forced liquidation timers</span></li>
+            <li class="flex gap-2"><span>[+]</span> <span>Objective historical truth</span></li>
+          </ul>
+        </div>
+
+        <div class="border-t border-white/10 pt-6 group gs-mechanic">
+          <div class="text-brand font-mono text-xs mb-4">03</div>
+          <h3 class="text-xl font-medium text-white mb-3 tracking-tight group-hover:text-brand transition-colors">Creator Economics</h3>
+          <p class="text-sm text-zinc-400 leading-relaxed mb-6">
+            Market creators bootstrap liquidity, capturing permanent LP shares. Protocol fees stream directly to creators dynamically.
+          </p>
+          <ul class="text-xs font-mono text-zinc-500 space-y-3 opacity-80 group-hover:opacity-100 transition-opacity">
+            <li class="flex gap-2"><span>[+]</span> <span>7-day trial period protection</span></li>
+            <li class="flex gap-2"><span>[+]</span> <span>5% bonding fee → LP yield</span></li>
+            <li class="flex gap-2"><span>[+]</span> <span>1% graduated trading fee</span></li>
+          </ul>
+        </div>
+
+      </div>
+    </section>
+
+
+    <footer class="py-12 px-4 sm:px-6 max-w-7xl mx-auto w-full border-t border-white/5 text-center sm:text-left mt-12">
+      <div class="flex flex-col sm:flex-row justify-between items-center gap-6">
+        <div class="flex items-center gap-3">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L2 22H22L12 2Z" stroke="#52525b" stroke-width="1.5" stroke-linejoin="round"/>
           </svg>
+          <span class="text-xs font-mono text-zinc-500 uppercase tracking-widest">Sooth Protocol</span>
         </div>
-        <span class="text-sm text-white/30">Sooth Protocol</span>
+        
+        <div class="flex gap-8 text-xs font-mono text-zinc-500">
+          <a href="https://github.com/Tora-Build/sooth-core" target="_blank" class="hover:text-zinc-300 transition-colors">GitHub</a>
+          <a href="https://x.com/SoothProtocol" target="_blank" class="hover:text-zinc-300 transition-colors">X (Twitter)</a>
+        </div>
       </div>
-      <div class="flex items-center gap-6">
-        <a href="https://app.sooth.market" target="_blank" class="text-xs text-white/30 hover:text-white transition-colors">dApp</a>
-        <a href="https://sayer.sooth.market" target="_blank" class="text-xs text-white/30 hover:text-white transition-colors">SoothSayer</a>
-        <a href="https://x.com/SoothProtocol" target="_blank" class="text-xs text-white/30 hover:text-white transition-colors">X</a>
-        <a href="https://t.me/soothprotocol" target="_blank" class="text-xs text-white/30 hover:text-white transition-colors">Telegram</a>
-      </div>
-    </div>
-  </footer>
+    </footer>
+  </main>
 
+  <script>
+
+    document.addEventListener("DOMContentLoaded", () => {
+      if (typeof gsap !== 'undefined') {
+        gsap.registerPlugin(ScrollTrigger);
+
+
+        gsap.fromTo(".gs-reveal", 
+          { y: 30, opacity: 0 },
+          { y: 0, opacity: 1, duration: 1.2, stagger: 0.1, ease: "power3.out", delay: 0.2 }
+        );
+        
+
+        gsap.to(".spinning-slow", { rotation: 360, duration: 40, repeat: -1, ease: "linear" });
+        gsap.to(".spinning-reverse", { rotation: -360, duration: 25, repeat: -1, ease: "linear" });
+        
+        gsap.to(".floating-1", { y: -20, x: 10, duration: 3, repeat: -1, yoyo: true, ease: "sine.inOut" });
+        gsap.to(".floating-2", { y: 20, x: -15, duration: 4, repeat: -1, yoyo: true, ease: "sine.inOut", delay: 1 });
+        gsap.to(".floating-3", { y: -15, x: -20, duration: 3.5, repeat: -1, yoyo: true, ease: "sine.inOut", delay: 0.5 });
+        
+        gsap.fromTo(".gs-float",
+          { y: 20, opacity: 0 },
+          { y: 0, opacity: 1, duration: 1.5, ease: "power4.out", delay: 1 }
+        );
+        gsap.to(".gs-float", { y: -10, duration: 4, repeat: -1, yoyo: true, ease: "sine.inOut", delay: 2.5 });
+
+
+        gsap.utils.toArray('.gs-bento').forEach((card, i) => {
+          gsap.fromTo(card,
+            { y: 40, opacity: 0 },
+            { 
+              scrollTrigger: {
+                trigger: card,
+                start: "top 85%",
+              },
+              y: 0, opacity: 1, duration: 1, ease: "power3.out"
+            }
+          );
+        });
+
+
+        gsap.fromTo(".gs-mechanic",
+          { y: 30, opacity: 0 },
+          { 
+            scrollTrigger: {
+              trigger: "#mechanics",
+              start: "top 80%",
+            },
+            y: 0, opacity: 1, duration: 0.8, stagger: 0.15, ease: "power2.out"
+          }
+        );
+      }
+    });
+  </script>
 </body>
 </html>
