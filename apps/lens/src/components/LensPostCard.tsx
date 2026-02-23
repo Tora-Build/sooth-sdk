@@ -6,6 +6,7 @@ import { useSoothMarket } from "../hooks";
 import { useUpvote, useBookmark } from "../hooks/useReactions";
 import { SoothTradeDrawer } from "./SoothTradeDrawer";
 import { CommentThread } from "./CommentThread";
+import { OnboardingGuard } from './OnboardingGuard';
 import { IS_TESTNET } from "../lib/lensConfig";
 
 function timeAgo(timestamp: string): string {
@@ -129,20 +130,22 @@ export function LensPostCard({ post }: { post: LensPost }) {
                 <div style={{ width: `${yesPercent}%` }} className="bg-[#00d4aa] transition-all duration-500" />
                 <div style={{ width: `${noPercent}%` }} className="bg-[#e01b24] transition-all duration-500" />
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => { setDrawerOutcome(1); setDrawerOpen(true); }}
-                  className="flex-1 py-1.5 rounded-xl text-xs font-bold bg-[#00d4aa]/10 text-[#00d4aa] border border-[#00d4aa]/30 hover:bg-[#00d4aa]/20 active:scale-95 transition-all"
-                >
-                  YES {yesPercent}%
-                </button>
-                <button
-                  onClick={() => { setDrawerOutcome(0); setDrawerOpen(true); }}
-                  className="flex-1 py-1.5 rounded-xl text-xs font-bold bg-[#e01b24]/10 text-[#e01b24] border border-[#e01b24]/30 hover:bg-[#e01b24]/20 active:scale-95 transition-all"
-                >
-                  NO {noPercent}%
-                </button>
-              </div>
+              <OnboardingGuard>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setDrawerOutcome(1); setDrawerOpen(true); }}
+                    className="flex-1 py-1.5 rounded-xl text-xs font-bold bg-[#00d4aa]/10 text-[#00d4aa] border border-[#00d4aa]/30 hover:bg-[#00d4aa]/20 active:scale-95 transition-all"
+                  >
+                    YES {yesPercent}%
+                  </button>
+                  <button
+                    onClick={() => { setDrawerOutcome(0); setDrawerOpen(true); }}
+                    className="flex-1 py-1.5 rounded-xl text-xs font-bold bg-[#e01b24]/10 text-[#e01b24] border border-[#e01b24]/30 hover:bg-[#e01b24]/20 active:scale-95 transition-all"
+                  >
+                    NO {noPercent}%
+                  </button>
+                </div>
+              </OnboardingGuard>
             </div>
           )}
 

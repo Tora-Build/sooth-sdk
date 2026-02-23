@@ -1,6 +1,6 @@
 import { useContext } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Rss, BarChart3, Plus, User } from 'lucide-react';
+import { Home, Rss, Plus, User } from 'lucide-react';
 import { ShowcaseContext } from '../hooks/useShowcase';
 import { PhoneRouteContext } from '../App';
 
@@ -11,8 +11,8 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { to: '/', icon: Home, label: 'HOME' },
   { to: '/feed', icon: Rss, label: 'FEED' },
-  { to: '/markets', icon: BarChart3, label: 'MARKETS' },
   { to: '/create', icon: Plus, label: 'CREATE' },
   { to: '/profile', icon: User, label: 'PROFILE' },
 ];
@@ -49,7 +49,7 @@ export function BottomNav() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 px-3 pb-3">
-      <nav className="max-w-md mx-auto bg-[#1a1a1b] border border-[#333] rounded-2xl px-2 py-1.5 shadow-lg shadow-black/50">
+      <nav className="max-w-md mx-auto bg-black/30 backdrop-blur-xl border border-white/[0.06] rounded-2xl px-2 py-1.5 shadow-lg shadow-black/30">
         <div className="flex items-center justify-between">
           {isShowcase ? (
             // Phone simulator: use state-based routing
@@ -69,6 +69,7 @@ export function BottomNav() {
               <NavLink
                 key={to}
                 to={to}
+                end
                 className="flex flex-col items-center gap-px group transition-all bounce-button px-1.5 py-0.5"
               >
                 {({ isActive }) => (

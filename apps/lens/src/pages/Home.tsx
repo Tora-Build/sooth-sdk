@@ -15,6 +15,10 @@ export function Home() {
 
   return (
     <div className={`${inShowcase ? 'h-full' : 'h-dvh'} w-full flex flex-col bg-mesh text-white overflow-hidden relative`}>
+      {/* Decorative glow orbs — depth layer behind content */}
+      <div className="absolute top-0 left-0 w-[400px] h-[400px] bg-[#00d4aa]/10 rounded-full blur-[120px] mix-blend-screen opacity-30 pointer-events-none" />
+      <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-[#836ef9]/10 rounded-full blur-[120px] mix-blend-screen opacity-20 pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-[#e01b24]/5 rounded-full blur-[100px] mix-blend-screen opacity-20 pointer-events-none" />
       <header className="shrink-0 pt-4 px-6 flex items-center justify-end absolute top-0 w-full z-50 pointer-events-none">
         <button
           onClick={() => open()}

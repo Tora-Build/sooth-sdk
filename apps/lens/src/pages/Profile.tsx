@@ -9,6 +9,8 @@ import { useSoothPosition } from '../hooks/useSoothPosition';
 import { useSoothMarket } from '../hooks/useSoothMarket';
 import { useLensFeed, type LensPost } from '../hooks/useLensFeed';
 import { IS_TESTNET } from '../lib/lensConfig';
+import { useShowcase } from '../hooks/useShowcase';
+import { SoothTradeDrawer } from '../components/SoothTradeDrawer';
 
 const TOKEN_LABEL = IS_TESTNET ? 'WGRASS' : 'WGHO';
 const NETWORK_NAME = IS_TESTNET ? 'Lens Testnet' : 'Lens Chain';
@@ -173,7 +175,7 @@ function ConnectPrompt({ onConnect }: { onConnect: () => void }) {
         Connect your wallet
       </h2>
       <p className="text-sm text-[#888] mb-6 text-pretty">
-        Connect your wallet to view your Lens identity and {TOKEN_LABEL} balance.
+        Connect your wallet to view your Lens identity, {TOKEN_LABEL} balance, and positions.
       </p>
       <button
         onClick={onConnect}
@@ -185,9 +187,7 @@ function ConnectPrompt({ onConnect }: { onConnect: () => void }) {
   );
 }
 
-// --- Prediction History ---
 
-type PositionResult = 'win' | 'loss' | 'pending' | 'none';
 
 function outcomeLabel(outcome: number): string {
   if (outcome === 1) return 'YES';
@@ -214,7 +214,9 @@ function formatShares(shares: bigint): string {
   return num.toFixed(2);
 }
 
-function PredictionHistoryRow({
+type PositionResult = 'win' | 'loss' | 'pending' | 'none';
+
+function PositionRow({
   post,
   user,
   onChecked,
@@ -234,6 +236,7 @@ function PredictionHistoryRow({
 
   const position = useSoothPosition(feed, postIdBig, user);
   const market = useSoothMarket(feed, postIdBig);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const yesShares = position.data?.yesShares ?? 0n;
   const noShares = position.data?.noShares ?? 0n;
@@ -265,59 +268,83 @@ function PredictionHistoryRow({
     post.content?.replace(/#ORB-INTERNAL_ID:\w+/g, '').trim() ?? 'Untitled Market';
 
   const isWin = resolved && hasWinningShares(winningOutcome, yesShares, noShares);
+  const canRedeem = resolved && isWin;
 
   return (
-    <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-      <p className="text-sm text-[#e0e0e0] leading-snug mb-3 line-clamp-2 text-pretty">
-        {question}
-      </p>
+    <>
+      <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+        <p className="text-sm text-[#e0e0e0] leading-snug mb-3 line-clamp-2 text-pretty">
+          {question}
+        </p>
 
-      <div className="flex items-center gap-3 mb-3">
-        {yesShares > 0n && (
-          <div className="flex items-center gap-1.5 text-xs">
-            <span className="text-[#00d4aa] font-bold">YES</span>
-            <span className="text-white font-mono tabular-nums">
-              {formatShares(yesShares)}
-            </span>
-          </div>
-        )}
-        {noShares > 0n && (
-          <div className="flex items-center gap-1.5 text-xs">
-            <span className="text-[#e01b24] font-bold">NO</span>
-            <span className="text-white font-mono tabular-nums">
-              {formatShares(noShares)}
-            </span>
-          </div>
-        )}
-      </div>
-
-      <div className="flex items-center gap-2">
-        {resolved ? (
-          <>
-            <span className="text-xs px-2.5 py-1 rounded-full bg-white/10 text-[#888] font-medium">
-              Resolved: {outcomeLabel(winningOutcome)}
-            </span>
-            {isWin ? (
-              <span className="text-xs px-2.5 py-1 rounded-full bg-[#00d4aa]/10 text-[#00d4aa] border border-[#00d4aa]/20 font-medium">
-                Win
+        <div className="flex items-center gap-3 mb-3">
+          {yesShares > 0n && (
+            <div className="flex items-center gap-1.5 text-xs">
+              <span className="text-[#00d4aa] font-bold">YES</span>
+              <span className="text-white font-mono tabular-nums">
+                {formatShares(yesShares)}
               </span>
+            </div>
+          )}
+          {noShares > 0n && (
+            <div className="flex items-center gap-1.5 text-xs">
+              <span className="text-[#e01b24] font-bold">NO</span>
+              <span className="text-white font-mono tabular-nums">
+                {formatShares(noShares)}
+              </span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {resolved ? (
+              <>
+                <span className="text-xs px-2.5 py-1 rounded-full bg-white/10 text-[#888] font-medium">
+                  Resolved: {outcomeLabel(winningOutcome)}
+                </span>
+                {isWin ? (
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-[#00d4aa]/10 text-[#00d4aa] border border-[#00d4aa]/20 font-medium">
+                    Win
+                  </span>
+                ) : (
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-[#e01b24]/10 text-[#e01b24] border border-[#e01b24]/20 font-medium">
+                    Loss
+                  </span>
+                )}
+              </>
             ) : (
-              <span className="text-xs px-2.5 py-1 rounded-full bg-[#e01b24]/10 text-[#e01b24] border border-[#e01b24]/20 font-medium">
-                Loss
+              <span className="text-xs px-2.5 py-1 rounded-full bg-[#00d4aa]/10 text-[#00d4aa] border border-[#00d4aa]/20 font-medium">
+                Live
               </span>
             )}
-          </>
-        ) : (
-          <span className="text-xs px-2.5 py-1 rounded-full bg-[#00d4aa]/10 text-[#00d4aa] border border-[#00d4aa]/20 font-medium">
-            Live
-          </span>
-        )}
+          </div>
+
+          {canRedeem && (
+            <button
+              onClick={() => setDrawerOpen(true)}
+              className="text-xs px-3 py-1.5 rounded-xl bg-[#00d4aa] text-black font-bold hover:bg-[#00d4aa]/90 active:scale-95 transition-all"
+            >
+              Redeem
+            </button>
+          )}
+        </div>
       </div>
-    </div>
+
+      {canRedeem && (
+        <SoothTradeDrawer
+          postIdStr={post.id}
+          feedAddress={post.feedAddress}
+          question={question}
+          isOpen={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+        />
+      )}
+    </>
   );
 }
 
-function PredictionHistory({ address }: { address: Address }) {
+function PositionsSection({ address }: { address: Address }) {
   const { data: posts, isLoading: feedLoading } = useLensFeed('sooth-market');
 
   const soothMarketPosts = (posts ?? []).filter(
@@ -344,7 +371,7 @@ function PredictionHistory({ address }: { address: Address }) {
     return (
       <div className="mx-4 mt-6">
         <h2 className="text-sm font-bold text-white uppercase tracking-wider mb-3">
-          Prediction History
+          Positions
         </h2>
         <div className="flex items-center gap-2 py-4">
           <Loader2 className="w-4 h-4 text-[#00d4aa] animate-spin" />
@@ -358,7 +385,7 @@ function PredictionHistory({ address }: { address: Address }) {
     <div className="mx-4 mt-6">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-bold text-white uppercase tracking-wider">
-          Prediction History
+          Positions
         </h2>
         {isScanning && (
           <div className="flex items-center gap-1.5">
@@ -375,14 +402,14 @@ function PredictionHistory({ address }: { address: Address }) {
           <div className="flex items-center gap-4 text-sm">
             <span className="text-[#00d4aa] font-bold">{wins} {wins === 1 ? 'win' : 'wins'}</span>
             <span className="text-[#e01b24] font-bold">{losses} {losses === 1 ? 'loss' : 'losses'}</span>
-            <span className="text-[#888] font-medium">{pending} pending</span>
+            <span className="text-[#888] font-medium">{pending} live</span>
           </div>
         </div>
       )}
 
       <div className="flex flex-col gap-3">
         {soothMarketPosts.map((post) => (
-          <PredictionHistoryRow
+          <PositionRow
             key={post.id}
             post={post}
             user={address}
@@ -394,9 +421,9 @@ function PredictionHistory({ address }: { address: Address }) {
       {allChecked && totalPositions === 0 && (
         <div className="py-8 flex flex-col items-center text-center">
           <CircleDot className="w-10 h-10 text-white/10 mb-3" />
-          <p className="text-sm text-[#888]">No predictions yet</p>
+          <p className="text-sm text-[#888]">No positions yet</p>
           <p className="text-xs text-[#555] mt-1">
-            Trade on markets to build your prediction history
+            Trade on markets to see your positions here
           </p>
         </div>
       )}
@@ -409,6 +436,7 @@ export function Profile() {
   const { isConnected, address } = useAccount();
   const { disconnect } = useDisconnect();
   const { isAuthenticated, sessionClient } = useLensAuth();
+  const inShowcase = useShowcase();
 
   const [accountDetails, setAccountDetails] = useState<LensAccountDetails | null>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
@@ -441,7 +469,7 @@ export function Profile() {
   }, [isAuthenticated, sessionClient]);
 
   return (
-    <div className="min-h-dvh w-full flex flex-col bg-mesh text-white">
+    <div className={`${inShowcase ? 'h-full' : 'min-h-dvh'} w-full flex flex-col bg-mesh text-white`}>
       {/* Header */}
       <header className="shrink-0 pt-4 px-4 pb-2 flex items-center justify-between">
         <h1 className="text-lg font-bold">Profile</h1>
@@ -470,11 +498,11 @@ export function Profile() {
 
           <BalanceCard address={address} />
 
+          <PositionsSection address={address as Address} />
+
           <ExplorerLink address={address} />
 
           <DisconnectButton onDisconnect={() => disconnect()} />
-
-          <PredictionHistory address={address as Address} />
         </div>
       )}
     </div>

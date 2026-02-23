@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from 'react-router-dom';
-import { Rss, Loader2, Plus, Wallet } from "lucide-react";
+import { Rss, Loader2, Wallet } from "lucide-react";
 import { useAppKit } from '@reown/appkit/react';
 import { useAccount } from 'wagmi';
 import { useLensFeed } from "../hooks/useLensFeed";
@@ -11,13 +10,16 @@ import { IS_TESTNET } from "../lib/lensConfig";
 const FILTERS = [
   { label: "All", tag: undefined },
   { label: "Sooth", tag: "sooth-market" },
-  { label: "Markets", tag: "sooth-market" },
+  { label: "Crypto", tag: "crypto" },
   { label: "DeFi", tag: "defi" },
+  { label: "Politics", tag: "politics" },
+  { label: "Sports", tag: "sports" },
+  { label: "Tech", tag: "tech" },
+  { label: "Culture", tag: "culture" },
 ] as const;
 
 export function Feed() {
   const [activeFilter, setActiveFilter] = useState(0);
-  const navigate = useNavigate();
   const { open } = useAppKit();
   const { isConnected } = useAccount();
   const tag = FILTERS[activeFilter].tag;
@@ -87,15 +89,7 @@ export function Feed() {
         )}
       </main>
 
-      <button
-        type="button"
-        onClick={() => navigate('/create')}
-        className="absolute right-4 z-40 size-12 rounded-full bg-[#00d4aa] text-[#1a1a1b] flex items-center justify-center shadow-lg shadow-black/40 active:scale-95 transition-transform"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5rem)' }}
-        aria-label="Create market"
-      >
-        <Plus className="w-6 h-6" />
-      </button>
+
     </div>
   );
 }

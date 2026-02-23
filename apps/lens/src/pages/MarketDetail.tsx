@@ -1,9 +1,11 @@
-import { useState } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useState, useContext } from 'react';
+import { useParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, Loader2, Clock } from 'lucide-react';
 import type { Address } from 'viem';
 import { useSoothMarket } from '../hooks';
 import { useShowcase } from '../hooks/useShowcase';
+import { usePhoneNavigate } from '../hooks/usePhoneNavigate';
+import { PhoneRouteContext } from '../App';
 import { SoothTradeDrawer } from '../components/SoothTradeDrawer';
 import { OnboardingGuard } from '../components/OnboardingGuard';
 
@@ -79,13 +81,16 @@ interface LocationState {
 }
 
 export function MarketDetail() {
-  const { feedAddress, postId } = useParams<{ feedAddress: string; postId: string }>();
-  const navigate = useNavigate();
+  const routerParams = useParams<{ feedAddress: string; postId: string }>();
+  const phoneNavigate = usePhoneNavigate();
   const location = useLocation();
   const inShowcase = useShowcase();
+  const phoneRoute = useContext(PhoneRouteContext);
+
+  const phoneMatch = phoneRoute.route.match(/^\/market\/([^/]+)\/(.+)$/);
+  const feedAddress = inShowcase && phoneMatch ? phoneMatch[1] : routerParams.feedAddress;
+  const postId = inShowcase && phoneMatch ? phoneMatch[2] : routerParams.postId;
   const state = (location.state ?? {}) as LocationState;
-  const question = state.question ?? '';
-  const author = state.author;
 
   const postIdBig = (() => {
     try {
@@ -115,7 +120,7 @@ export function MarketDetail() {
       <div className={`${inShowcase ? 'h-full' : 'h-dvh'} bg-[#1a1a1b] flex flex-col`}>
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-[#2d2d2e]">
-          <button onClick={() => navigate(-1)} className="p-1 text-white hover:text-[#00d4aa] transition-colors">
+          <button onClick={() => phoneNavigate(-1)} className="p-1 text-white hover:text-[#00d4aa] transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <span className="text-white font-semibold">Market</span>
@@ -155,7 +160,7 @@ export function MarketDetail() {
       <div className={`${inShowcase ? 'h-full' : 'h-dvh'} bg-[#1a1a1b] flex flex-col overflow-y-auto`}>
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-[#2d2d2e] shrink-0">
-          <button onClick={() => navigate(-1)} className="p-1 text-white hover:text-[#00d4aa] transition-colors">
+          <button onClick={() => phoneNavigate(-1)} className="p-1 text-white hover:text-[#00d4aa] transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <span className="text-white font-semibold">Market</span>
