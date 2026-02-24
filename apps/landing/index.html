@@ -135,13 +135,21 @@
       </div>
 
 
-      <button type="button" class="md:hidden text-zinc-400 hover:text-white p-2 focus:outline-none" aria-label="Toggle menu">
+      <button type="button" class="md:hidden text-zinc-400 hover:text-white p-2 focus:outline-none" aria-label="Toggle menu" aria-expanded="false">
         <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
         </svg>
       </button>
     </div>
   </nav>
+
+  <div id="mobile-menu" class="md:hidden fixed top-16 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur-md border-b border-white/5 px-4 py-6 flex flex-col gap-4 hidden">
+    <a href="/" data-route="/" class="text-sm font-mono text-zinc-300 hover:text-brand transition-colors py-2 border-b border-white/5">Home</a>
+    <a href="/core" data-route="/core" class="text-sm font-mono text-zinc-300 hover:text-brand transition-colors py-2 border-b border-white/5">Sooth Core</a>
+    <a href="/adjudicator" data-route="/adjudicator" class="text-sm font-mono text-zinc-300 hover:text-brand transition-colors py-2 border-b border-white/5">Adjudicator</a>
+    <a href="/creator" data-route="/creator" class="text-sm font-mono text-zinc-300 hover:text-brand transition-colors py-2 border-b border-white/5">Creator</a>
+    <a href="https://github.com/Tora-Build/sooth-core" target="_blank" rel="noopener" class="text-sm font-mono text-zinc-300 hover:text-brand transition-colors py-2 border-b border-white/5">GitHub ↗</a>
+  </div>
 
   <main id="main-content" tabindex="-1" class="relative z-10 pt-16 outline-none">
 
@@ -1347,6 +1355,56 @@
     // Route map
     const routes = { '/': 'home', '/core': 'core', '/adjudicator': 'adjudicator', '/creator': 'creator' };
 
+    // Mobile menu toggle
+    const hamburger = document.querySelector('button[aria-label="Toggle menu"]');
+    const mobileMenu = document.getElementById('mobile-menu');
+    let menuOpen = false;
+
+    function toggleMenu(open) {
+      menuOpen = open ?? !menuOpen;
+      mobileMenu.classList.toggle('hidden', !menuOpen);
+      hamburger.setAttribute('aria-expanded', menuOpen);
+    }
+
+    hamburger.addEventListener('click', () => toggleMenu());
+
+    // GSAP Animations
+    let gsapCtx = null;
+
+    function initAnimations() {
+      if (gsapCtx) gsapCtx.revert(); // cleanup previous
+      
+      const mm = gsap.matchMedia();
+      
+      mm.add("(prefers-reduced-motion: no-preference) and (min-width: 768px)", () => {
+        gsapCtx = gsap.context(() => {
+          // Animate visible section's children
+          const activeSection = document.querySelector('section[data-page]:not([hidden])');
+          if (!activeSection) return;
+          
+          gsap.utils.toArray(activeSection.querySelectorAll('.glass-card, h1, h2, p.text-zinc-400')).forEach((el, i) => {
+            gsap.from(el, {
+              scrollTrigger: {
+                trigger: el,
+                start: 'top 85%',
+                toggleActions: 'play none none none',
+              },
+              y: 24,
+              opacity: 0,
+              duration: 0.6,
+              delay: i * 0.05,
+              ease: 'power2.out',
+            });
+          });
+        });
+      });
+      
+      // Mobile: no animations, just ensure visibility
+      mm.add("(max-width: 767px)", () => {
+        // no-op — elements visible by default
+      });
+    }
+
     // Get current page key from pathname
     function getPage(path) {
       const key = path.replace(/^\/+/, '') || '';
@@ -1365,16 +1423,22 @@
 
     // Render the correct page section
     function renderPage(path) {
+      toggleMenu(false); // Close mobile menu on route change
+
       const page = getPage(path);
       document.querySelectorAll('section[data-page]').forEach(s => {
         s.hidden = s.dataset.page !== page;
       });
       // Update active nav link
-      document.querySelectorAll('nav a[data-route]').forEach(a => {
+      document.querySelectorAll('nav a[data-route], #mobile-menu a[data-route]').forEach(a => {
         const isActive = a.dataset.route === path || (a.dataset.route === '/' && path === '/');
         a.setAttribute('aria-current', isActive ? 'page' : 'false');
         a.classList.toggle('text-brand', isActive);
         a.classList.toggle('text-white/50', !isActive);
+        // Remove text-zinc-300 if active in mobile menu
+        if (a.closest('#mobile-menu')) {
+          a.classList.toggle('text-zinc-300', !isActive);
+        }
       });
       // Route announcer
       const pageNames = { home: 'Home', core: 'Sooth Core', adjudicator: 'Adjudicator Layer', creator: 'Creator Tooling' };
@@ -1384,6 +1448,9 @@
       if (main) main.focus({ preventScroll: true });
       // Scroll to top
       window.scrollTo(0, 0);
+
+      // Initialize animations after DOM updates
+      initAnimations();
     }
 
     // Handle browser back/forward
