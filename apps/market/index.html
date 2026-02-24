@@ -121,6 +121,7 @@
   </style>
 </head>
 <body class="min-h-screen font-sans">
+<!-- ====== HEADER ====== -->
 <header class="border-b border-white/5 bg-zinc-950/80 backdrop-blur-sm sticky top-0 z-50">
     <div class="max-w-[1400px] mx-auto px-6 py-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div class="flex items-center gap-4">
@@ -135,15 +136,15 @@
       <div class="flex flex-wrap items-center gap-6 font-mono text-[11px] uppercase tracking-wider text-zinc-400">
         <div class="flex items-center gap-2">
           <span class="relative flex h-2 w-2">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            <span id="dot-base-outer" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span id="dot-base-inner" class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
           Base Sepolia
         </div>
         <div class="flex items-center gap-2">
           <span class="relative flex h-2 w-2">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" style="animation-delay: 0.5s"></span>
-            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            <span id="dot-monad-outer" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" style="animation-delay: 0.5s"></span>
+            <span id="dot-monad-inner" class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
           Monad Testnet
         </div>
@@ -156,6 +157,7 @@
 </header>
 
 <main class="max-w-[1400px] mx-auto px-6 py-8">
+  <!-- ====== STATS ====== -->
   <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
     <div class="relative group glass-panel p-8 rounded-lg overflow-hidden">
       <div class="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
@@ -180,6 +182,7 @@
     </div>
   </div>
 
+  <!-- ====== TABLE ====== -->
   <div class="glass-panel rounded-lg overflow-hidden">
     <div class="px-6 py-5 border-b border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-zinc-950/50">
         <div class="flex flex-wrap items-center gap-3 sm:gap-6 w-full sm:w-auto">
@@ -202,11 +205,12 @@
           <div class="text-[10px] text-zinc-500 font-mono border border-zinc-800 bg-zinc-900/50 px-2 py-1 rounded flex items-center gap-1.5">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
             LIVE SYNC
+            <span id="refresh-countdown" class="text-zinc-600 ml-1">↻ 30s</span>
           </div>
         </div>
       </div>
       <div id="filter-pills" class="px-6 py-3 border-b border-white/5 flex flex-wrap gap-2 bg-zinc-950/30"></div>
-      <div class="overflow-x-auto">
+      <div class="overflow-x-auto hidden md:block">
         <table id="markets-table" class="w-full text-left whitespace-nowrap">
           <thead>
             <tr>
@@ -220,9 +224,9 @@
             </tr>
           </thead>
           <tbody id="markets-body"></tbody>
-
         </table>
       </div>
+      <div id="markets-cards" class="block md:hidden px-4 py-4 space-y-3"></div>
     </div>
   </div>
 </main>
@@ -266,6 +270,7 @@
     let currentSort = { column: null, direction: 'asc' }; // column: null|'network'|'status'|'deposit'|'created'
     let chainStatus = {}; // { 'Base Sepolia': { status: 'ok'|'error'|'loading', markets: N, error: null|string } }
     let expandedAddress = null;
+    let refreshCountdown = 30;
 
     // ====== HELPERS ======
     function timeAgo(ts) {
@@ -437,6 +442,66 @@
       });
 
       updateFilterPills();
+      renderCards(markets);
+    }
+
+    function renderCards(markets) {
+      const container = document.getElementById('markets-cards');
+      if (!container) return;
+      container.innerHTML = '';
+
+      if (markets.length === 0) {
+        container.innerHTML = `
+          <div class="py-12 text-center bg-zinc-900/30 border border-white/5 rounded-lg flex flex-col items-center justify-center gap-2">
+            <div class="w-10 h-10 rounded-full border border-white/10 bg-zinc-900/50 flex items-center justify-center mb-2">
+              <div class="w-4 h-4 rounded-sm border border-zinc-700"></div>
+            </div>
+            <div class="text-zinc-300 font-medium">No markets found</div>
+            <div class="text-zinc-500 text-sm">Try adjusting your filters or search.</div>
+          </div>
+        `;
+        return;
+      }
+
+      markets.forEach(m => {
+        let networkColorClass = 'bg-zinc-500';
+        if (m.network.includes('Base')) networkColorClass = 'bg-blue-500';
+        if (m.network.includes('Monad')) networkColorClass = 'bg-purple-500';
+
+        const explorer = getExplorer(m.network);
+        
+        const card = document.createElement('div');
+        card.className = 'bg-zinc-900 border border-zinc-800 rounded-lg p-4';
+        card.innerHTML = `
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <span class="w-1.5 h-1.5 rounded-full ${networkColorClass}"></span>
+              <span class="text-zinc-400 font-mono text-[10px] uppercase tracking-wider">${m.network}</span>
+            </div>
+            ${getBadge(m)}
+          </div>
+          <div class="text-zinc-100 font-medium text-sm mb-3 leading-snug">${m.question}</div>
+          <div class="grid grid-cols-2 gap-2 text-xs font-mono mb-3">
+            <div>
+              <div class="text-zinc-600 uppercase tracking-wider text-[9px] mb-0.5">Creator</div>
+              <a href="${explorer}/address/${m.creator}" target="_blank" rel="noopener" class="text-zinc-400 hover:text-amber-400 transition-colors break-all">${formatAddress(m.creator)}</a>
+            </div>
+            <div>
+              <div class="text-zinc-600 uppercase tracking-wider text-[9px] mb-0.5">Deposit</div>
+              <div class="text-amber-400">${formatWad(m.deposit)}</div>
+            </div>
+            <div>
+              <div class="text-zinc-600 uppercase tracking-wider text-[9px] mb-0.5">Created</div>
+              <div class="text-zinc-400">${timeAgo(m.createdAt)}</div>
+            </div>
+            <div>
+              <div class="text-zinc-600 uppercase tracking-wider text-[9px] mb-0.5">Address</div>
+              <a href="${explorer}/address/${m.address}" target="_blank" rel="noopener" class="text-zinc-400 hover:text-amber-400 transition-colors break-all">${formatAddress(m.address)}</a>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
     }
 
     // ====== FILTERING ======
@@ -546,12 +611,17 @@
 
     // ====== DATA FETCHING ======
     window.loadData = async function loadData() {
+      refreshCountdown = 30;
       renderSkeletons();
       allMarkets = [];
       chainStatus = {};
 
       for (const net of NETWORKS) {
         chainStatus[net.name] = { status: 'loading', markets: 0, error: null };
+      }
+      updateChainIndicators();
+
+      for (const net of NETWORKS) {
         try {
           const provider = new ethers.JsonRpcProvider(net.rpc);
           const launchpad = new ethers.Contract(net.launchpad, ABIS.launchpad, provider);
@@ -611,9 +681,80 @@
       }
 
       applyFiltersAndSort();
+      updateChainIndicators();
+    }
+
+    function updateCountdown() {
+      const el = document.getElementById('refresh-countdown');
+      if (el) el.innerText = `↻ ${refreshCountdown}s`;
+    }
+
+    function updateChainIndicators() {
+      const dotMap = {
+        'Base Sepolia': 'dot-base',
+        'Monad Testnet': 'dot-monad'
+      };
+      
+      NETWORKS.forEach(net => {
+        const status = chainStatus[net.name];
+        if (!status) return;
+        
+        const dotId = dotMap[net.name];
+        if (!dotId) return;
+        
+        const dotOuter = document.getElementById(dotId + '-outer');
+        const dotInner = document.getElementById(dotId + '-inner');
+        if (!dotOuter || !dotInner) return;
+        
+        if (status.status === 'error') {
+          dotOuter.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75';
+          dotInner.className = 'relative inline-flex rounded-full h-2 w-2 bg-red-500';
+        } else if (status.status === 'loading') {
+          dotOuter.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75';
+          dotInner.className = 'relative inline-flex rounded-full h-2 w-2 bg-amber-500';
+        } else {
+          dotOuter.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75';
+          dotInner.className = 'relative inline-flex rounded-full h-2 w-2 bg-emerald-500';
+        }
+      });
+      
+      updateErrorRows();
+    }
+
+    function updateErrorRows() {
+      document.querySelectorAll('.chain-error-row').forEach(r => r.remove());
+      
+      const tbody = document.getElementById('markets-body');
+      if (!tbody) return;
+      
+      NETWORKS.forEach(net => {
+        const status = chainStatus[net.name];
+        if (status && status.status === 'error') {
+          const errorRow = document.createElement('tr');
+          errorRow.className = 'chain-error-row';
+          errorRow.innerHTML = `
+            <td colspan="7" class="px-6 py-3 bg-red-950/20 border-b border-red-900/20">
+              <div class="flex items-center gap-3 text-xs font-mono">
+                <span class="text-red-400">⚠</span>
+                <span class="text-red-400">${net.name}</span>
+                <span class="text-zinc-500">—</span>
+                <span class="text-zinc-400">${status.error || 'RPC error'}</span>
+                <button onclick="loadData()" class="ml-auto text-amber-400 hover:text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded text-[10px] uppercase tracking-wider transition-colors">Retry</button>
+              </div>
+            </td>
+          `;
+          tbody.appendChild(errorRow);
+        }
+      });
     }
 
     window.addEventListener('load', loadData);
+    setInterval(loadData, 30000);
+    setInterval(() => {
+      refreshCountdown--;
+      if (refreshCountdown < 0) refreshCountdown = 30;
+      updateCountdown();
+    }, 1000);
 
     // ====== EVENT HANDLERS ======
     function setupEventHandlers() {
