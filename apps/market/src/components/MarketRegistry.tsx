@@ -230,7 +230,7 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
           return (
             <button
               key={pill.id}
-              onClick={() => setFilterPill(pill.id as any)}
+              onClick={() => setFilterPill(pill.id as 'all' | MarketStatus)}
               className={`whitespace-nowrap px-3.5 py-1.5 rounded-full border text-[13px] transition-all font-medium flex items-center gap-1.5 ${
                 isActive
                   ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]'
