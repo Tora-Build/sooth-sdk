@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sooth.Market // Registry Terminal</title>
 
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   
   <script src="https://cdn.tailwindcss.com"></script>
@@ -119,8 +120,8 @@
     }
   </style>
 </head>
-
-
+<body class="min-h-screen font-sans">
+<header class="border-b border-white/5 bg-zinc-950/80 backdrop-blur-sm sticky top-0 z-50">
     <div class="max-w-[1400px] mx-auto px-6 py-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div class="flex items-center gap-4">
         <div class="w-8 h-8 flex items-center justify-center bg-zinc-900 border border-white/10 rounded-lg shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
@@ -152,28 +153,35 @@
         </div>
       </div>
     </div>
-  </header>
+</header>
 
-
-        <div class="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-        <div class="text-zinc-500 font-mono text-xs uppercase tracking-widest mb-4">Total Markets Indexed</div>
-        <div class="text-4xl md:text-5xl font-mono text-zinc-50 tracking-tight" id="stat-total">
-          <div class="h-10 w-24 skeleton-box"></div>
-        </div>
-
-        <div class="absolute inset-0 bg-gradient-to-br from-amber-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-        <div class="text-zinc-500 font-mono text-xs uppercase tracking-widest mb-4">Total Volume (USDC)</div>
-        <div class="text-4xl md:text-5xl font-mono text-amber-500 tracking-tight" id="stat-vol">
-          <div class="h-10 w-48 skeleton-box"></div>
-        </div>
-
-        <div class="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-        <div class="text-zinc-500 font-mono text-xs uppercase tracking-widest mb-4">Active Protocol Nodes</div>
-        <div class="text-4xl md:text-5xl font-mono text-zinc-50 tracking-tight">2</div>
+<main class="max-w-[1400px] mx-auto px-6 py-8">
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="relative group glass-panel p-8 rounded-lg overflow-hidden">
+      <div class="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+      <div class="text-zinc-500 font-mono text-xs uppercase tracking-widest mb-4">Total Markets Indexed</div>
+      <div class="text-4xl md:text-5xl font-mono text-zinc-50 tracking-tight" id="stat-total">
+        <div class="h-10 w-24 skeleton-box"></div>
       </div>
     </div>
 
-      <div class="px-6 py-5 border-b border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-zinc-950/50">
+    <div class="relative group glass-panel p-8 rounded-lg overflow-hidden">
+      <div class="absolute inset-0 bg-gradient-to-br from-amber-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+      <div class="text-zinc-500 font-mono text-xs uppercase tracking-widest mb-4">Total Deposits (USDC)</div>
+      <div class="text-4xl md:text-5xl font-mono text-amber-500 tracking-tight" id="stat-vol">
+        <div class="h-10 w-48 skeleton-box"></div>
+      </div>
+    </div>
+
+    <div class="relative group glass-panel p-8 rounded-lg overflow-hidden">
+      <div class="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+      <div class="text-zinc-500 font-mono text-xs uppercase tracking-widest mb-4">Active Protocol Nodes</div>
+      <div class="text-4xl md:text-5xl font-mono text-zinc-50 tracking-tight">2</div>
+    </div>
+  </div>
+
+  <div class="glass-panel rounded-lg overflow-hidden">
+    <div class="px-6 py-5 border-b border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-zinc-950/50">
         <div class="flex items-center gap-3">
           <div class="w-1.5 h-6 bg-amber-500 rounded-full"></div>
           <h2 class="text-lg font-medium tracking-tight text-zinc-100">Market Instance Directory</h2>
@@ -203,7 +211,8 @@
         </table>
       </div>
     </div>
-  </main>
+  </div>
+</main>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js"></script>
   <script>
@@ -212,13 +221,15 @@
         name: 'Base Sepolia',
         chainId: 84532,
         rpc: 'https://sepolia.base.org',
-        launchpad: '0xf00fb446d1262d1f4100e6d899cf0c8c298a6e61'
+        launchpad: '0xf00fb446d1262d1f4100e6d899cf0c8c298a6e61',
+        explorer: 'https://sepolia.basescan.org'
       },
       {
         name: 'Monad Testnet',
         chainId: 10143,
         rpc: 'https://testnet-rpc.monad.xyz',
-        launchpad: '0x6fd82b76045af934354a2033fde5cb64772ae615'
+        launchpad: '0x6fd82b76045af934354a2033fde5cb64772ae615',
+        explorer: 'https://testnet.monadvision.com'
       }
     ];
 
@@ -235,6 +246,14 @@
       ]
     };
 
+    // ====== STATE ======
+    let allMarkets = [];
+    let currentFilter = 'all'; // 'all' | 'bonding' | 'live' | 'settled' | 'finalized' | 'dismissed'
+    let currentSearch = '';
+    let currentSort = { column: null, direction: 'asc' }; // column: null|'network'|'status'|'deposit'|'created'
+    let chainStatus = {}; // { 'Base Sepolia': { status: 'ok'|'error'|'loading', markets: N, error: null|string } }
+
+    // ====== HELPERS ======
     function formatAddress(addr) {
       if (!addr) return '';
       return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -247,11 +266,20 @@
       });
     }
 
-    function getBadge(isGraduated, isSettled, isFinalized, isDismissed) {
-      if (isDismissed) return '<span class="badge badge-zinc"><span class="status-dot bg-zinc-400"></span>Dismissed</span>';
-      if (isFinalized) return '<span class="badge badge-blue"><span class="status-dot bg-blue-400"></span>Finalized</span>';
-      if (isSettled) return '<span class="badge badge-zinc"><span class="status-dot bg-zinc-400"></span>Settled</span>';
-      if (isGraduated) return '<span class="badge badge-emerald"><span class="status-dot bg-emerald-400"></span>Live</span>';
+    function getMarketStatus(market) {
+      if (market.isDismissed) return 'dismissed';
+      if (market.isFinalized) return 'finalized';
+      if (market.isSettled) return 'settled';
+      if (market.isGraduated) return 'live';
+      return 'bonding';
+    }
+
+    function getBadge(market) {
+      const status = getMarketStatus(market);
+      if (status === 'dismissed') return '<span class="badge badge-zinc"><span class="status-dot bg-zinc-400"></span>Dismissed</span>';
+      if (status === 'finalized') return '<span class="badge badge-blue"><span class="status-dot bg-blue-400"></span>Finalized</span>';
+      if (status === 'settled') return '<span class="badge badge-zinc"><span class="status-dot bg-zinc-400"></span>Settled</span>';
+      if (status === 'live') return '<span class="badge badge-emerald"><span class="status-dot bg-emerald-400"></span>Live</span>';
       return '<span class="badge badge-amber"><span class="status-dot bg-amber-400"></span>Bonding</span>';
     }
 
@@ -272,63 +300,17 @@
       }
     }
 
-    window.loadData = async function loadData() {
-      renderSkeletons();
-      
-      const allMarkets = [];
-      let totalDeposits = 0n;
-
-      for (const net of NETWORKS) {
-        try {
-          const provider = new ethers.JsonRpcProvider(net.rpc);
-          const launchpad = new ethers.Contract(net.launchpad, ABIS.launchpad, provider);
-          
-          const addresses = await launchpad.getMarkets();
-          
-          for (const address of addresses) {
-            try {
-              const [marketData, trialState] = await Promise.all([
-                launchpad.markets(address),
-                launchpad.trialStates(address)
-              ]);
-              
-              const marketContract = new ethers.Contract(address, ABIS.market, provider);
-              
-              let question = "Unknown";
-              let settled = false;
-              let finalized = false;
-              
-              try { question = await marketContract.question(); } catch(e) { question = "Unknown"; }
-              try { settled = await marketContract.isSettled(); } catch(e) {}
-              try { finalized = await marketContract.isFinalized(); } catch(e) {}
-
-              totalDeposits += marketData.creatorDeposit;
-
-              allMarkets.push({
-                network: net.name,
-                address,
-                question,
-                creator: marketData.creator,
-                isGraduated: marketData.isGraduated,
-                isDismissed: trialState[1],
-                isSettled: settled,
-                isFinalized: finalized,
-                deposit: marketData.creatorDeposit
-              });
-            } catch (err) {
-              console.error(`Failed to load market ${address} on ${net.name}`, err);
-            }
-          }
-        } catch (err) {
-          console.error(`Failed to load network ${net.name}`, err);
-        }
-      }
-
-
+    // ====== RENDERING ======
+    function renderTable(markets) {
       const tbody = document.getElementById('markets-body');
       tbody.innerHTML = '';
-      
-      if (allMarkets.length === 0) {
+
+      // Update stats
+      document.getElementById('stat-total').innerText = markets.length;
+      const displayedDeposits = markets.reduce((sum, m) => sum + (m.deposit || 0n), 0n);
+      document.getElementById('stat-vol').innerText = formatWad(displayedDeposits);
+
+      if (markets.length === 0) {
         tbody.innerHTML = `
           <tr>
             <td colspan="6" class="py-16 text-center">
@@ -336,41 +318,152 @@
                 <div class="w-10 h-10 rounded-full border border-white/10 bg-zinc-900/50 flex items-center justify-center mb-2">
                   <div class="w-4 h-4 rounded-sm border border-zinc-700"></div>
                 </div>
-                <div class="text-zinc-300 font-medium">No markets indexed</div>
-                <div class="text-zinc-500 text-sm">System operational. Awaiting new deployments.</div>
+                <div class="text-zinc-300 font-medium">No markets found</div>
+                <div class="text-zinc-500 text-sm">Try adjusting your filters or search.</div>
               </div>
             </td>
           </tr>
         `;
-      } else {
-        allMarkets.forEach(m => {
-          const row = document.createElement('tr');
-          row.className = 'hover:bg-zinc-900/50 transition-colors group cursor-default';
+        return;
+      }
 
-          let networkColorClass = 'bg-zinc-500';
-          if (m.network.includes('Base')) networkColorClass = 'bg-blue-500';
-          if (m.network.includes('Monad')) networkColorClass = 'bg-purple-500';
-          
-          row.innerHTML = `
-            <td>
-              <div class="flex items-center gap-2">
-                <span class="w-1.5 h-1.5 rounded-full ${networkColorClass}"></span>
-                <span class="text-zinc-300 font-medium text-sm">${m.network}</span>
-              </div>
-            </td>
-            <td class="font-mono text-zinc-400 text-xs tracking-wider">
-              <span class="bg-zinc-900 px-2 py-1 rounded border border-white/5 group-hover:border-white/10 transition-colors">${formatAddress(m.address)}</span>
-            </td>
-            <td class="font-medium text-zinc-100 max-w-xs truncate" title="${m.question}">${m.question}</td>
-            <td class="font-mono text-zinc-500 text-xs tracking-wider">${formatAddress(m.creator)}</td>
-            <td>${getBadge(m.isGraduated, m.isSettled, m.isFinalized, m.isDismissed)}</td>
-            <td class="text-zinc-300 font-mono text-xs tracking-wider text-right">${formatWad(m.deposit)}</td>
-          `;
-          tbody.appendChild(row);
+      markets.forEach(m => {
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-zinc-900/50 transition-colors group cursor-default';
+
+        let networkColorClass = 'bg-zinc-500';
+        if (m.network.includes('Base')) networkColorClass = 'bg-blue-500';
+        if (m.network.includes('Monad')) networkColorClass = 'bg-purple-500';
+
+        row.innerHTML = `
+          <td>
+            <div class="flex items-center gap-2">
+              <span class="w-1.5 h-1.5 rounded-full ${networkColorClass}"></span>
+              <span class="text-zinc-300 font-medium text-sm">${m.network}</span>
+            </div>
+          </td>
+          <td class="font-mono text-zinc-400 text-xs tracking-wider">
+            <span class="bg-zinc-900 px-2 py-1 rounded border border-white/5 group-hover:border-white/10 transition-colors">${formatAddress(m.address)}</span>
+          </td>
+          <td class="font-medium text-zinc-100 max-w-xs truncate" title="${m.question}">${m.question}</td>
+          <td class="font-mono text-zinc-500 text-xs tracking-wider">${formatAddress(m.creator)}</td>
+          <td>${getBadge(m)}</td>
+          <td class="text-zinc-300 font-mono text-xs tracking-wider text-right">${formatWad(m.deposit)}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    // ====== FILTERING ======
+    function applyFiltersAndSort() {
+      let markets = [...allMarkets];
+
+      // Apply search filter
+      if (currentSearch) {
+        const search = currentSearch.toLowerCase();
+        markets = markets.filter(m =>
+          m.question.toLowerCase().includes(search) ||
+          m.address.toLowerCase().includes(search) ||
+          m.creator.toLowerCase().includes(search)
+        );
+      }
+
+      // Apply status filter
+      if (currentFilter !== 'all') {
+        markets = markets.filter(m => getMarketStatus(m) === currentFilter);
+      }
+
+      // Apply sort
+      if (currentSort.column) {
+        const dir = currentSort.direction === 'asc' ? 1 : -1;
+        markets.sort((a, b) => {
+          switch (currentSort.column) {
+            case 'network':
+              return dir * a.network.localeCompare(b.network);
+            case 'status': {
+              const order = ['bonding', 'live', 'settled', 'finalized', 'dismissed'];
+              return dir * (order.indexOf(getMarketStatus(a)) - order.indexOf(getMarketStatus(b)));
+            }
+            case 'deposit':
+              return dir * (a.deposit > b.deposit ? 1 : a.deposit < b.deposit ? -1 : 0);
+            case 'created':
+              return dir * (a.createdAt - b.createdAt);
+            default:
+              return 0;
+          }
         });
       }
 
-      document.getElementById('stat-vol').innerText = formatWad(totalDeposits);
+      renderTable(markets);
+    }
+
+    // ====== DATA FETCHING ======
+    window.loadData = async function loadData() {
+      renderSkeletons();
+      allMarkets = [];
+      chainStatus = {};
+
+      for (const net of NETWORKS) {
+        chainStatus[net.name] = { status: 'loading', markets: 0, error: null };
+        try {
+          const provider = new ethers.JsonRpcProvider(net.rpc);
+          const launchpad = new ethers.Contract(net.launchpad, ABIS.launchpad, provider);
+
+          const addresses = await launchpad.getMarkets();
+
+          // Parallel fetch all markets on this chain
+          const marketResults = await Promise.all(
+            addresses.map(async (address) => {
+              try {
+                const [marketData, trialState] = await Promise.all([
+                  launchpad.markets(address),
+                  launchpad.trialStates(address)
+                ]);
+
+                const marketContract = new ethers.Contract(address, ABIS.market, provider);
+
+                let question = '';
+                let settled = false;
+                let finalized = false;
+
+                await Promise.all([
+                  marketContract.question().then(q => { question = q; }).catch(() => {}),
+                  marketContract.isSettled().then(s => { settled = s; }).catch(() => {}),
+                  marketContract.isFinalized().then(f => { finalized = f; }).catch(() => {})
+                ]);
+
+                if (!question || question.trim() === '') question = 'Untitled Market';
+
+                return {
+                  network: net.name,
+                  address,
+                  question,
+                  creator: marketData.creator,
+                  isGraduated: marketData.isGraduated,
+                  isDismissed: trialState[1],
+                  isSettled: settled,
+                  isFinalized: finalized,
+                  deposit: marketData.creatorDeposit,
+                  createdAt: Number(marketData.createdAt)
+                };
+              } catch (err) {
+                console.error(`Failed to load market ${address} on ${net.name}`, err);
+                return null;
+              }
+            })
+          );
+
+          const validMarkets = marketResults.filter(m => m !== null);
+          allMarkets.push(...validMarkets);
+          chainStatus[net.name] = { status: 'ok', markets: validMarkets.length, error: null };
+
+        } catch (err) {
+          console.error(`Failed to load network ${net.name}`, err);
+          chainStatus[net.name] = { status: 'error', markets: 0, error: err.message || 'RPC error' };
+        }
+      }
+
+      applyFiltersAndSort();
     }
 
     window.addEventListener('load', loadData);
