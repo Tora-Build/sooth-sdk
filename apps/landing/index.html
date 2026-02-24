@@ -1398,6 +1398,7 @@
     const mm = gsap.matchMedia();
 
     function initAnimations() {
+      ScrollTrigger.getAll().forEach(t => t.kill()); // kill old triggers
       mm.revert(); // cleanup previous
       
       mm.add("(prefers-reduced-motion: no-preference) and (min-width: 768px)", () => {
@@ -1407,10 +1408,12 @@
         
         gsap.utils.toArray(activeSection.querySelectorAll('.glass-card, h1, h2, p.text-zinc-400')).forEach((el, i) => {
           gsap.from(el, {
+            immediateRender: false,
             scrollTrigger: {
               trigger: el,
               start: 'top 85%',
               toggleActions: 'play none none none',
+              once: true,
             },
             y: 24,
             opacity: 0,
@@ -1419,6 +1422,8 @@
             ease: 'power2.out',
           });
         });
+        
+        ScrollTrigger.refresh();
       });
       
       // Mobile: no animations, just ensure visibility
