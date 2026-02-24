@@ -7,15 +7,16 @@ export const LAUNCHPAD_ENGINE_ABI = parseAbi([
 ]);
 
 export const SOOTH_BOOK_ABI = parseAbi([
+  'function markets(bytes32) view returns (address, address, address, bool, bool, uint8)',
   'function buyYes(bytes32 marketKey, uint256 amount, uint256 minYesTokens, bool escrow, uint256 maxPrice) returns (uint256)',
   'function buyNo(bytes32 marketKey, uint256 amount, uint256 minNoTokens, bool escrow, uint256 maxPrice) returns (uint256)',
   'function mint(bytes32 marketKey, uint256 amount)',
   'function merge(bytes32 marketKey, uint256 amount)',
   'function cancel(bytes32 marketKey, uint8 side, uint256 tick)',
   'function redeem(bytes32 marketKey)',
-  'function getImpliedPrice(bytes32 marketKey, uint8 side) view returns (uint256)',
-  'function getBestTick(bytes32 marketKey, uint8 side) view returns (uint256)',
-  'function getBalance(bytes32 marketKey, address user, uint8 side) view returns (uint256)',
+  'function getImpliedPrice(bytes32 marketKey) view returns (uint256, uint256)',
+  'function getBestTick(bytes32 marketKey, uint8 side) view returns (uint16)',
+  'function getBalance(bytes32 marketKey, address user) view returns (uint256, uint256)',
   'function getOrdersAtTick(bytes32 marketKey, uint8 side, uint256 tick) view returns (address[] makers, uint256[] amounts)',
 ]);
 
