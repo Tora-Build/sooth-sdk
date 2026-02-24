@@ -182,9 +182,20 @@
 
   <div class="glass-panel rounded-lg overflow-hidden">
     <div class="px-6 py-5 border-b border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-zinc-950/50">
-        <div class="flex items-center gap-3">
-          <div class="w-1.5 h-6 bg-amber-500 rounded-full"></div>
-          <h2 class="text-lg font-medium tracking-tight text-zinc-100">Market Instance Directory</h2>
+        <div class="flex flex-wrap items-center gap-3 sm:gap-6 w-full sm:w-auto">
+          <div class="flex items-center gap-3">
+            <div class="w-1.5 h-6 bg-amber-500 rounded-full"></div>
+            <h2 class="text-lg font-medium tracking-tight text-zinc-100 whitespace-nowrap">Market Instance Directory</h2>
+          </div>
+          <div class="relative w-full sm:w-auto">
+            <input type="text" id="search-input"
+              placeholder="Search markets..."
+              class="bg-zinc-900 border border-zinc-800 text-zinc-100 text-sm font-mono px-4 py-2 rounded-lg
+                     focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/20
+                     placeholder:text-zinc-600 w-full sm:w-64 pr-8 transition-colors"
+            />
+            <button id="search-clear" class="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 hidden text-lg leading-none transition-colors">&times;</button>
+          </div>
         </div>
         <div class="flex items-center gap-3">
           <div class="text-[10px] text-zinc-500 font-mono border border-zinc-800 bg-zinc-900/50 px-2 py-1 rounded">PROTOCOL_V12.0</div>
@@ -194,16 +205,18 @@
           </div>
         </div>
       </div>
+      <div id="filter-pills" class="px-6 py-3 border-b border-white/5 flex flex-wrap gap-2 bg-zinc-950/30"></div>
       <div class="overflow-x-auto">
         <table id="markets-table" class="w-full text-left whitespace-nowrap">
           <thead>
             <tr>
-              <th class="font-mono text-[10px] text-zinc-500 tracking-widest uppercase font-semibold">Network</th>
+              <th class="font-mono text-[10px] text-zinc-500 tracking-widest uppercase font-semibold cursor-pointer select-none hover:text-zinc-300 transition-colors" data-sort="network">Network<span class="sort-indicator ml-1 text-zinc-600"></span></th>
               <th class="font-mono text-[10px] text-zinc-500 tracking-widest uppercase font-semibold">Market Address</th>
               <th class="font-mono text-[10px] text-zinc-500 tracking-widest uppercase font-semibold">Question</th>
               <th class="font-mono text-[10px] text-zinc-500 tracking-widest uppercase font-semibold">Creator</th>
-              <th class="font-mono text-[10px] text-zinc-500 tracking-widest uppercase font-semibold">Status</th>
-              <th class="font-mono text-[10px] text-zinc-500 tracking-widest uppercase font-semibold text-right">Deposit</th>
+              <th class="font-mono text-[10px] text-zinc-500 tracking-widest uppercase font-semibold cursor-pointer select-none hover:text-zinc-300 transition-colors" data-sort="status">Status<span class="sort-indicator ml-1 text-zinc-600"></span></th>
+              <th class="font-mono text-[10px] text-zinc-500 tracking-widest uppercase font-semibold cursor-pointer select-none hover:text-zinc-300 transition-colors text-right" data-sort="deposit">Deposit<span class="sort-indicator ml-1 text-zinc-600"></span></th>
+              <th class="font-mono text-[10px] text-zinc-500 tracking-widest uppercase font-semibold cursor-pointer select-none hover:text-zinc-300 transition-colors text-right" data-sort="created">Created<span class="sort-indicator ml-1 text-zinc-600"></span></th>
             </tr>
           </thead>
           <tbody id="markets-body"></tbody>
@@ -252,8 +265,25 @@
     let currentSearch = '';
     let currentSort = { column: null, direction: 'asc' }; // column: null|'network'|'status'|'deposit'|'created'
     let chainStatus = {}; // { 'Base Sepolia': { status: 'ok'|'error'|'loading', markets: N, error: null|string } }
+    let expandedAddress = null;
 
     // ====== HELPERS ======
+    function timeAgo(ts) {
+      if (!ts) return '—';
+      const diff = Math.floor(Date.now() / 1000) - ts;
+      if (diff < 60) return 'just now';
+      if (diff < 3600) return Math.floor(diff / 60) + 'm';
+      if (diff < 86400) return Math.floor(diff / 3600) + 'h';
+      if (diff < 604800) return Math.floor(diff / 86400) + 'd';
+      if (diff < 2592000) return Math.floor(diff / 604800) + 'w';
+      return Math.floor(diff / 2592000) + 'mo';
+    }
+
+    function getExplorer(networkName) {
+      const net = NETWORKS.find(n => n.name === networkName);
+      return net ? net.explorer : '';
+    }
+
     function formatAddress(addr) {
       if (!addr) return '';
       return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -295,6 +325,7 @@
             <td><div class="h-4 w-32 skeleton-box"></div></td>
             <td><div class="h-6 w-20 skeleton-box" style="border-radius: 9999px;"></div></td>
             <td><div class="h-4 w-24 skeleton-box ml-auto"></div></td>
+            <td><div class="h-4 w-16 skeleton-box ml-auto"></div></td>
           </tr>
         `;
       }
@@ -313,7 +344,7 @@
       if (markets.length === 0) {
         tbody.innerHTML = `
           <tr>
-            <td colspan="6" class="py-16 text-center">
+            <td colspan="7" class="py-16 text-center">
               <div class="flex flex-col items-center justify-center gap-2">
                 <div class="w-10 h-10 rounded-full border border-white/10 bg-zinc-900/50 flex items-center justify-center mb-2">
                   <div class="w-4 h-4 rounded-sm border border-zinc-700"></div>
@@ -324,16 +355,23 @@
             </td>
           </tr>
         `;
+        expandedAddress = null;
+        updateFilterPills();
         return;
       }
 
+      expandedAddress = null;
+
       markets.forEach(m => {
         const row = document.createElement('tr');
-        row.className = 'hover:bg-zinc-900/50 transition-colors group cursor-default';
+        row.className = 'hover:bg-zinc-900/50 transition-colors group cursor-pointer';
+        row.dataset.address = m.address;
 
         let networkColorClass = 'bg-zinc-500';
         if (m.network.includes('Base')) networkColorClass = 'bg-blue-500';
         if (m.network.includes('Monad')) networkColorClass = 'bg-purple-500';
+
+        const explorer = getExplorer(m.network);
 
         row.innerHTML = `
           <td>
@@ -342,19 +380,128 @@
               <span class="text-zinc-300 font-medium text-sm">${m.network}</span>
             </div>
           </td>
-          <td class="font-mono text-zinc-400 text-xs tracking-wider">
-            <span class="bg-zinc-900 px-2 py-1 rounded border border-white/5 group-hover:border-white/10 transition-colors">${formatAddress(m.address)}</span>
+          <td>
+            <a href="${explorer}/address/${m.address}" target="_blank" rel="noopener" class="font-mono text-zinc-400 text-xs tracking-wider hover:text-amber-400 transition-colors" onclick="event.stopPropagation()">${formatAddress(m.address)}</a>
           </td>
           <td class="font-medium text-zinc-100 max-w-xs truncate" title="${m.question}">${m.question}</td>
-          <td class="font-mono text-zinc-500 text-xs tracking-wider">${formatAddress(m.creator)}</td>
+          <td>
+            <a href="${explorer}/address/${m.creator}" target="_blank" rel="noopener" class="font-mono text-zinc-400 text-xs tracking-wider hover:text-amber-400 transition-colors" onclick="event.stopPropagation()">${formatAddress(m.creator)}</a>
+          </td>
           <td>${getBadge(m)}</td>
           <td class="text-zinc-300 font-mono text-xs tracking-wider text-right">${formatWad(m.deposit)}</td>
+          <td class="font-mono text-zinc-500 text-xs text-right">${timeAgo(m.createdAt)}</td>
         `;
+
+        row.addEventListener('click', () => {
+          const isExpanding = expandedAddress !== m.address;
+          
+          if (expandedAddress) {
+            const oldDetail = document.getElementById(`detail-${expandedAddress}`);
+            if (oldDetail) oldDetail.remove();
+          }
+          
+          if (isExpanding) {
+            expandedAddress = m.address;
+            const detailRow = document.createElement('tr');
+            detailRow.id = `detail-${m.address}`;
+            const absoluteDate = new Date(m.createdAt * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+            detailRow.innerHTML = `
+              <td colspan="7" class="bg-zinc-950 border-b border-white/5 px-6 py-4">
+                <div class="grid grid-cols-2 gap-4 text-xs font-mono">
+                  <div>
+                    <div class="text-zinc-500 uppercase tracking-wider mb-1">Market Address</div>
+                    <a href="${explorer}/address/${m.address}" target="_blank" rel="noopener" class="text-zinc-300 hover:text-amber-400 break-all">${m.address}</a>
+                  </div>
+                  <div>
+                    <div class="text-zinc-500 uppercase tracking-wider mb-1">Creator</div>
+                    <a href="${explorer}/address/${m.creator}" target="_blank" rel="noopener" class="text-zinc-300 hover:text-amber-400 break-all">${m.creator}</a>
+                  </div>
+                  <div>
+                    <div class="text-zinc-500 uppercase tracking-wider mb-1">Created</div>
+                    <div class="text-zinc-300">${absoluteDate}</div>
+                  </div>
+                  <div>
+                    <div class="text-zinc-500 uppercase tracking-wider mb-1">Deposit</div>
+                    <div class="text-zinc-300">${formatWad(m.deposit)}</div>
+                  </div>
+                </div>
+              </td>
+            `;
+            row.after(detailRow);
+          } else {
+            expandedAddress = null;
+          }
+        });
+
         tbody.appendChild(row);
       });
+
+      updateFilterPills();
     }
 
     // ====== FILTERING ======
+    function updateFilterPills() {
+      const pillsContainer = document.getElementById('filter-pills');
+      if (!pillsContainer) return;
+      
+      const counts = {
+        all: allMarkets.length,
+        bonding: 0,
+        live: 0,
+        settled: 0,
+        finalized: 0,
+        dismissed: 0
+      };
+      
+      allMarkets.forEach(m => {
+        counts[getMarketStatus(m)]++;
+      });
+      
+      const filters = [
+        { id: 'all', label: 'All' },
+        { id: 'bonding', label: 'Bonding' },
+        { id: 'live', label: 'Live' },
+        { id: 'settled', label: 'Settled' },
+        { id: 'finalized', label: 'Finalized' },
+        { id: 'dismissed', label: 'Dismissed' }
+      ];
+      
+      pillsContainer.innerHTML = '';
+      filters.forEach(f => {
+        const isActive = currentFilter === f.id;
+        const pill = document.createElement('div');
+        pill.className = `font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 rounded border cursor-pointer transition-colors ${
+          isActive 
+            ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' 
+            : 'border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700'
+        }`;
+        pill.innerText = `${f.label} (${counts[f.id]})`;
+        pill.addEventListener('click', () => {
+          currentFilter = f.id;
+          applyFiltersAndSort();
+        });
+        pillsContainer.appendChild(pill);
+      });
+    }
+
+    function updateSortIndicators() {
+      document.querySelectorAll('th[data-sort]').forEach(th => {
+        const col = th.dataset.sort;
+        const indicator = th.querySelector('.sort-indicator');
+        if (!indicator) return;
+        
+        if (currentSort.column === col) {
+          indicator.innerText = currentSort.direction === 'asc' ? '▲' : '▼';
+          th.classList.add('text-amber-400');
+          th.classList.remove('text-zinc-500');
+        } else {
+          indicator.innerText = '';
+          th.classList.remove('text-amber-400');
+          th.classList.add('text-zinc-500');
+        }
+      });
+    }
+
     function applyFiltersAndSort() {
       let markets = [...allMarkets];
 
@@ -467,6 +614,52 @@
     }
 
     window.addEventListener('load', loadData);
+
+    // ====== EVENT HANDLERS ======
+    function setupEventHandlers() {
+      // Search
+      const searchInput = document.getElementById('search-input');
+      const searchClear = document.getElementById('search-clear');
+      
+      if (searchInput && searchClear) {
+        searchInput.addEventListener('input', (e) => {
+          currentSearch = e.target.value.trim().toLowerCase();
+          searchClear.classList.toggle('hidden', currentSearch.length === 0);
+          applyFiltersAndSort();
+        });
+        
+        searchClear.addEventListener('click', () => {
+          searchInput.value = '';
+          currentSearch = '';
+          searchClear.classList.add('hidden');
+          applyFiltersAndSort();
+        });
+      }
+      
+      // Sort
+      document.querySelectorAll('th[data-sort]').forEach(th => {
+        th.addEventListener('click', () => {
+          const col = th.dataset.sort;
+          if (currentSort.column === col) {
+            if (currentSort.direction === 'asc') {
+              currentSort.direction = 'desc';
+            } else {
+              currentSort.column = null;
+              currentSort.direction = 'asc';
+            }
+          } else {
+            currentSort.column = col;
+            currentSort.direction = 'asc';
+          }
+          updateSortIndicators();
+          applyFiltersAndSort();
+        });
+      });
+
+      updateSortIndicators();
+    }
+
+    setupEventHandlers();
   </script>
 </body>
 </html>
