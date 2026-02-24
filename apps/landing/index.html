@@ -99,560 +99,1306 @@
     }
   </style>
 
-
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 </head>
 <body class="relative">
+
+  <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:bg-brand focus:text-black focus:px-4 focus:py-2 focus:rounded-lg focus:font-semibold">Skip to main content</a>
+  <div id="route-announcer" role="status" aria-live="polite" aria-atomic="true" class="sr-only"></div>
+
   <div class="noise-bg"></div>
 
 
-  <nav class="fixed top-0 w-full z-40 bg-zinc-950/70 backdrop-blur-xl border-b border-white/5">
+  <nav class="fixed top-0 w-full z-50 bg-zinc-950/70 backdrop-blur-md border-b border-white/5">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
       <div class="flex items-center gap-3">
+        <a href="/" data-route="/" class="flex items-center gap-3 group">
+          <svg width="28" height="28" viewBox="0 0 200 200" fill="none" aria-hidden="true" class="group-hover:scale-105 transition-transform">
+            <path d="M100 50L180 120L100 190L20 120Z" fill="#818CF8" opacity="0.4" stroke="#818CF8" stroke-width="1"/>
+            <path d="M100 30L180 100L100 170L20 100Z" fill="#C084FC" opacity="0.4" stroke="#C084FC" stroke-width="1"/>
+            <path d="M100 10L180 80L100 150L20 80Z" fill="#22D3EE" opacity="0.6" stroke="#22D3EE" stroke-width="2"/>
+            <path d="M100 10V190" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span class="font-semibold text-sm tracking-widest uppercase text-zinc-100 group-hover:text-white transition-colors">Sooth</span>
+        </a>
+      </div>
+      
 
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 2L2 22H22L12 2Z" stroke="#10b981" stroke-width="1.5" stroke-linejoin="round"/>
-          <path d="M12 10L6 20H18L12 10Z" fill="#10b981" fill-opacity="0.1" stroke="#10b981" stroke-width="1"/>
+      <div class="hidden md:flex items-center gap-6 text-xs font-mono tracking-wider">
+        <a href="/" data-route="/" class="hover:text-brand transition-colors text-white/50">Home</a>
+        <a href="/core" data-route="/core" class="hover:text-brand transition-colors text-white/50">Sooth Core</a>
+        <a href="/adjudicator" data-route="/adjudicator" class="hover:text-brand transition-colors text-white/50">Adjudicator</a>
+        <a href="/creator" data-route="/creator" class="hover:text-brand transition-colors text-white/50">Creator</a>
+        <div class="w-px h-4 bg-white/10 mx-2"></div>
+        <a href="https://github.com/Tora-Build/sooth-core" target="_blank" rel="noopener" class="text-zinc-400 hover:text-white transition-colors">GitHub ↗</a>
+      </div>
+
+
+      <button type="button" class="md:hidden text-zinc-400 hover:text-white p-2 focus:outline-none" aria-label="Toggle menu">
+        <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
         </svg>
-        <span class="font-semibold text-sm tracking-widest uppercase text-zinc-100">Sooth</span>
-      </div>
-      <div class="flex items-center gap-6 text-xs font-mono tracking-wider text-zinc-500">
-        <a href="#architecture" class="hover:text-white transition-colors hidden lg:block">Architecture</a>
-        <a href="#lifecycle" class="hover:text-white transition-colors hidden lg:block">Lifecycle</a>
-        <a href="#thesis" class="hover:text-white transition-colors hidden lg:block">Thesis</a>
-        <a href="#registry" class="hover:text-white transition-colors hidden lg:block">Registry</a>
-        <a href="https://github.com/Tora-Build/sooth-core" target="_blank" class="hover:text-brand transition-colors hidden sm:block">GitHub ↗</a>
-      </div>
+      </button>
     </div>
   </nav>
 
-  <main class="relative z-10">
+  <main id="main-content" tabindex="-1" class="relative z-10 pt-16 outline-none">
 
-    <section class="min-h-[100dvh] w-full flex items-center pt-24 pb-16 px-4 sm:px-6 max-w-7xl mx-auto relative">
-      <div class="ambient-glow"></div>
-      
-      <div class="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-16 lg:gap-8 w-full items-center">
-
-        <div class="flex flex-col gap-8 max-w-2xl relative z-10">
-          <div class="flex items-center gap-3">
-            <div class="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"></div>
-            <span class="text-xs font-mono text-brand tracking-widest uppercase">Protocol V12.0 Active</span>
-          </div>
-          
-          <h1 class="text-5xl sm:text-7xl lg:text-8xl font-medium tracking-tighter leading-[0.9] text-zinc-100 gs-reveal">
-            The universal <br/>
-            <span class="text-zinc-500 italic font-light">prediction</span> engine.
-          </h1>
-          
-          <p class="text-lg text-zinc-400 leading-relaxed max-w-[45ch] gs-reveal">
-            A deterministic three-layer architecture decoupling core trading mechanics from truth adjudication and creator economics. Deploy sovereign markets with absolute finality.
-          </p>
-          
-          <div class="flex flex-col sm:flex-row items-center gap-4 mt-2 gs-reveal">
-            <a href="https://app.sooth.market" class="w-full sm:w-auto px-8 py-4 bg-zinc-100 text-zinc-950 hover:bg-white rounded-none font-medium text-sm tracking-wide transition-all flex items-center justify-center gap-2 group">
-              Launch App
-              <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
-            </a>
-            <a href="https://sooth.market" target="_blank" class="w-full sm:w-auto px-8 py-4 border border-zinc-800 text-zinc-300 hover:border-zinc-500 hover:text-white rounded-none font-medium text-sm tracking-wide transition-all flex items-center justify-center gap-2 group">
-              Market Registry
-            </a>
-          </div>
-        </div>
+    <section data-page="home" hidden>
+      <!-- Hero Section -->
+      <div class="relative min-h-[90dvh] flex items-center pt-20 pb-32 overflow-hidden border-b border-white/5">
+        <!-- Grid background -->
+        <div class="absolute inset-0 pointer-events-none opacity-20" style="background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px); background-size: 32px 32px;"></div>
         
+        <!-- Ambient glow right side -->
+        <div class="absolute right-0 top-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-brand/10 rounded-full blur-[120px] pointer-events-none"></div>
 
-        <div class="relative w-full aspect-square max-w-lg mx-auto lg:ml-auto gs-visual hidden sm:block">
-          <div class="absolute inset-0 border border-white/5 rounded-full flex items-center justify-center spinning-slow">
-            <div class="w-[70%] h-[70%] border border-brand/20 rounded-full flex items-center justify-center spinning-reverse">
-              <div class="w-[50%] h-[50%] border border-white/10 rounded-full"></div>
-            </div>
-          </div>
-
-          <div class="absolute top-[20%] left-[25%] w-2 h-2 bg-brand rounded-full floating-1"></div>
-          <div class="absolute bottom-[30%] right-[25%] w-1 h-1 bg-zinc-500 rounded-full floating-2"></div>
-          <div class="absolute top-[50%] right-[40%] w-1.5 h-1.5 bg-white rounded-full floating-3"></div>
-          
-
-          <div class="absolute -right-4 bottom-16 glass-card p-4 text-xs font-mono text-zinc-400 max-w-[220px] gs-float">
-            <div class="text-brand mb-1">TruthMarket.sol</div>
-            <div class="opacity-60">settle(bytes32 _id, uint8 _outcome)</div>
-            <div class="h-1 w-full bg-white/5 mt-4 rounded-full overflow-hidden">
-              <div class="h-full bg-brand w-[65%] animate-pulse"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-
-    <section id="architecture" class="py-24 sm:py-32 px-4 sm:px-6 max-w-7xl mx-auto w-full relative z-10 border-t border-white/5">
-      <div class="flex flex-col lg:flex-row justify-between items-end mb-16 gap-8 gs-reveal-scroll">
-        <h2 class="text-4xl md:text-5xl font-medium tracking-tighter max-w-[15ch] leading-[1.1] text-zinc-100">
-          The Three-Layer <br/> <span class="text-zinc-500 italic font-light">Architecture</span>
-        </h2>
-        <p class="text-zinc-500 font-mono text-xs uppercase tracking-widest text-right hidden lg:block border-l border-brand/30 pl-4">
-          Modular Extensibility <br/> Absolute Finality
-        </p>
-      </div>
-      
-      <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
-        
-
-        <div class="md:col-span-12 lg:col-span-8 glass-card rounded-[2rem] sm:rounded-[2.5rem] p-8 sm:p-10 flex flex-col justify-between min-h-[400px] relative overflow-hidden group gs-bento">
-
-          <div class="absolute -top-20 -right-20 w-64 h-64 bg-brand/5 rounded-full blur-3xl pointer-events-none group-hover:bg-brand/10 transition-colors duration-1000"></div>
-          
-          <div class="z-10 relative">
-            <span class="px-3 py-1 rounded-sm bg-zinc-900 text-zinc-400 text-xs font-bold uppercase tracking-widest mb-6 inline-block font-mono border border-white/5 shadow-sm">L1: Core Protocol</span>
-            <h3 class="text-3xl font-medium tracking-tight text-white mb-4">Immutable Mechanics</h3>
-            <p class="text-zinc-400 max-w-md leading-relaxed text-sm">
-              The foundational trading engine. Dual-venue AMM-to-Orderbook mechanics, token minting, and objective historical settlement state logic.
-            </p>
-          </div>
-          
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-12 z-10 relative text-xs font-mono text-zinc-500">
-            <div class="border-t border-white/10 pt-3 hover:text-zinc-300 transition-colors cursor-default">LaunchpadEngine</div>
-            <div class="border-t border-white/10 pt-3 hover:text-zinc-300 transition-colors cursor-default">TruthMarket</div>
-            <div class="border-t border-white/10 pt-3 hover:text-zinc-300 transition-colors cursor-default">AMMEngine</div>
-            <div class="border-t border-brand/30 text-brand pt-3 font-semibold relative">
-              SoothBook (CLOB)
-              <div class="absolute top-0 left-0 w-full h-[1px] bg-brand group-hover:shadow-[0_0_10px_rgba(16,185,129,0.5)] transition-shadow"></div>
-            </div>
-          </div>
-        </div>
-
-
-        <div class="md:col-span-6 lg:col-span-4 glass-card rounded-[2rem] sm:rounded-[2.5rem] p-8 sm:p-10 flex flex-col justify-between min-h-[400px] relative overflow-hidden group gs-bento">
-          <div class="absolute inset-0 bg-gradient-to-br from-transparent to-zinc-900/40 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
-          
-          <div class="z-10 relative">
-            <span class="px-3 py-1 rounded-sm bg-zinc-900 text-zinc-400 text-xs font-bold uppercase tracking-widest mb-6 inline-block font-mono border border-white/5 shadow-sm">L2: Adjudicators</span>
-            <h3 class="text-2xl font-medium tracking-tight text-white mb-4">Truth Resolution</h3>
-            <p class="text-zinc-400 leading-relaxed text-sm">
-              Pluggable extension layer. Connect markets to TEEs, Optimistic Oracles, ZK-proofs, or DAO governance.
-            </p>
-          </div>
-          
-          <div class="mt-8 z-10 relative space-y-3">
-            <div class="flex items-center justify-between text-xs font-mono text-zinc-500 border-b border-white/5 pb-3 group-hover:border-white/10 transition-colors">
-              <span>Oracle Feeds</span>
-              <span class="text-brand">Active</span>
-            </div>
-            <div class="flex items-center justify-between text-xs font-mono text-zinc-500 border-b border-white/5 pb-3 group-hover:border-white/10 transition-colors">
-              <span>TEE Validated</span>
-              <span class="text-brand">Active</span>
-            </div>
-            <div class="flex items-center justify-between text-xs font-mono text-zinc-500 pb-1">
-              <span>Optimistic</span>
-              <span class="text-brand">Active</span>
-            </div>
-          </div>
-        </div>
-
-
-        <div class="md:col-span-12 glass-card rounded-[2rem] sm:rounded-[2.5rem] p-0 flex flex-col md:flex-row min-h-[300px] overflow-hidden group gs-bento">
-          <div class="md:w-[40%] p-8 sm:p-10 flex flex-col justify-center border-b md:border-b-0 md:border-r border-white/5 relative bg-zinc-950/40">
-            <span class="px-3 py-1 rounded-sm bg-zinc-900 text-zinc-400 text-xs font-bold uppercase tracking-widest mb-6 inline-block font-mono border border-white/5 shadow-sm w-max">L3: Creator Layer</span>
-            <h3 class="text-2xl font-medium tracking-tight text-white mb-4">Operator Economics</h3>
-            <p class="text-zinc-400 leading-relaxed text-sm">
-              Build sustainable businesses on top of Sooth. Creators configure fee structures, direct revenue streams, and manage liquidity natively.
-            </p>
-          </div>
-          <div class="md:w-[60%] p-8 sm:p-10 flex items-center justify-center relative bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjMDkwOTBiIiAvPgo8cmVjdCB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMDUiIC8+Cjwvc3ZnPg==')]">
-            <div class="grid grid-cols-2 gap-3 w-full max-w-sm">
-              <div class="bg-zinc-900/50 border border-white/5 p-4 flex flex-col gap-2 rounded-xl group-hover:-translate-y-1 transition-transform duration-500">
-                <span class="text-xs font-mono text-zinc-500 uppercase tracking-wider">Fee Allocation</span>
-                <span class="text-base text-white font-medium">Configurable</span>
-              </div>
-              <div class="bg-zinc-900/50 border border-white/5 p-4 flex flex-col gap-2 rounded-xl group-hover:translate-y-1 transition-transform duration-500 delay-100">
-                <span class="text-xs font-mono text-zinc-500 uppercase tracking-wider">LP Yield</span>
-                <span class="text-base text-white font-medium">Continuous</span>
-              </div>
-              <div class="bg-zinc-900/50 border border-brand/20 p-4 flex flex-col gap-2 rounded-xl group-hover:-translate-y-1 transition-transform duration-500 delay-75 shadow-[inset_0_1px_0_rgba(16,185,129,0.1)]">
-                <span class="text-xs font-mono text-zinc-500 uppercase tracking-wider">Distribution</span>
-                <span class="text-base text-brand font-medium">Trustless</span>
-              </div>
-              <div class="bg-zinc-900/50 border border-white/5 p-4 flex flex-col gap-2 rounded-xl group-hover:translate-y-1 transition-transform duration-500 delay-150">
-                <span class="text-xs font-mono text-zinc-500 uppercase tracking-wider">Data Access</span>
-                <span class="text-base text-white font-medium">Real-time</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-
-    <section id="mechanics" class="py-24 sm:py-32 px-4 sm:px-6 max-w-7xl mx-auto w-full border-t border-white/5">
-      <div class="mb-16 gs-reveal-scroll">
-        <h2 class="text-3xl md:text-4xl font-medium tracking-tighter text-zinc-100 mb-6">
-          Core Mechanics
-        </h2>
-        <div class="w-12 h-px bg-brand"></div>
-      </div>
-      
-      <div class="grid md:grid-cols-3 gap-12 md:gap-8">
-        
-        <div class="border-t border-white/10 pt-6 group gs-mechanic">
-          <div class="text-brand font-mono text-xs mb-4">01</div>
-          <h3 class="text-xl font-medium text-white mb-3 tracking-tight group-hover:text-brand transition-colors">Dual-Venue Trading</h3>
-          <p class="text-sm text-zinc-400 leading-relaxed mb-6">
-            LMSR AMM guarantees retail liquidity, upgrading seamlessly to a 10,000-tick orderbook (SoothBook) upon graduation.
-          </p>
-          <ul class="text-xs font-mono text-zinc-500 space-y-3 opacity-80 group-hover:opacity-100 transition-opacity">
-            <li class="flex gap-2"><span>[+]</span> <span>Constant-time tick discovery</span></li>
-            <li class="flex gap-2"><span>[+]</span> <span>Zero-slippage limit orders</span></li>
-            <li class="flex gap-2"><span>[+]</span> <span>Bounded LP exposure</span></li>
-          </ul>
-        </div>
-
-        <div class="border-t border-white/10 pt-6 group gs-mechanic">
-          <div class="text-brand font-mono text-xs mb-4">02</div>
-          <h3 class="text-xl font-medium text-white mb-3 tracking-tight group-hover:text-brand transition-colors">Retroactive Finality</h3>
-          <p class="text-sm text-zinc-400 leading-relaxed mb-6">
-            Settlement uses truth-timestamping (T*). Trades executed post-event but prior to settlement are retroactively nullified.
-          </p>
-          <ul class="text-xs font-mono text-zinc-500 space-y-3 opacity-80 group-hover:opacity-100 transition-opacity">
-            <li class="flex gap-2"><span>[+]</span> <span>Neutralizes fast-finger exploitation</span></li>
-            <li class="flex gap-2"><span>[+]</span> <span>Removes forced liquidation timers</span></li>
-            <li class="flex gap-2"><span>[+]</span> <span>Objective historical truth</span></li>
-          </ul>
-        </div>
-
-        <div class="border-t border-white/10 pt-6 group gs-mechanic">
-          <div class="text-brand font-mono text-xs mb-4">03</div>
-          <h3 class="text-xl font-medium text-white mb-3 tracking-tight group-hover:text-brand transition-colors">Creator Economics</h3>
-          <p class="text-sm text-zinc-400 leading-relaxed mb-6">
-            Market creators bootstrap liquidity, capturing permanent LP shares. Protocol fees stream directly to creators dynamically.
-          </p>
-          <ul class="text-xs font-mono text-zinc-500 space-y-3 opacity-80 group-hover:opacity-100 transition-opacity">
-            <li class="flex gap-2"><span>[+]</span> <span>7-day trial period protection</span></li>
-            <li class="flex gap-2"><span>[+]</span> <span>5% bonding fee → LP yield</span></li>
-            <li class="flex gap-2"><span>[+]</span> <span>1% graduated trading fee</span></li>
-          </ul>
-        </div>
-
-      </div>
-    </section>
-
-    <section id="lifecycle" class="py-24 sm:py-32 px-4 sm:px-6 max-w-7xl mx-auto w-full border-t border-white/5 relative z-10">
-      <div class="mb-16 gs-reveal-scroll flex flex-col md:flex-row md:items-end justify-between gap-8">
-        <div>
-          <h2 class="text-3xl md:text-4xl font-medium tracking-tighter text-zinc-100 mb-6">
-            Market Lifecycle
-          </h2>
-          <div class="w-12 h-px bg-brand"></div>
-        </div>
-        <p class="text-zinc-500 font-mono text-xs uppercase tracking-widest text-left md:text-right md:border-l md:border-brand/30 md:pl-4 max-w-xs">
-          From inception to absolute finality
-        </p>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-6 relative">
-        <div class="hidden md:block absolute top-[45px] left-[10%] right-[10%] h-[1px] bg-white/10 z-0">
-          <div class="h-full bg-brand w-0" id="lifecycle-progress"></div>
-        </div>
-
-        <div class="glass-card rounded-[2rem] p-8 relative z-10 group gs-bento">
-          <div class="w-10 h-10 rounded-full bg-zinc-900 border border-white/10 flex items-center justify-center font-mono text-xs text-zinc-400 mb-6 group-hover:border-brand/50 group-hover:text-brand transition-colors">01</div>
-          <h3 class="text-xl font-medium text-white mb-3">Create</h3>
-          <p class="text-sm text-zinc-400 leading-relaxed mb-4">Permissionless market inception. Creators deposit collateral and define resolution conditions.</p>
-          <div class="text-xs font-mono text-zinc-500 bg-black/20 p-3 rounded-lg border border-white/5 group-hover:border-white/10 transition-colors">
-            <span class="text-brand">fee</span> = 5% bonding
-          </div>
-        </div>
-        
-        <div class="glass-card rounded-[2rem] p-8 relative z-10 group gs-bento mt-0 md:mt-12">
-          <div class="w-10 h-10 rounded-full bg-zinc-900 border border-white/10 flex items-center justify-center font-mono text-xs text-zinc-400 mb-6 group-hover:border-brand/50 group-hover:text-brand transition-colors">02</div>
-          <h3 class="text-xl font-medium text-white mb-3">Trial Period</h3>
-          <p class="text-sm text-zinc-400 leading-relaxed mb-4">7-day LMSR AMM phase. Bootstraps initial liquidity while mitigating creator rug-pulls.</p>
-          <div class="text-xs font-mono text-zinc-500 bg-black/20 p-3 rounded-lg border border-white/5 group-hover:border-white/10 transition-colors">
-            <span class="text-brand">amm</span> = true
-          </div>
-        </div>
-        
-        <div class="glass-card rounded-[2rem] p-8 relative z-10 group gs-bento">
-          <div class="w-10 h-10 rounded-full bg-zinc-900 border border-white/10 flex items-center justify-center font-mono text-xs text-zinc-400 mb-6 group-hover:border-brand/50 group-hover:text-brand transition-colors">03</div>
-          <h3 class="text-xl font-medium text-white mb-3">Graduate</h3>
-          <p class="text-sm text-zinc-400 leading-relaxed mb-4">Market converts to SoothBook. 10,000-tick on-chain orderbook for zero-slippage trading.</p>
-          <div class="text-xs font-mono text-zinc-500 bg-black/20 p-3 rounded-lg border border-white/5 group-hover:border-white/10 transition-colors">
-            <span class="text-brand">clob</span> = active
-          </div>
-        </div>
-
-        <div class="glass-card rounded-[2rem] p-8 relative z-10 group gs-bento mt-0 md:mt-12">
-          <div class="w-10 h-10 rounded-full bg-zinc-900 border border-white/10 flex items-center justify-center font-mono text-xs text-zinc-400 mb-6 group-hover:border-brand/50 group-hover:text-brand transition-colors">04</div>
-          <h3 class="text-xl font-medium text-white mb-3">Settle</h3>
-          <p class="text-sm text-zinc-400 leading-relaxed mb-4">Retroactive truth enforcement. T* finality nullifies trades executed post-event.</p>
-          <div class="text-xs font-mono text-zinc-500 bg-black/20 p-3 rounded-lg border border-white/5 group-hover:border-white/10 transition-colors">
-            <span class="text-brand">state</span> = finalized
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="thesis" class="py-24 sm:py-32 px-4 sm:px-6 max-w-7xl mx-auto w-full border-t border-white/5 relative z-10">
-      <div class="mb-16 gs-reveal-scroll">
-        <h2 class="text-3xl md:text-4xl font-medium tracking-tighter text-zinc-100 mb-6">
-          The Decentralization Thesis
-        </h2>
-        <div class="w-12 h-px bg-brand"></div>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div class="rounded-[2.5rem] p-8 sm:p-12 border border-white/5 bg-zinc-900/20 relative overflow-hidden group gs-bento">
-          <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cmVjdCB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMDIiIC8+Cjwvc3ZnPg==')] opacity-50"></div>
-          
-          <div class="relative z-10">
-            <div class="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-8 flex items-center gap-3">
-              <div class="w-2 h-2 rounded-full bg-red-500/50"></div>
-              Legacy Platforms
+        <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div class="flex flex-col items-start gap-8 max-w-2xl">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-brand/30 bg-brand/5 text-brand text-xs font-mono font-medium tracking-wide">
+              <span class="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"></span>
+              Prediction Market Protocol
             </div>
             
-            <div class="space-y-8">
-              <div class="group/item">
-                <h4 class="text-lg font-medium text-zinc-300 mb-2">Gatekept Creation</h4>
-                <p class="text-sm text-zinc-500">Centralized committees decide which markets exist. High friction, slow deployment, arbitrary censorship.</p>
-              </div>
-              <div class="group/item">
-                <h4 class="text-lg font-medium text-zinc-300 mb-2">Off-chain Matching</h4>
-                <p class="text-sm text-zinc-500">Order matching occurs on centralized servers. Trust is required in the operator's execution fairness.</p>
-              </div>
-              <div class="group/item">
-                <h4 class="text-lg font-medium text-zinc-300 mb-2">Monolithic Architecture</h4>
-                <p class="text-sm text-zinc-500">Trading, resolution, and economics are coupled. Cannot upgrade components without migrating liquidity.</p>
-              </div>
+            <h1 class="text-5xl md:text-7xl font-bold tracking-tighter leading-[1.1] text-white">
+              The open infrastructure for <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand to-brand-light">prediction markets</span>.
+            </h1>
+            
+            <p class="text-lg md:text-xl text-zinc-400 leading-relaxed max-w-[65ch]">
+              Permissionless market creation. Dual-venue trading. Pluggable settlement. Deploy on any EVM chain.
+            </p>
+            
+            <div class="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto mt-2">
+              <a href="/core" data-route="/core" class="w-full sm:w-auto px-8 py-4 rounded-xl bg-brand hover:bg-brand-light text-zinc-950 font-semibold transition-all transform hover:-translate-y-1 hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] text-center">
+                Explore Sooth Core
+              </a>
+              <a href="https://sooth.market" target="_blank" rel="noopener" class="w-full sm:w-auto px-8 py-4 rounded-xl border border-brand/50 text-brand hover:bg-brand/10 font-semibold transition-all text-center">
+                Browse Markets ↗
+              </a>
             </div>
           </div>
-        </div>
-
-        <div class="glass-card rounded-[2.5rem] p-8 sm:p-12 relative overflow-hidden group gs-bento">
-          <div class="absolute -right-32 -bottom-32 w-96 h-96 bg-brand/5 rounded-full blur-[100px] pointer-events-none group-hover:bg-brand/10 transition-colors duration-1000"></div>
           
-          <div class="relative z-10">
-            <div class="font-mono text-xs text-brand uppercase tracking-widest mb-8 flex items-center gap-3">
-              <div class="w-2 h-2 rounded-full bg-brand animate-pulse"></div>
-              Sooth Protocol
-            </div>
-            
-            <div class="space-y-8">
-              <div class="relative">
-                <h4 class="text-lg font-medium text-white mb-2 flex items-center gap-2">
-                  Permissionless Inception
-                  <span class="text-[10px] font-mono border border-brand/30 text-brand px-1.5 py-0.5 rounded-sm">L1</span>
-                </h4>
-                <p class="text-sm text-zinc-400">Anyone can deploy a market instantly. Built-in creator economics align incentives for liquidity bootstrapping.</p>
-              </div>
-              <div class="relative">
-                <h4 class="text-lg font-medium text-white mb-2 flex items-center gap-2">
-                  On-chain SoothBook
-                  <span class="text-[10px] font-mono border border-brand/30 text-brand px-1.5 py-0.5 rounded-sm">10k Ticks</span>
-                </h4>
-                <p class="text-sm text-zinc-400">100% on-chain CLOB with constant-time discovery. Transparent, zero-slippage execution with objective state.</p>
-              </div>
-              <div class="relative">
-                <h4 class="text-lg font-medium text-white mb-2 flex items-center gap-2">
-                  Modular Adjudication
-                  <span class="text-[10px] font-mono border border-brand/30 text-brand px-1.5 py-0.5 rounded-sm">ZK/TEE</span>
-                </h4>
-                <p class="text-sm text-zinc-400">Pluggable oracle layer supporting Multi-class resolution, TEE coprocessors, and optimistic verification.</p>
-              </div>
+          <div class="hidden lg:block relative h-full min-h-[400px]">
+            <div class="ambient-glow"></div>
+            <!-- Decorative abstract graphic -->
+            <div class="absolute inset-0 flex items-center justify-center">
+               <div class="relative w-72 h-72 border border-white/10 rounded-full flex items-center justify-center animate-[spin_20s_linear_infinite]">
+                 <div class="w-48 h-48 border border-brand/30 rounded-full animate-[spin_15s_linear_infinite_reverse]"></div>
+                 <div class="absolute w-3 h-3 bg-brand rounded-full top-0 -mt-1.5 shadow-[0_0_15px_#10b981]"></div>
+               </div>
             </div>
           </div>
         </div>
       </div>
-    </section>
 
-    <section id="registry" class="py-24 sm:py-32 px-4 sm:px-6 max-w-7xl mx-auto w-full border-t border-white/5 relative z-10">
-      <div class="glass-card rounded-[2.5rem] p-1 flex flex-col md:flex-row min-h-[500px] overflow-hidden group gs-bento relative">
-        <div class="md:w-[45%] p-8 sm:p-12 flex flex-col justify-center relative z-10 bg-zinc-950/80 backdrop-blur-sm rounded-[2.2rem]">
-          <span class="px-3 py-1 rounded-sm bg-brand/10 text-brand text-xs font-bold uppercase tracking-widest mb-6 inline-block font-mono border border-brand/20 shadow-[inset_0_1px_0_rgba(16,185,129,0.2)] w-max">Aggregation Layer</span>
-          
-          <h3 class="text-3xl md:text-5xl font-medium tracking-tighter text-white mb-6 leading-tight">
-            The Global <br/>
-            <span class="text-zinc-500 italic font-light">Registry.</span>
-          </h3>
-          
-          <p class="text-zinc-400 leading-relaxed text-sm mb-8 max-w-sm">
-            Sooth is deployed across multiple high-performance chains. The registry aggregates fragmented liquidity into a single, unified interface.
-          </p>
-
-          <div class="flex items-center gap-4 mb-10">
-            <div class="flex flex-col gap-1">
-              <span class="text-xs font-mono text-zinc-500 uppercase">Base Sepolia</span>
-              <div class="h-1 w-12 bg-brand rounded-full"></div>
-            </div>
-            <div class="flex flex-col gap-1">
-              <span class="text-xs font-mono text-zinc-500 uppercase">Monad</span>
-              <div class="h-1 w-12 bg-white/20 rounded-full"></div>
-            </div>
-            <div class="flex flex-col gap-1">
-              <span class="text-xs font-mono text-zinc-500 uppercase">Lens</span>
-              <div class="h-1 w-12 bg-white/20 rounded-full"></div>
-            </div>
+      <!-- Three-Layer Stack Overview -->
+      <div class="py-24 relative border-b border-white/5">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6">
+          <div class="mb-16 max-w-2xl">
+            <h2 class="text-3xl md:text-5xl font-bold tracking-tight mb-4 text-white">A unified stack.</h2>
+            <p class="text-zinc-400 text-lg">Separating core trading, adjudication, and creator economics.</p>
           </div>
 
-          <a href="https://sooth.market" target="_blank" class="w-full sm:w-max px-8 py-4 bg-zinc-100 text-zinc-950 hover:bg-white rounded-none font-medium text-sm tracking-wide transition-all flex items-center justify-center gap-2 group/btn relative overflow-hidden">
-            <span class="relative z-10">Explore sooth.market</span>
-            <svg class="w-4 h-4 relative z-10 group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
-          </a>
-        </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Card 1 -->
+            <div class="glass-card rounded-2xl p-8 flex flex-col items-start group relative overflow-hidden transition-all hover:border-brand/30 hover:bg-white/[0.04]">
+              <div class="w-12 h-12 rounded-xl bg-brand/10 flex items-center justify-center mb-6 text-brand">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+              </div>
+              <div class="flex items-center gap-3 mb-3 w-full">
+                <h3 class="text-xl font-semibold text-white">Sooth Core</h3>
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-zinc-800 text-zinc-300 ml-auto border border-white/10">Open Source</span>
+              </div>
+              <p class="text-zinc-400 leading-relaxed mb-8 flex-grow text-sm">
+                The open-source trading foundation. Permissionless market creation, dual-venue AMM + orderbook, and composable ERC20 outcome tokens.
+              </p>
+              <a href="/core" data-route="/core" class="text-brand font-medium inline-flex items-center gap-1 group-hover:gap-2 transition-all">
+                Learn more <span aria-hidden="true">&rarr;</span>
+              </a>
+            </div>
 
-        <div class="md:w-[55%] p-8 relative flex items-center justify-center min-h-[300px] overflow-hidden bg-zinc-950">
-          <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.05)_0%,transparent_70%)]"></div>
-          
-          <div class="relative w-full max-w-md aspect-video border border-white/10 rounded-xl bg-zinc-900/40 p-4 shadow-2xl flex flex-col gap-4 gs-float group-hover:border-white/20 transition-colors backdrop-blur-md">
-            
-            <div class="flex items-center justify-between border-b border-white/5 pb-3">
-              <div class="flex items-center gap-2">
+            <!-- Card 2 -->
+            <div class="glass-card rounded-2xl p-8 flex flex-col items-start group relative overflow-hidden transition-all hover:border-brand/30 hover:bg-white/[0.04]">
+              <div class="w-12 h-12 rounded-xl bg-brand/10 flex items-center justify-center mb-6 text-brand">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+              </div>
+              <div class="flex items-center gap-3 mb-3 w-full">
+                <h3 class="text-xl font-semibold text-white">Adjudicator Layer</h3>
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-zinc-800 text-zinc-300 ml-auto border border-white/10">Pluggable</span>
+              </div>
+              <p class="text-zinc-400 leading-relaxed mb-8 flex-grow text-sm">
+                Modular truth resolution. Connect markets to AI agents, ZK proofs, oracle feeds, or DAO governance — any settlement mechanism.
+              </p>
+              <a href="/adjudicator" data-route="/adjudicator" class="text-brand font-medium inline-flex items-center gap-1 group-hover:gap-2 transition-all">
+                Learn more <span aria-hidden="true">&rarr;</span>
+              </a>
+            </div>
+
+            <!-- Card 3 -->
+            <div class="glass-card rounded-2xl p-8 flex flex-col items-start group relative overflow-hidden transition-all hover:border-brand/30 hover:bg-white/[0.04]">
+              <div class="w-12 h-12 rounded-xl bg-brand/10 flex items-center justify-center mb-6 text-brand">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              </div>
+              <div class="flex items-center gap-3 mb-3 w-full">
+                <h3 class="text-xl font-semibold text-white">Creator Tooling</h3>
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-zinc-800 text-zinc-300 ml-auto border border-white/10">Operator Economics</span>
+              </div>
+              <p class="text-zinc-400 leading-relaxed mb-8 flex-grow text-sm">
+                Build sustainable prediction market businesses. Configure fees, earn LP yield, and grow from operator to community-driven platform.
+              </p>
+              <a href="/creator" data-route="/creator" class="text-brand font-medium inline-flex items-center gap-1 group-hover:gap-2 transition-all">
+                Learn more <span aria-hidden="true">&rarr;</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- sooth.market Callout -->
+      <div class="py-24 border-b border-white/5 relative overflow-hidden">
+        <div class="absolute inset-0 bg-brand/5"></div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
+          <div class="glass-card rounded-3xl p-10 md:p-16 border-brand/20 bg-zinc-950/50 flex flex-col md:flex-row items-center justify-between gap-10">
+            <div class="max-w-xl">
+              <h2 class="text-3xl md:text-5xl font-bold tracking-tight mb-4 text-white">Explore live markets.</h2>
+              <p class="text-zinc-400 text-lg leading-relaxed">
+                sooth.market aggregates prediction markets deployed across Base, Monad, and more — a unified registry for the entire Sooth ecosystem.
+              </p>
+            </div>
+            <div class="shrink-0 w-full md:w-auto">
+              <a href="https://sooth.market" target="_blank" rel="noopener" class="w-full md:w-auto px-8 py-4 rounded-xl bg-white text-zinc-950 hover:bg-zinc-200 font-bold transition-all inline-flex items-center justify-center gap-2">
+                Open sooth.market <span aria-hidden="true">&rarr;</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Products -->
+      <div class="py-24 border-b border-white/5">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6">
+          <div class="mb-16">
+            <h2 class="text-3xl md:text-5xl font-bold tracking-tight mb-4 text-white">Live on Sooth.</h2>
+            <p class="text-zinc-400 text-lg">Two adjudicators, two chains. Same protocol infrastructure.</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- Sooth dApp -->
+            <div class="glass-card rounded-3xl p-8 md:p-10 flex flex-col">
+              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/5 text-zinc-300 text-xs font-mono mb-8 self-start">
+                <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+                Base Sepolia · UMA Oracle
+              </div>
+              
+              <h3 class="text-3xl font-bold mb-4 text-white">Sooth dApp</h3>
+              <p class="text-zinc-400 mb-8 leading-relaxed">
+                Full prediction market trading interface. Mirrors Polymarket markets using UMA's optimistic oracle for trustless settlement on Base.
+              </p>
+              
+              <ul class="space-y-4 mb-10 flex-grow text-sm text-zinc-300">
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                  Dual venue AMM + orderbook
+                </li>
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                  UMA Mirror Adjudicator
+                </li>
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                  Portfolio tracking & P&L
+                </li>
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                  WalletConnect + MetaMask
+                </li>
+              </ul>
+
+              <div class="flex flex-col gap-4 mt-auto border-t border-white/5 pt-8">
+                <a href="https://app.sooth.market" target="_blank" rel="noopener" class="px-6 py-3 rounded-lg bg-white/10 hover:bg-white/15 text-white font-medium transition-colors text-center">
+                  Launch dApp ↗
+                </a>
+                <span class="text-xs text-center text-zinc-500">Invite-only · request access in-app</span>
+              </div>
+            </div>
+
+            <!-- SoothSayer -->
+            <div class="glass-card rounded-3xl p-8 md:p-10 flex flex-col">
+              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-brand/20 bg-brand/5 text-brand-light text-xs font-mono mb-8 self-start">
                 <div class="w-2 h-2 rounded-full bg-brand"></div>
-                <span class="text-[10px] font-mono text-zinc-400">sooth.market/explore</span>
-              </div>
-              <div class="flex gap-1">
-                <div class="w-1.5 h-1.5 rounded-full bg-white/20"></div>
-                <div class="w-1.5 h-1.5 rounded-full bg-white/20"></div>
-                <div class="w-1.5 h-1.5 rounded-full bg-white/20"></div>
-              </div>
-            </div>
-
-            <div class="flex flex-col gap-2">
-              <div class="flex items-center justify-between p-2 rounded bg-white/5 border border-white/5">
-                <div class="flex items-center gap-3">
-                  <div class="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-[8px] font-mono text-blue-400">B</div>
-                  <div class="flex flex-col">
-                    <div class="w-24 h-1.5 bg-white/20 rounded mb-1"></div>
-                    <div class="w-12 h-1 bg-white/10 rounded"></div>
-                  </div>
-                </div>
-                <div class="w-8 h-3 rounded bg-brand/20 border border-brand/30"></div>
+                Monad · Moltbook Agents
               </div>
               
-              <div class="flex items-center justify-between p-2 rounded bg-white/5 border border-white/5">
-                <div class="flex items-center gap-3">
-                  <div class="w-6 h-6 rounded-full bg-purple-500/20 flex items-center justify-center text-[8px] font-mono text-purple-400">M</div>
-                  <div class="flex flex-col">
-                    <div class="w-32 h-1.5 bg-white/20 rounded mb-1"></div>
-                    <div class="w-16 h-1 bg-white/10 rounded"></div>
-                  </div>
-                </div>
-                <div class="w-8 h-3 rounded bg-white/10 border border-white/10"></div>
-              </div>
+              <h3 class="text-3xl font-bold mb-4 text-white">SoothSayer</h3>
+              <p class="text-zinc-400 mb-8 leading-relaxed">
+                Agent-native prediction markets. AI agents create markets, stake convictions, and resolve outcomes through Moltbook's agent adjudicator.
+              </p>
               
-              <div class="flex items-center justify-between p-2 rounded bg-white/5 border border-white/5">
-                <div class="flex items-center gap-3">
-                  <div class="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center text-[8px] font-mono text-green-400">L</div>
-                  <div class="flex flex-col">
-                    <div class="w-20 h-1.5 bg-white/20 rounded mb-1"></div>
-                    <div class="w-10 h-1 bg-white/10 rounded"></div>
-                  </div>
-                </div>
-                <div class="w-8 h-3 rounded bg-white/10 border border-white/10"></div>
+              <ul class="space-y-4 mb-10 flex-grow text-sm text-zinc-300">
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                  Moltbook Agent Adjudicator
+                </li>
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                  Drop-in skill for any AI framework
+                </li>
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                  On-chain reputation & leaderboard
+                </li>
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                  Async Agent Protocol (AAP)
+                </li>
+              </ul>
+
+              <div class="flex flex-col gap-4 mt-auto border-t border-white/5 pt-8">
+                <a href="https://sayer.sooth.market" target="_blank" rel="noopener" class="px-6 py-3 rounded-lg border border-brand/30 hover:bg-brand/10 text-brand-light font-medium transition-colors text-center">
+                  Open SoothSayer ↗
+                </a>
+                <span class="text-xs text-center text-zinc-500">Open access — try it now</span>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
 
-            <div class="absolute top-0 left-0 w-full h-[1px] bg-brand/50 shadow-[0_0_15px_rgba(16,185,129,0.5)] gs-scan"></div>
+      <!-- For Builders -->
+      <div class="py-24">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6">
+          <div class="mb-16">
+            <h2 class="text-3xl md:text-5xl font-bold tracking-tight mb-4 text-white">For builders.</h2>
+            <p class="text-zinc-400 text-lg">SDK, APIs, and pluggable adjudicators. Build anything on Sooth.</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- SDK -->
+            <div class="glass-card rounded-2xl p-6 relative group overflow-hidden">
+              <div class="text-xs font-mono uppercase tracking-wider text-zinc-500 mb-6">SDK</div>
+              <div class="font-mono text-sm text-brand-light bg-zinc-900/50 p-4 rounded-lg mb-6 border border-white/5 break-all">
+                npm i @sooth/sdk-core
+              </div>
+              <p class="text-zinc-400 text-sm leading-relaxed">
+                TypeScript SDK. Read markets, create markets, trade positions from any app.
+              </p>
+            </div>
+
+            <!-- Adjudicators -->
+            <div class="glass-card rounded-2xl p-6 relative group overflow-hidden">
+              <div class="text-xs font-mono uppercase tracking-wider text-zinc-500 mb-6">Adjudicators</div>
+              <div class="font-mono text-sm text-brand-light bg-zinc-900/50 p-4 rounded-lg mb-6 border border-white/5 break-all">
+                settle(outcome, tStar)<br/><span class="text-zinc-500">/ finalize()</span>
+              </div>
+              <p class="text-zinc-400 text-sm leading-relaxed">
+                Two-step settlement. Build oracles with ZK proofs, agents, or multisigs.
+              </p>
+            </div>
+
+            <!-- Open Source -->
+            <div class="glass-card rounded-2xl p-6 relative group overflow-hidden">
+              <div class="text-xs font-mono uppercase tracking-wider text-zinc-500 mb-6">Open Source</div>
+              <div class="font-mono text-sm text-brand-light bg-zinc-900/50 p-4 rounded-lg mb-6 border border-white/5 break-all">
+                Copyleft License<br/><span class="text-zinc-500">/ github.com/Tora-Build</span>
+              </div>
+              <p class="text-zinc-400 text-sm leading-relaxed mb-6">
+                All contracts, SDK, and reference apps. Fork it, extend it, build on it.
+              </p>
+              <a href="https://github.com/Tora-Build/sooth-core" target="_blank" rel="noopener" class="text-white text-sm hover:text-brand transition-colors inline-flex items-center gap-1">
+                View Repository ↗
+              </a>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
-    <footer class="py-12 px-4 sm:px-6 max-w-7xl mx-auto w-full border-t border-white/5 text-center sm:text-left mt-12">
-      <div class="flex flex-col sm:flex-row justify-between items-center gap-6">
-        <div class="flex items-center gap-3">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2L2 22H22L12 2Z" stroke="#52525b" stroke-width="1.5" stroke-linejoin="round"/>
-          </svg>
-          <span class="text-xs font-mono text-zinc-500 uppercase tracking-widest">Sooth Protocol</span>
-        </div>
+        <section data-page="core" hidden>
+      <!-- Hero Section -->
+      <div class="relative min-h-[80dvh] flex items-center pt-20 pb-32 overflow-hidden border-b border-white/5">
+        <!-- Grid background -->
+        <div class="absolute inset-0 pointer-events-none opacity-20" style="background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px); background-size: 32px 32px;"></div>
         
-        <div class="flex gap-8 text-xs font-mono text-zinc-500">
-          <a href="https://github.com/Tora-Build/sooth-core" target="_blank" class="hover:text-zinc-300 transition-colors">GitHub</a>
-          <a href="https://x.com/SoothProtocol" target="_blank" class="hover:text-zinc-300 transition-colors">X (Twitter)</a>
+        <!-- Ambient glow right side -->
+        <div class="absolute right-0 top-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-brand/10 rounded-full blur-[120px] pointer-events-none"></div>
+
+        <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div class="flex flex-col items-start gap-8 max-w-2xl">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-brand/30 bg-brand/5 text-brand text-xs font-mono font-medium tracking-wide">
+              <span class="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"></span>
+              Open Source · Copyleft
+            </div>
+            
+            <h1 class="text-5xl md:text-7xl font-bold tracking-tighter leading-[1.1] text-white">
+              The <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand to-brand-light">engine</span> of truth.
+            </h1>
+            
+            <p class="text-lg md:text-xl text-zinc-400 leading-relaxed max-w-[65ch]">
+              Sooth Core is the foundational smart contract layer. Permissionless market creation, dual-venue trading, and fully composable ERC20 outcome tokens.
+            </p>
+            
+            <div class="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto mt-2">
+              <a href="https://github.com/Tora-Build/sooth-core" target="_blank" rel="noopener" class="w-full sm:w-auto px-8 py-4 rounded-xl bg-brand hover:bg-brand-light text-zinc-950 font-semibold transition-all transform hover:-translate-y-1 hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] text-center">
+                View GitHub
+              </a>
+              <a href="https://docs.sooth.market" target="_blank" rel="noopener" class="w-full sm:w-auto px-8 py-4 rounded-xl border border-brand/50 text-brand hover:bg-brand/10 font-semibold transition-all text-center">
+                Read Documentation ↗
+              </a>
+            </div>
+          </div>
+          
+          <div class="hidden lg:block relative h-full min-h-[400px]">
+            <div class="ambient-glow"></div>
+            <!-- Decorative abstract graphic -->
+            <div class="absolute inset-0 flex items-center justify-center">
+               <div class="relative w-72 h-72 border border-white/10 rounded-xl flex items-center justify-center rotate-45 animate-[pulse_10s_ease-in-out_infinite]">
+                 <div class="w-48 h-48 border border-brand/30 rounded-xl -rotate-12 animate-[spin_20s_linear_infinite_reverse]"></div>
+                 <div class="absolute w-3 h-3 bg-brand rounded-full top-0 -mt-1.5 shadow-[0_0_15px_#10b981]"></div>
+               </div>
+            </div>
+          </div>
         </div>
       </div>
-    </footer>
+
+      <!-- Dual Venue Trading -->
+      <div class="py-24 border-b border-white/5 relative">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6">
+          <div class="mb-16 max-w-2xl">
+            <h2 class="text-3xl md:text-5xl font-bold tracking-tight mb-4 text-white">Dual-venue trading.</h2>
+            <p class="text-zinc-400 text-lg">Continuous liquidity from day one. Deep liquidity as markets grow. Fee accumulation automatically drives graduation.</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- AMM -->
+            <div class="glass-card rounded-2xl p-8 flex flex-col group relative overflow-hidden transition-all hover:border-brand/30 hover:bg-white/[0.04]">
+              <div class="flex items-center gap-3 mb-6">
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-zinc-800 text-zinc-300 border border-white/10">Pre-Graduation</span>
+              </div>
+              <h3 class="text-2xl font-semibold text-white mb-4">Market Creation Engine</h3>
+              <p class="text-zinc-400 leading-relaxed mb-8 flex-grow text-sm">
+                Every new market starts here. Powered by a continuous pricing curve, ensuring liquidity is available immediately upon creation.
+              </p>
+              <ul class="space-y-4 text-sm text-zinc-300">
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                  Continuous automated pricing
+                </li>
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                  5% fee distributed to LP token holders
+                </li>
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                  Guaranteed trial periods
+                </li>
+              </ul>
+            </div>
+
+            <!-- Orderbook -->
+            <div class="glass-card rounded-2xl p-8 flex flex-col group relative overflow-hidden transition-all hover:border-brand/30 hover:bg-white/[0.04]">
+              <div class="flex items-center gap-3 mb-6">
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-brand/10 text-brand border border-brand/20">Post-Graduation</span>
+              </div>
+              <h3 class="text-2xl font-semibold text-white mb-4">Central Limit Orderbook</h3>
+              <p class="text-zinc-400 leading-relaxed mb-8 flex-grow text-sm">
+                Once volume thresholds are met, markets graduate to a fully on-chain orderbook for high-frequency trading and zero-slippage execution.
+              </p>
+              <ul class="space-y-4 text-sm text-zinc-300">
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                  Deep liquidity matching
+                </li>
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                  Lower 1% trading fee
+                </li>
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                  4 atomic actions: Buy YES, Buy NO, Mint, Merge
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Market Lifecycle -->
+      <div class="py-24 border-b border-white/5">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6">
+          <div class="mb-16 max-w-2xl">
+            <h2 class="text-3xl md:text-5xl font-bold tracking-tight mb-4 text-white">Immutable lifecycle.</h2>
+            <p class="text-zinc-400 text-lg">A canonical, pull-based architecture. No callbacks, no central vaults.</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-6 relative">
+            <!-- Connecting Line -->
+            <div class="hidden md:block absolute top-12 left-12 right-12 h-[1px] bg-white/10"></div>
+            
+            <!-- Step 1 -->
+            <div class="glass-card rounded-2xl p-6 relative z-10 bg-zinc-950 flex flex-col items-start border-white/5 hover:border-brand/30 transition-all">
+              <div class="w-8 h-8 rounded-full bg-brand/20 border border-brand/50 text-brand flex items-center justify-center font-mono text-sm font-bold mb-6">1</div>
+              <h4 class="text-lg font-bold text-white mb-3">LIVE</h4>
+              <p class="text-zinc-400 text-sm leading-relaxed">
+                Market is actively trading. USDC can be split into YES/NO tokens, and positions can be entered or exited.
+              </p>
+            </div>
+            
+            <!-- Step 2 -->
+            <div class="glass-card rounded-2xl p-6 relative z-10 bg-zinc-950 flex flex-col items-start border-white/5 hover:border-brand/30 transition-all">
+              <div class="w-8 h-8 rounded-full bg-zinc-800 border border-white/10 text-zinc-300 flex items-center justify-center font-mono text-sm font-bold mb-6">2</div>
+              <h4 class="text-lg font-bold text-white mb-3">SETTLING</h4>
+              <p class="text-zinc-400 text-sm leading-relaxed">
+                Trading is paused. The adjudicator evaluates real-world events to determine the factual outcome.
+              </p>
+            </div>
+            
+            <!-- Step 3 -->
+            <div class="glass-card rounded-2xl p-6 relative z-10 bg-zinc-950 flex flex-col items-start border-white/5 hover:border-brand/30 transition-all">
+              <div class="w-8 h-8 rounded-full bg-zinc-800 border border-white/10 text-zinc-300 flex items-center justify-center font-mono text-sm font-bold mb-6">3</div>
+              <h4 class="text-lg font-bold text-white mb-3">SETTLED</h4>
+              <p class="text-zinc-400 text-sm leading-relaxed">
+                An outcome has been proposed. A dispute window is open for the community to challenge the result if necessary.
+              </p>
+            </div>
+            
+            <!-- Step 4 -->
+            <div class="glass-card rounded-2xl p-6 relative z-10 bg-zinc-950 flex flex-col items-start border-white/5 hover:border-brand/30 transition-all">
+              <div class="w-8 h-8 rounded-full bg-brand/20 border border-brand/50 text-brand flex items-center justify-center font-mono text-sm font-bold mb-6">4</div>
+              <h4 class="text-lg font-bold text-white mb-3">FINALIZED</h4>
+              <p class="text-zinc-400 text-sm leading-relaxed">
+                The market is permanently resolved. Winning outcome tokens can be redeemed directly for 1 USDC each.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Composability & Open Source -->
+      <div class="py-24 border-b border-white/5">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6">
+          <div class="mb-16">
+            <h2 class="text-3xl md:text-5xl font-bold tracking-tight mb-4 text-white">Built for DeFi.</h2>
+            <p class="text-zinc-400 text-lg">Standards-compliant by design. Integrate prediction markets anywhere.</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="glass-card rounded-3xl p-8 md:p-10 flex flex-col justify-between hover:border-brand/30 transition-all">
+              <div>
+                <div class="w-12 h-12 rounded-xl bg-brand/10 flex items-center justify-center mb-6 text-brand">
+                  <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                </div>
+                <h3 class="text-2xl font-bold text-white mb-4">ERC20 Composability</h3>
+                <p class="text-zinc-400 leading-relaxed mb-8">
+                  Every outcome token (YES/NO) and every liquidity provision (LP) share is a standard ERC20 token. No proprietary standards or locked vaults.
+                </p>
+                <ul class="space-y-4 text-sm text-zinc-300">
+                  <li class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                    Trade YES/NO tokens on external DEXs
+                  </li>
+                  <li class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                    Use positions as collateral in lending markets
+                  </li>
+                  <li class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                    Transfer LP shares freely pre-settlement
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="glass-card rounded-3xl p-8 md:p-10 flex flex-col justify-between hover:border-brand/30 transition-all">
+              <div>
+                <div class="w-12 h-12 rounded-xl bg-brand/10 flex items-center justify-center mb-6 text-brand">
+                  <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
+                </div>
+                <h3 class="text-2xl font-bold text-white mb-4">Deploy Anywhere</h3>
+                <p class="text-zinc-400 leading-relaxed mb-8">
+                  Core is released under a strict copyleft open-source license. You can deploy it on any EVM chain, fork it, and build entirely new products on top of it.
+                </p>
+                <ul class="space-y-4 text-sm text-zinc-300 mb-8">
+                  <li class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                    Fully open-source copyleft license
+                  </li>
+                  <li class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                    Compatible with any EVM-compatible chain
+                  </li>
+                  <li class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                    Modifications must remain open-source
+                  </li>
+                </ul>
+                <div class="font-mono text-sm text-brand-light bg-zinc-900/50 p-4 rounded-lg border border-white/5 break-all mt-4">
+                  npm i @sooth/sdk-core
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section data-page="adjudicator" hidden>
+      <!-- Hero Section -->
+      <div class="relative min-h-[80dvh] flex items-center pt-20 pb-32 overflow-hidden border-b border-white/5">
+        <!-- Grid background -->
+        <div class="absolute inset-0 pointer-events-none opacity-20" style="background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px); background-size: 32px 32px;"></div>
+        
+        <!-- Ambient glow right side -->
+        <div class="absolute right-0 top-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-brand/10 rounded-full blur-[120px] pointer-events-none"></div>
+
+        <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div class="flex flex-col items-start gap-8 max-w-2xl">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-brand/30 bg-brand/5 text-brand text-xs font-mono font-medium tracking-wide">
+              <span class="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"></span>
+              Pluggable · BSL Licensed
+            </div>
+            
+            <h1 class="text-5xl md:text-7xl font-bold tracking-tighter leading-[1.1] text-white">
+              The <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand to-brand-light">truth resolution</span> layer.
+            </h1>
+            
+            <p class="text-lg md:text-xl text-zinc-400 leading-relaxed max-w-[65ch]">
+              Modular settlement for prediction markets. Connect markets to AI agents, ZK proofs, oracle feeds, or DAO governance — any mechanism you trust.
+            </p>
+            
+            <div class="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto mt-2">
+              <a href="https://github.com/Tora-Build/sooth-core" target="_blank" rel="noopener" class="w-full sm:w-auto px-8 py-4 rounded-xl bg-brand hover:bg-brand-light text-zinc-950 font-semibold transition-all transform hover:-translate-y-1 hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] text-center">
+                Explore Adjudicators
+              </a>
+              <a href="/creator" data-route="/creator" class="w-full sm:w-auto px-8 py-4 rounded-xl border border-brand/50 text-brand hover:bg-brand/10 font-semibold transition-all text-center">
+                For Creators &rarr;
+              </a>
+            </div>
+          </div>
+          
+          <div class="hidden lg:block relative h-full min-h-[400px]">
+            <div class="ambient-glow"></div>
+            <!-- Decorative abstract graphic -->
+            <div class="absolute inset-0 flex items-center justify-center">
+               <div class="relative w-72 h-72 border border-white/10 rounded-full flex items-center justify-center animate-[spin_20s_linear_infinite]">
+                 <div class="w-56 h-56 border border-brand/20 rounded-full animate-[spin_15s_linear_infinite_reverse]"></div>
+                 <div class="absolute w-40 h-40 border border-brand/40 rounded-full border-dashed"></div>
+                 <div class="absolute w-3 h-3 bg-brand rounded-full top-0 -mt-1.5 shadow-[0_0_15px_#10b981]"></div>
+                 <div class="absolute w-3 h-3 bg-brand-light rounded-full bottom-0 -mb-1.5 shadow-[0_0_15px_#34d399]"></div>
+               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- What is an Adjudicator? -->
+      <div class="py-24 border-b border-white/5 relative">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6">
+          <div class="mb-16 max-w-2xl">
+            <h2 class="text-3xl md:text-5xl font-bold tracking-tight mb-4 text-white">What is an Adjudicator?</h2>
+            <p class="text-zinc-400 text-lg leading-relaxed">The operational complexity of truth resolution encapsulated behind a clean interface, enabling specialization and monetization.</p>
+          </div>
+
+          <div class="glass-card rounded-3xl p-8 md:p-12 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-brand to-transparent opacity-50"></div>
+            <div class="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-12">
+              <div class="flex flex-col items-center text-center p-6 border border-white/10 rounded-2xl bg-zinc-950/50 w-full md:w-1/3 hover:border-brand/30 transition-colors">
+                <div class="w-12 h-12 rounded-xl bg-zinc-900 border border-white/5 flex items-center justify-center mb-4 text-zinc-300">
+                  <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                </div>
+                <h3 class="text-xl font-bold text-white mb-2">Oracle</h3>
+                <p class="text-zinc-400 text-sm">The data feed. Monitors real-world events and provides factual information.</p>
+              </div>
+              
+              <div class="text-3xl font-light text-brand/50 hidden md:block">+</div>
+              
+              <div class="flex flex-col items-center text-center p-6 border border-white/10 rounded-2xl bg-zinc-950/50 w-full md:w-1/3 hover:border-brand/30 transition-colors">
+                <div class="w-12 h-12 rounded-xl bg-zinc-900 border border-white/5 flex items-center justify-center mb-4 text-zinc-300">
+                  <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                </div>
+                <h3 class="text-xl font-bold text-white mb-2">Resolver</h3>
+                <p class="text-zinc-400 text-sm">The settlement logic. Applies rules, thresholds, and governance to data.</p>
+              </div>
+
+              <div class="text-3xl font-light text-brand/50 hidden md:block">=</div>
+              
+              <div class="flex flex-col items-center text-center p-6 border border-brand/30 rounded-2xl bg-brand/5 w-full md:w-1/3 shadow-[0_0_30px_rgba(16,185,129,0.1)] hover:border-brand/50 transition-colors">
+                <div class="w-12 h-12 rounded-xl bg-brand/20 border border-brand/30 flex items-center justify-center mb-4 text-brand">
+                  <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                </div>
+                <h3 class="text-xl font-bold text-white mb-2">Adjudicator</h3>
+                <p class="text-zinc-400 text-sm">The absolute authority that permanently resolves a prediction market.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Adjudicator Types -->
+      <div class="py-24 border-b border-white/5">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6">
+          <div class="mb-16">
+            <h2 class="text-3xl md:text-5xl font-bold tracking-tight mb-4 text-white">Adjudicator Types.</h2>
+            <p class="text-zinc-400 text-lg">Specialized implementations optimized for different market types and trust models.</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Type 1: TEE Validated -->
+            <div class="glass-card rounded-2xl p-8 flex flex-col group relative overflow-hidden transition-all hover:border-brand/30 hover:bg-white/[0.04]">
+              <div class="flex items-center gap-3 mb-4">
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-zinc-800 text-zinc-300 border border-white/10">Hardware Trust</span>
+              </div>
+              <h3 class="text-2xl font-semibold text-white mb-3">TEE Validated</h3>
+              <p class="text-zinc-400 leading-relaxed mb-6 text-sm flex-grow">
+                Hardware-level assurance using secure enclaves. Ensures agents run exactly as programmed without interference.
+              </p>
+              <div class="border-t border-white/5 pt-4">
+                <div class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Ideal Use Case</div>
+                <div class="text-sm text-zinc-300">AI agent markets, verifiable off-chain compute</div>
+              </div>
+            </div>
+
+            <!-- Type 2: Oracle Feed -->
+            <div class="glass-card rounded-2xl p-8 flex flex-col group relative overflow-hidden transition-all hover:border-brand/30 hover:bg-white/[0.04]">
+              <div class="flex items-center gap-3 mb-4">
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-zinc-800 text-zinc-300 border border-white/10">Decentralized Feed</span>
+              </div>
+              <h3 class="text-2xl font-semibold text-white mb-3">Oracle Feed</h3>
+              <p class="text-zinc-400 leading-relaxed mb-6 text-sm flex-grow">
+                Integration with Chainlink, Pyth, or API3. Uses threshold comparisons on decentralized data streams.
+              </p>
+              <div class="border-t border-white/5 pt-4">
+                <div class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Ideal Use Case</div>
+                <div class="text-sm text-zinc-300">Price predictions, high-frequency financial metrics</div>
+              </div>
+            </div>
+
+            <!-- Type 3: DAO Governance -->
+            <div class="glass-card rounded-2xl p-8 flex flex-col group relative overflow-hidden transition-all hover:border-brand/30 hover:bg-white/[0.04]">
+              <div class="flex items-center gap-3 mb-4">
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-zinc-800 text-zinc-300 border border-white/10">Social Consensus</span>
+              </div>
+              <h3 class="text-2xl font-semibold text-white mb-3">DAO Governance</h3>
+              <p class="text-zinc-400 leading-relaxed mb-6 text-sm flex-grow">
+                Community voting with quorum requirements and timelocks. The crowd determines the truth.
+              </p>
+              <div class="border-t border-white/5 pt-4">
+                <div class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Ideal Use Case</div>
+                <div class="text-sm text-zinc-300">Subjective outcomes, community-driven platforms</div>
+              </div>
+            </div>
+
+            <!-- Type 4: Manual/Reputation -->
+            <div class="glass-card rounded-2xl p-8 flex flex-col group relative overflow-hidden transition-all hover:border-brand/30 hover:bg-white/[0.04]">
+              <div class="flex items-center gap-3 mb-4">
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-zinc-800 text-zinc-300 border border-white/10">Reputation Based</span>
+              </div>
+              <h3 class="text-2xl font-semibold text-white mb-3">Manual Committee</h3>
+              <p class="text-zinc-400 leading-relaxed mb-6 text-sm flex-grow">
+                Human adjudicators executing direct submissions via multi-sig. Relies entirely on operator reputation.
+              </p>
+              <div class="border-t border-white/5 pt-4">
+                <div class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Ideal Use Case</div>
+                <div class="text-sm text-zinc-300">Niche markets, trusted operators, early-stage platforms</div>
+              </div>
+            </div>
+
+            <!-- Type 5: Optimistic -->
+            <div class="glass-card rounded-2xl p-8 flex flex-col group relative overflow-hidden transition-all hover:border-brand/30 hover:bg-white/[0.04]">
+              <div class="flex items-center gap-3 mb-4">
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-zinc-800 text-zinc-300 border border-white/10">Economic Security</span>
+              </div>
+              <h3 class="text-2xl font-semibold text-white mb-3">Optimistic Oracle</h3>
+              <p class="text-zinc-400 leading-relaxed mb-6 text-sm flex-grow">
+                Proposer assertion followed by a dispute window. Requires financial bonds to ensure honesty.
+              </p>
+              <div class="border-t border-white/5 pt-4">
+                <div class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Ideal Use Case</div>
+                <div class="text-sm text-zinc-300">Long-tail markets, broad arbitrary fact verification</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Two-Step Settlement -->
+      <div class="py-24 border-b border-white/5">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6">
+          <div class="mb-16 max-w-2xl">
+            <h2 class="text-3xl md:text-5xl font-bold tracking-tight mb-4 text-white">Two-step settlement.</h2>
+            <p class="text-zinc-400 text-lg">A deliberate delay between proposition and finalization, enabling robust security and community oversight.</p>
+          </div>
+
+          <div class="glass-card rounded-3xl p-10 md:p-16">
+            <div class="flex flex-col md:flex-row gap-12 relative">
+              <!-- Connecting Line -->
+              <div class="hidden md:block absolute top-8 left-[10%] right-[10%] h-0.5 bg-gradient-to-r from-brand/50 via-zinc-800 to-brand/50"></div>
+              
+              <!-- Step 1 -->
+              <div class="flex-1 relative z-10">
+                <div class="w-16 h-16 rounded-2xl bg-zinc-900 border border-brand/50 text-brand flex items-center justify-center font-bold text-2xl mb-8 mx-auto shadow-[0_0_20px_rgba(16,185,129,0.2)]">1</div>
+                <h3 class="text-2xl font-bold text-white mb-4 text-center">Settlement Phase</h3>
+                <p class="text-zinc-400 leading-relaxed mb-6 text-center text-sm">
+                  The market reaches its deadline. The Adjudicator validates real-world data and officially proposes an outcome to the core protocol.
+                </p>
+                <div class="bg-zinc-950/50 rounded-xl p-5 border border-white/5">
+                  <div class="flex items-center gap-3 mb-2">
+                    <svg class="w-4 h-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span class="text-sm font-medium text-zinc-300">Guardian Veto Window</span>
+                  </div>
+                  <p class="text-xs text-zinc-500">
+                    A mandatory delay period begins. If the proposed outcome is malicious or egregiously incorrect, protocol guardians can intercept and override the result.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Step 2 -->
+              <div class="flex-1 relative z-10">
+                <div class="w-16 h-16 rounded-2xl bg-zinc-900 border border-brand/50 text-brand flex items-center justify-center font-bold text-2xl mb-8 mx-auto shadow-[0_0_20px_rgba(16,185,129,0.2)]">2</div>
+                <h3 class="text-2xl font-bold text-white mb-4 text-center">Finalization Phase</h3>
+                <p class="text-zinc-400 leading-relaxed mb-6 text-center text-sm">
+                  Once the dispute window concludes without a veto, the outcome is permanently enshrined on-chain.
+                </p>
+                <div class="bg-brand/5 rounded-xl p-5 border border-brand/20">
+                  <div class="flex items-center gap-3 mb-2">
+                    <svg class="w-4 h-4 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span class="text-sm font-medium text-brand-light">Redemption Unlocked</span>
+                  </div>
+                  <p class="text-xs text-zinc-400">
+                    Traders holding the winning outcome token can immediately redeem them directly for 1 USDC each. Market resolution is absolute and immutable.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Adjudicators -->
+      <div class="py-24 border-b border-white/5">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6">
+          <div class="mb-16">
+            <h2 class="text-3xl md:text-5xl font-bold tracking-tight mb-4 text-white">Adjudicators in production.</h2>
+            <p class="text-zinc-400 text-lg">A growing ecosystem of specialized truth resolution engines.</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- SoothSayer -->
+            <div class="glass-card rounded-2xl p-8 flex flex-col group relative overflow-hidden hover:border-brand/30 transition-all">
+              <div class="flex items-center justify-between mb-6">
+                <h3 class="text-2xl font-bold text-white">SoothSayer</h3>
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-brand/10 text-brand border border-brand/20">Live</span>
+              </div>
+              <p class="text-zinc-400 text-sm mb-6 flex-grow leading-relaxed">
+                Deployed on Monad testnet. Powered by the Moltbook Agent Adjudicator, allowing autonomous AI agents to create, evaluate, and resolve prediction markets based on web data.
+              </p>
+              <div class="grid grid-cols-2 gap-4 mb-6 border-y border-white/5 py-4">
+                <div>
+                  <div class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Ecosystem</div>
+                  <div class="text-sm text-zinc-300 font-mono">Monad</div>
+                </div>
+                <div>
+                  <div class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Stats</div>
+                  <div class="text-sm text-brand font-mono">12+ Markets · 90+ Karma</div>
+                </div>
+              </div>
+              <a href="https://sayer.sooth.market" target="_blank" rel="noopener" class="text-brand text-sm font-medium hover:text-brand-light transition-colors inline-flex items-center gap-1">
+                View Agent Activity &rarr;
+              </a>
+            </div>
+
+            <!-- Sooth dApp -->
+            <div class="glass-card rounded-2xl p-8 flex flex-col group relative overflow-hidden hover:border-brand/30 transition-all">
+              <div class="flex items-center justify-between mb-6">
+                <h3 class="text-2xl font-bold text-white">Sooth dApp</h3>
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-brand/10 text-brand border border-brand/20">Invite-Only</span>
+              </div>
+              <p class="text-zinc-400 text-sm mb-6 flex-grow leading-relaxed">
+                Deployed on Base. Powered by the UMA Mirror Adjudicator — an optimistic oracle that relies on economic security and decentralized dispute resolution to verify world events.
+              </p>
+              <div class="grid grid-cols-2 gap-4 mb-6 border-y border-white/5 py-4">
+                <div>
+                  <div class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Ecosystem</div>
+                  <div class="text-sm text-zinc-300 font-mono">Base Sepolia</div>
+                </div>
+                <div>
+                  <div class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Mechanism</div>
+                  <div class="text-sm text-zinc-300 font-mono">Optimistic Oracle</div>
+                </div>
+              </div>
+              <a href="https://app.sooth.market" target="_blank" rel="noopener" class="text-brand text-sm font-medium hover:text-brand-light transition-colors inline-flex items-center gap-1">
+                Launch Application &rarr;
+              </a>
+            </div>
+
+            <!-- Brevis -->
+            <div class="glass-card rounded-2xl p-8 flex flex-col group relative overflow-hidden hover:border-white/20 transition-all opacity-80">
+              <div class="flex items-center justify-between mb-6">
+                <h3 class="text-2xl font-bold text-white">Brevis Integration</h3>
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-zinc-800 text-zinc-400 border border-white/10">Q3 2026</span>
+              </div>
+              <p class="text-zinc-400 text-sm mb-6 flex-grow leading-relaxed">
+                Zero-knowledge proof based truth resolution. Cryptographically verifying off-chain historical data and computation without exposing the underlying sources to the public chain.
+              </p>
+              <div class="border-t border-white/5 pt-4">
+                <span class="text-xs text-zinc-500 font-medium">Coming Soon</span>
+              </div>
+            </div>
+
+            <!-- Lens/Firefly -->
+            <div class="glass-card rounded-2xl p-8 flex flex-col group relative overflow-hidden hover:border-white/20 transition-all opacity-80">
+              <div class="flex items-center justify-between mb-6">
+                <h3 class="text-2xl font-bold text-white">Lens Social Graph</h3>
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-zinc-800 text-zinc-400 border border-white/10">In Development</span>
+              </div>
+              <p class="text-zinc-400 text-sm mb-6 flex-grow leading-relaxed">
+                A social-native adjudicator resolving markets based on decentralized social graph activity, profile engagement, and verified community sentiment via Firefly.
+              </p>
+              <div class="border-t border-white/5 pt-4">
+                <span class="text-xs text-zinc-500 font-medium">Coming Soon</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Build Your Own (BSL) -->
+      <div class="py-24 relative overflow-hidden">
+        <div class="absolute inset-0 bg-brand/5"></div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
+          <div class="glass-card rounded-3xl p-10 md:p-16 border-brand/20 bg-zinc-950/50 flex flex-col md:flex-row items-center justify-between gap-10">
+            <div class="max-w-xl">
+              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-brand/30 bg-brand/5 text-brand text-xs font-mono font-medium tracking-wide mb-6">
+                Business Source License (BSL)
+              </div>
+              <h2 class="text-3xl md:text-5xl font-bold tracking-tight mb-4 text-white">Build your own oracle.</h2>
+              <p class="text-zinc-400 text-lg leading-relaxed mb-6">
+                The Adjudicator Layer is open and auditable, but governed by a Business Source License. This enables teams to build sustainable, monetizable resolution infrastructure while keeping the code entirely transparent.
+              </p>
+              <ul class="space-y-3 text-sm text-zinc-300">
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                  Source is readable and auditable by anyone
+                </li>
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                  Commercial license required during protection period
+                </li>
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                  Automatically converts to open-source afterward
+                </li>
+              </ul>
+            </div>
+            <div class="shrink-0 w-full md:w-auto mt-8 md:mt-0">
+              <a href="https://github.com/Tora-Build" target="_blank" rel="noopener" class="w-full md:w-auto px-8 py-4 rounded-xl border border-brand/50 text-brand hover:bg-brand/10 font-bold transition-all inline-flex items-center justify-center gap-2">
+                View on GitHub <span aria-hidden="true">↗</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <section data-page="creator" hidden>
+      <!-- Hero Section -->
+      <div class="relative min-h-[80dvh] flex items-center pt-20 pb-32 overflow-hidden border-b border-white/5">
+        <!-- Grid background -->
+        <div class="absolute inset-0 pointer-events-none opacity-20" style="background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px); background-size: 32px 32px;"></div>
+        
+        <!-- Ambient glow right side -->
+        <div class="absolute right-0 top-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-brand/10 rounded-full blur-[120px] pointer-events-none"></div>
+
+        <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div class="flex flex-col items-start gap-8 max-w-2xl">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-brand/30 bg-brand/5 text-brand text-xs font-mono font-medium tracking-wide">
+              <span class="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"></span>
+              Operator Economics
+            </div>
+            
+            <h1 class="text-5xl md:text-7xl font-bold tracking-tighter leading-[1.1] text-white">
+              <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand to-brand-light">Creator Tooling</span>.
+            </h1>
+            
+            <p class="text-lg md:text-xl text-zinc-400 leading-relaxed max-w-[65ch]">
+              Build sustainable prediction market businesses. Configure fees, earn LP yield, and grow from operator to community-driven platform.
+            </p>
+            
+            <div class="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto mt-2">
+              <a href="/core" data-route="/core" class="w-full sm:w-auto px-8 py-4 rounded-xl bg-brand hover:bg-brand-light text-zinc-950 font-semibold transition-all transform hover:-translate-y-1 hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] text-center">
+                Explore Core
+              </a>
+              <a href="https://github.com/Tora-Build/sooth-core" target="_blank" rel="noopener" class="w-full sm:w-auto px-8 py-4 rounded-xl border border-brand/50 text-brand hover:bg-brand/10 font-semibold transition-all text-center">
+                View Documentation ↗
+              </a>
+            </div>
+          </div>
+          
+          <div class="hidden lg:block relative h-full min-h-[400px]">
+            <div class="ambient-glow"></div>
+            <!-- Decorative abstract graphic -->
+            <div class="absolute inset-0 flex items-center justify-center">
+               <div class="relative w-72 h-72 border border-white/10 rounded-xl flex items-center justify-center rotate-45 animate-[pulse_10s_ease-in-out_infinite]">
+                 <div class="w-48 h-48 border border-brand/30 rounded-xl -rotate-12 animate-[spin_20s_linear_infinite_reverse]"></div>
+                 <div class="absolute w-3 h-3 bg-brand rounded-full top-0 -mt-1.5 shadow-[0_0_15px_#10b981]"></div>
+               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fee Economics Section -->
+      <div class="py-24 border-b border-white/5">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6">
+          <div class="mb-16 max-w-2xl">
+            <h2 class="text-3xl md:text-5xl font-bold tracking-tight mb-4 text-white">Fee Economics.</h2>
+            <p class="text-zinc-400 text-lg">A two-phase model that rewards liquidity provisioning and sustainable growth.</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Phase 1 -->
+            <div class="glass-card rounded-2xl p-8 flex flex-col group relative overflow-hidden transition-all hover:border-brand/30 hover:bg-white/[0.04]">
+              <div class="flex items-center gap-3 mb-6">
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-zinc-800 text-zinc-300 border border-white/10">Pre-Graduation</span>
+              </div>
+              <h3 class="text-2xl font-semibold text-white mb-4">Liquidity Bootstrapping</h3>
+              <p class="text-zinc-400 leading-relaxed mb-8 flex-grow text-sm">
+                A 5% fee on AMM trades is captured not as extractive profit, but to deepen market liquidity. Traders receive minted LP tokens, ensuring value remains within the ecosystem.
+              </p>
+              <ul class="space-y-4 text-sm text-zinc-300">
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                  5% fee on AMM trades
+                </li>
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                  Fees directly deepen liquidity
+                </li>
+                <li class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                  LP tokens minted to traders
+                </li>
+              </ul>
+            </div>
+
+            <!-- Phase 2 -->
+            <div class="glass-card rounded-2xl p-8 flex flex-col group relative overflow-hidden transition-all hover:border-brand/30 hover:bg-white/[0.04]">
+              <div class="flex items-center gap-3 mb-6">
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-brand/10 text-brand border border-brand/20">Post-Graduation</span>
+              </div>
+              <h3 class="text-2xl font-semibold text-white mb-4">Sustainable Yield</h3>
+              <p class="text-zinc-400 leading-relaxed mb-8 flex-grow text-sm">
+                Graduated markets shift to a 1% orderbook trading fee. Revenue is split strategically to fuel liquidity growth, reward participants, and maintain the protocol.
+              </p>
+              
+              <div class="flex w-full h-3 rounded-full overflow-hidden mb-6">
+                <div class="bg-brand w-1/2" title="50% Liquidity Growth"></div>
+                <div class="bg-brand-light w-[30%]" title="30% LP Yield"></div>
+                <div class="bg-brand-dark w-[20%]" title="20% Protocol Treasury"></div>
+              </div>
+              
+              <ul class="space-y-4 text-sm text-zinc-300">
+                <li class="flex items-start gap-3">
+                  <span class="w-2 h-2 rounded-full bg-brand mt-1.5 shrink-0"></span>
+                  <strong>50%</strong> AMM Liquidity Growth
+                </li>
+                <li class="flex items-start gap-3">
+                  <span class="w-2 h-2 rounded-full bg-brand-light mt-1.5 shrink-0"></span>
+                  <strong>30%</strong> LP Yield Pool (Creators &amp; LPs)
+                </li>
+                <li class="flex items-start gap-3">
+                  <span class="w-2 h-2 rounded-full bg-brand-dark mt-1.5 shrink-0"></span>
+                  <strong>20%</strong> Protocol Treasury
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Creator Evolution Section -->
+      <div class="py-24 border-b border-white/5">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6">
+          <div class="mb-16 max-w-2xl">
+            <h2 class="text-3xl md:text-5xl font-bold tracking-tight mb-4 text-white">Creator Evolution.</h2>
+            <p class="text-zinc-400 text-lg">A progressive decentralization of market creation, moving from professional operators to long-tail individuals.</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-6 relative">
+            <!-- Connecting Line -->
+            <div class="hidden md:block absolute top-12 left-12 right-12 h-[1px] bg-white/10"></div>
+            
+            <!-- Phase 1 -->
+            <div class="glass-card rounded-2xl p-6 relative z-10 bg-zinc-950 flex flex-col items-start border-white/5 hover:border-brand/30 transition-all">
+              <div class="w-8 h-8 rounded-full bg-brand/20 border border-brand/50 text-brand flex items-center justify-center font-mono text-sm font-bold mb-6">1</div>
+              <div class="flex items-center gap-2 mb-3">
+                <h4 class="text-lg font-bold text-white">Operators</h4>
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-brand/10 text-brand border border-brand/20">Current</span>
+              </div>
+              <p class="text-zinc-400 text-sm leading-relaxed">
+                Professional operators running systematic market series with high-volume algorithmic trading.
+              </p>
+            </div>
+            
+            <!-- Phase 2 -->
+            <div class="glass-card rounded-2xl p-6 relative z-10 bg-zinc-950 flex flex-col items-start border-white/5 hover:border-brand/30 transition-all">
+              <div class="w-8 h-8 rounded-full bg-zinc-800 border border-white/10 text-zinc-300 flex items-center justify-center font-mono text-sm font-bold mb-6">2</div>
+              <h4 class="text-lg font-bold text-white mb-3">Interest Groups</h4>
+              <p class="text-zinc-400 text-sm leading-relaxed">
+                Domain experts and organizations managing specialized verticals with medium-volume curated markets.
+              </p>
+            </div>
+            
+            <!-- Phase 3 -->
+            <div class="glass-card rounded-2xl p-6 relative z-10 bg-zinc-950 flex flex-col items-start border-white/5 hover:border-brand/30 transition-all">
+              <div class="w-8 h-8 rounded-full bg-zinc-800 border border-white/10 text-zinc-300 flex items-center justify-center font-mono text-sm font-bold mb-6">3</div>
+              <h4 class="text-lg font-bold text-white mb-3">Communities</h4>
+              <p class="text-zinc-400 text-sm leading-relaxed">
+                Local and niche communities driving organic, lower-volume questions tailored to specific groups.
+              </p>
+            </div>
+            
+            <!-- Phase 4 -->
+            <div class="glass-card rounded-2xl p-6 relative z-10 bg-zinc-950 flex flex-col items-start border-white/5 hover:border-brand/30 transition-all">
+              <div class="w-8 h-8 rounded-full bg-zinc-800 border border-white/10 text-zinc-300 flex items-center justify-center font-mono text-sm font-bold mb-6">4</div>
+              <h4 class="text-lg font-bold text-white mb-3">Individuals</h4>
+              <p class="text-zinc-400 text-sm leading-relaxed">
+                Anyone can launch personal predictions, enabling a truly long-tail and diverse market landscape.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LP Token Economics Section -->
+      <div class="py-24 border-b border-white/5">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6">
+          <div class="mb-16">
+            <h2 class="text-3xl md:text-5xl font-bold tracking-tight mb-4 text-white">LP Token Economics.</h2>
+            <p class="text-zinc-400 text-lg">Completely composable liquidity provisioning built on standard ERC20s.</p>
+          </div>
+
+          <div class="glass-card rounded-3xl p-8 md:p-12 hover:border-brand/30 transition-all">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+              <div>
+                <h3 class="text-2xl font-bold text-white mb-6">The Floor Value Guarantee</h3>
+                <p class="text-zinc-400 leading-relaxed mb-6">
+                  Unlike traditional prediction markets, Sooth's LP tokens represent a direct claim on the market's underlying liquidity. The mathematical design ensures your LP tokens are always worth at least:
+                </p>
+                <div class="font-mono text-sm text-brand-light bg-zinc-900/50 p-6 rounded-lg border border-white/5 break-all mb-8">
+                  (Total Cash &minus; Max AMM Liability) &divide; Total Supply
+                </div>
+                <ul class="space-y-4 text-sm text-zinc-300">
+                  <li class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                    <strong>Transferable:</strong> Move LP tokens between wallets seamlessly.
+                  </li>
+                  <li class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                    <strong>Stakeable:</strong> Earn additional yields through external protocols.
+                  </li>
+                  <li class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                    <strong>Composable:</strong> Fully integratable with the broader DeFi ecosystem.
+                  </li>
+                </ul>
+              </div>
+              <div class="relative w-full aspect-square md:aspect-auto md:h-full min-h-[300px] flex items-center justify-center bg-zinc-900/50 rounded-2xl border border-white/5 overflow-hidden">
+                <div class="ambient-glow opacity-50"></div>
+                <!-- Abstract Representation of LP Floor Value -->
+                <div class="relative w-48 h-48 border border-brand/30 rounded-full flex flex-col items-center justify-center z-10 bg-zinc-950/50 backdrop-blur-sm">
+                  <span class="text-xs font-mono text-zinc-500 uppercase tracking-widest mb-2">Floor Value</span>
+                  <span class="text-3xl font-bold text-white flex items-center gap-2">
+                    <svg class="w-6 h-6 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                    Protected
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Comparison Table Section -->
+      <div class="py-24 border-b border-white/5">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6">
+          <div class="mb-16">
+            <h2 class="text-3xl md:text-5xl font-bold tracking-tight mb-4 text-white">The Sooth Advantage.</h2>
+            <p class="text-zinc-400 text-lg">How Sooth Protocol compares to existing prediction market infrastructure.</p>
+          </div>
+
+          <div class="glass-card rounded-3xl overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-sm whitespace-nowrap">
+                <thead class="bg-zinc-900/80 border-b border-white/5">
+                  <tr>
+                    <th scope="col" class="px-8 py-6 font-medium text-zinc-400">Feature</th>
+                    <th scope="col" class="px-8 py-6 font-medium text-zinc-400 border-l border-white/5">Polymarket</th>
+                    <th scope="col" class="px-8 py-6 font-medium text-zinc-400 border-l border-white/5">Kalshi</th>
+                    <th scope="col" class="px-8 py-6 font-semibold text-brand border-l border-brand/30 bg-brand/5 relative">
+                      <div class="absolute inset-0 bg-brand/5 pointer-events-none"></div>
+                      Sooth Protocol
+                    </th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-white/5">
+                  <tr class="hover:bg-white/[0.02] transition-colors">
+                    <td class="px-8 py-6 text-zinc-300">Market Creation</td>
+                    <td class="px-8 py-6 text-zinc-500 border-l border-white/5">Gatekept (Whitelist)</td>
+                    <td class="px-8 py-6 text-zinc-500 border-l border-white/5">Regulated (CFTC)</td>
+                    <td class="px-8 py-6 text-white font-medium border-l border-brand/30 bg-brand/5 relative">
+                      <div class="absolute inset-0 bg-brand/5 pointer-events-none"></div>
+                      Permissionless (Anyone)
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-white/[0.02] transition-colors">
+                    <td class="px-8 py-6 text-zinc-300">Settlement</td>
+                    <td class="px-8 py-6 text-zinc-500 border-l border-white/5">Centralized / UMA</td>
+                    <td class="px-8 py-6 text-zinc-500 border-l border-white/5">Centralized</td>
+                    <td class="px-8 py-6 text-white font-medium border-l border-brand/30 bg-brand/5 relative">
+                      <div class="absolute inset-0 bg-brand/5 pointer-events-none"></div>
+                      Pluggable Adjudicators
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-white/[0.02] transition-colors">
+                    <td class="px-8 py-6 text-zinc-300">Fee Model</td>
+                    <td class="px-8 py-6 text-zinc-500 border-l border-white/5">Variable</td>
+                    <td class="px-8 py-6 text-zinc-500 border-l border-white/5">Exchange Fees</td>
+                    <td class="px-8 py-6 text-white font-medium border-l border-brand/30 bg-brand/5 relative">
+                      <div class="absolute inset-0 bg-brand/5 pointer-events-none"></div>
+                      1% Post-Graduation
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-white/[0.02] transition-colors">
+                    <td class="px-8 py-6 text-zinc-300">Chain</td>
+                    <td class="px-8 py-6 text-zinc-500 border-l border-white/5">Polygon</td>
+                    <td class="px-8 py-6 text-zinc-500 border-l border-white/5">Off-chain / USDC</td>
+                    <td class="px-8 py-6 text-white font-medium border-l border-brand/30 bg-brand/5 relative">
+                      <div class="absolute inset-0 bg-brand/5 pointer-events-none"></div>
+                      Any EVM Chain
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-white/[0.02] transition-colors">
+                    <td class="px-8 py-6 text-zinc-300">Access</td>
+                    <td class="px-8 py-6 text-zinc-500 border-l border-white/5">Invite-only (Creation)</td>
+                    <td class="px-8 py-6 text-zinc-500 border-l border-white/5">US-only (KYC Required)</td>
+                    <td class="px-8 py-6 text-white font-medium border-l border-brand/30 bg-brand/5 relative">
+                      <div class="absolute inset-0 bg-brand/5 pointer-events-none"></div>
+                      Open &amp; Global
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CTA Section -->
+      <div class="py-24 relative overflow-hidden">
+        <div class="absolute inset-0 bg-brand/5"></div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
+          <div class="glass-card rounded-3xl p-10 md:p-16 border-brand/20 bg-zinc-950/50 flex flex-col md:flex-row items-center justify-between gap-10">
+            <div class="max-w-xl">
+              <h2 class="text-3xl md:text-5xl font-bold tracking-tight mb-4 text-white">Start building.</h2>
+              <p class="text-zinc-400 text-lg leading-relaxed">
+                Launch your own prediction market platform. Dive into the core smart contracts or view the open-source repository.
+              </p>
+            </div>
+            <div class="shrink-0 w-full md:w-auto flex flex-col sm:flex-row gap-4">
+              <a href="/core" data-route="/core" class="w-full sm:w-auto px-8 py-4 rounded-xl bg-brand hover:bg-brand-light text-zinc-950 font-semibold transition-all inline-flex items-center justify-center text-center shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+                Explore Core
+              </a>
+              <a href="https://github.com/Tora-Build/sooth-core" target="_blank" rel="noopener" class="w-full sm:w-auto px-8 py-4 rounded-xl border border-brand/50 text-brand hover:bg-brand/10 font-semibold transition-all inline-flex items-center justify-center text-center">
+                View GitHub ↗
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 
+  <footer class="py-12 px-4 sm:px-6 max-w-7xl mx-auto w-full border-t border-white/5 mt-12">
+    <div class="flex flex-col md:flex-row justify-between items-center gap-6">
+      <div class="flex items-center gap-3">
+        <svg width="20" height="20" viewBox="0 0 200 200" fill="none" aria-hidden="true" class="opacity-60 grayscale hover:grayscale-0 transition-all">
+          <path d="M100 50L180 120L100 190L20 120Z" fill="#818CF8" opacity="0.4" stroke="#818CF8" stroke-width="1"/>
+          <path d="M100 30L180 100L100 170L20 100Z" fill="#C084FC" opacity="0.4" stroke="#C084FC" stroke-width="1"/>
+          <path d="M100 10L180 80L100 150L20 80Z" fill="#22D3EE" opacity="0.6" stroke="#22D3EE" stroke-width="2"/>
+          <path d="M100 10V190" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span class="text-xs font-mono text-zinc-500 uppercase tracking-widest">Sooth Protocol</span>
+      </div>
+      
+      <div class="flex flex-wrap justify-center gap-x-8 gap-y-4 text-xs font-mono text-zinc-500">
+        <a href="https://app.sooth.market" target="_blank" rel="noopener" class="hover:text-brand transition-colors">dApp</a>
+        <a href="https://sayer.sooth.market" target="_blank" rel="noopener" class="hover:text-brand transition-colors">SoothSayer</a>
+        <a href="https://sooth.market" target="_blank" rel="noopener" class="hover:text-brand transition-colors">Market Registry</a>
+        <a href="https://x.com/SoothProtocol" target="_blank" rel="noopener" class="hover:text-brand transition-colors">X (Twitter)</a>
+        <a href="https://t.me/soothprotocol" target="_blank" rel="noopener" class="hover:text-brand transition-colors">Telegram</a>
+        <a href="https://github.com/Tora-Build/sooth-core" target="_blank" rel="noopener" class="hover:text-brand transition-colors">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
   <script>
+    // Route map
+    const routes = { '/': 'home', '/core': 'core', '/adjudicator': 'adjudicator', '/creator': 'creator' };
 
-    document.addEventListener("DOMContentLoaded", () => {
-      if (typeof gsap !== 'undefined') {
-        gsap.registerPlugin(ScrollTrigger);
-
-
-        gsap.fromTo(".gs-reveal", 
-          { y: 30, opacity: 0 },
-          { y: 0, opacity: 1, duration: 1.2, stagger: 0.1, ease: "power3.out", delay: 0.2 }
-        );
-        
-
-        gsap.to(".spinning-slow", { rotation: 360, duration: 40, repeat: -1, ease: "linear" });
-        gsap.to(".spinning-reverse", { rotation: -360, duration: 25, repeat: -1, ease: "linear" });
-        
-        gsap.to(".floating-1", { y: -20, x: 10, duration: 3, repeat: -1, yoyo: true, ease: "sine.inOut" });
-        gsap.to(".floating-2", { y: 20, x: -15, duration: 4, repeat: -1, yoyo: true, ease: "sine.inOut", delay: 1 });
-        gsap.to(".floating-3", { y: -15, x: -20, duration: 3.5, repeat: -1, yoyo: true, ease: "sine.inOut", delay: 0.5 });
-        
-        gsap.fromTo(".gs-float",
-          { y: 20, opacity: 0 },
-          { y: 0, opacity: 1, duration: 1.5, ease: "power4.out", delay: 1 }
-        );
-        gsap.to(".gs-float", { y: -10, duration: 4, repeat: -1, yoyo: true, ease: "sine.inOut", delay: 2.5 });
-
-
-        gsap.utils.toArray('.gs-reveal-scroll').forEach(el => {
-          gsap.fromTo(el,
-            { y: 30, opacity: 0 },
-            {
-              scrollTrigger: {
-                trigger: el,
-                start: "top 85%",
-              },
-              y: 0, opacity: 1, duration: 1, ease: "power3.out"
-            }
-          );
-        });
-
-        gsap.utils.toArray('.gs-bento').forEach((card, i) => {
-          gsap.fromTo(card,
-            { y: 40, opacity: 0 },
-            { 
-              scrollTrigger: {
-                trigger: card,
-                start: "top 85%",
-              },
-              y: 0, opacity: 1, duration: 1, ease: "power3.out"
-            }
-          );
-        });
-
-
-        gsap.fromTo(".gs-mechanic",
-          { y: 30, opacity: 0 },
-          { 
-            scrollTrigger: {
-              trigger: "#mechanics",
-              start: "top 80%",
-            },
-            y: 0, opacity: 1, duration: 0.8, stagger: 0.15, ease: "power2.out"
-          }
-        );
-
-        if (document.querySelector("#lifecycle-progress")) {
-          gsap.to("#lifecycle-progress", {
-            scrollTrigger: {
-              trigger: "#lifecycle",
-              start: "top center",
-              end: "bottom center",
-              scrub: 1
-            },
-            width: "100%",
-            ease: "none"
-          });
-        }
+    // Get current page key from pathname
+    function getPage(path) {
+      const key = path.replace(/^\/+/, '') || '';
+      // Normalize: empty = home
+      for (const [route, page] of Object.entries(routes)) {
+        if ((route === '/' && key === '') || route === '/' + key) return page;
       }
+      return 'home'; // fallback
+    }
+
+    // Navigate to path
+    function navigateTo(path) {
+      window.history.pushState({}, '', path);
+      renderPage(path);
+    }
+
+    // Render the correct page section
+    function renderPage(path) {
+      const page = getPage(path);
+      document.querySelectorAll('section[data-page]').forEach(s => {
+        s.hidden = s.dataset.page !== page;
+      });
+      // Update active nav link
+      document.querySelectorAll('nav a[data-route]').forEach(a => {
+        const isActive = a.dataset.route === path || (a.dataset.route === '/' && path === '/');
+        a.setAttribute('aria-current', isActive ? 'page' : 'false');
+        a.classList.toggle('text-brand', isActive);
+        a.classList.toggle('text-white/50', !isActive);
+      });
+      // Route announcer
+      const pageNames = { home: 'Home', core: 'Sooth Core', adjudicator: 'Adjudicator Layer', creator: 'Creator Tooling' };
+      document.getElementById('route-announcer').textContent = 'Navigated to ' + (pageNames[page] || page);
+      // Focus management
+      const main = document.getElementById('main-content');
+      if (main) main.focus({ preventScroll: true });
+      // Scroll to top
+      window.scrollTo(0, 0);
+    }
+
+    // Handle browser back/forward
+    window.addEventListener('popstate', () => renderPage(location.pathname));
+
+    // Intercept all internal <a> clicks
+    document.addEventListener('click', e => {
+      const a = e.target.closest('a[data-route]');
+      if (!a) return;
+      e.preventDefault();
+      navigateTo(a.dataset.route);
     });
+
+    // Initial render on page load
+    renderPage(location.pathname);
   </script>
 </body>
 </html>
