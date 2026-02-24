@@ -1007,3 +1007,18 @@
     margin-bottom: env(safe-area-inset-bottom);
   }
 }
+
+@layer components {
+  .glass-panel {
+    background: rgba(9, 9, 11, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(12px);
+    border-radius: 12px;
+  }
+  .skeleton-box {
+    background: linear-gradient(90deg, #18181b 25%, #27272a 50%, #18181b 75%);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+    border-radius: 4px;
+  }
+}
