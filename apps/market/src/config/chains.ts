@@ -19,6 +19,19 @@ export const baseSepolia = defineChain({
   testnet: true,
 });
 
+export const monadTestnet = {
+  id: 10143,
+  name: 'Monad Testnet',
+  rpc: 'https://testnet-rpc.monad.xyz',
+  explorer: 'https://testnet.monadvision.com',
+  launchpad: '0x6fd82b76045af934354a2033fde5cb64772ae615',
+};
+
+export const SUPPORTED_CHAINS = [
+  { id: 84532, name: 'Base Sepolia', color: 'blue' },
+  { id: 10143, name: 'Monad Testnet', color: 'purple' },
+];
+
 export const CHAIN_ID = 84532;
 export const EXPLORER_URL = 'https://sepolia.basescan.org';
 

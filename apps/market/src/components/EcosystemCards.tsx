@@ -16,7 +16,7 @@ export function EcosystemCards() {
         >
           <div className="flex items-center justify-between mb-4">
             <span className="text-zinc-400 font-mono text-xs">Base Sepolia</span>
-            <span className="bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider">
+            <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider">
               Invite Only
             </span>
           </div>

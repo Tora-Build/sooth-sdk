@@ -22,7 +22,7 @@ createAppKit({
   },
   themeMode: 'dark',
   themeVariables: {
-    '--w3m-accent': '#06b6d4',
+    '--w3m-accent': '#f59e0b',
     '--w3m-font-family': 'JetBrains Mono, monospace',
   },
   allowUnsupportedChain: true,

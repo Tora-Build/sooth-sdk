@@ -1,24 +1,30 @@
 export interface LaunchpadMarket {
   address: string;
   chainId: number;
+  network?: string; // 'Base Sepolia' | 'Monad Testnet'
   creator: string;
   isGraduated: boolean;
+  isDismissed?: boolean;
   deposit: string;
   isSettled: boolean;
   isFinalized: boolean;
+  createdAt?: string | number;
   yesProbability?: number;
   yesReserves?: string;
   noReserves?: string;
   question?: string;
+  name?: string;
   marketKey?: string;
 }
 
-export type MarketStatus = 'trading' | 'settled' | 'finalized';
+// Only statuses shown in UI (bonding is filtered out before display)
+export type MarketStatus = 'live' | 'settled' | 'finalized' | 'dismissed';
 
 export function getMarketStatus(market: LaunchpadMarket): MarketStatus {
+  if (market.isDismissed) return 'dismissed';
   if (market.isFinalized) return 'finalized';
   if (market.isSettled) return 'settled';
-  return 'trading';
+  return 'live';
 }
 
 export interface Order {

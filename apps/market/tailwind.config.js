@@ -16,16 +16,16 @@ export default {
         "tour": "110",
       },
       fontFamily: {
-        sans: ['Outfit', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial'],
+        sans: ['Satoshi', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
         mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas'],
-        heading: ['Space Grotesk', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial'],
+        heading: ['Satoshi', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
       },
       colors: {
         background: '#020617',
         surface: 'rgba(15, 23, 42, 0.8)',
         primary: {
-          DEFAULT: '#06b6d4',
-          foreground: '#ecfeff',
+          DEFAULT: '#f59e0b',
+          foreground: '#000',
         },
         secondary: {
           DEFAULT: '#1e293b',
@@ -42,6 +42,11 @@ export default {
         success: {
           DEFAULT: '#10b981',
           foreground: '#d1fae5',
+        },
+        amber: {
+          400: '#fbbf24',
+          500: '#f59e0b',
+          600: '#d97706',
         },
         cyan: {
           50: '#ecfeff',
@@ -72,7 +77,7 @@ export default {
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
-        'hero-glow': 'radial-gradient(circle at top center, rgba(6, 182, 212, 0.15) 0%, rgba(2, 6, 23, 0) 50%)',
+        'hero-glow': 'radial-gradient(circle at top center, rgba(245, 158, 11, 0.15) 0%, rgba(2, 6, 23, 0) 50%)',
         'neon-glow': 'radial-gradient(circle at center, rgba(6, 182, 212, 0.2) 0%, transparent 70%)',
       },
       animation: {
