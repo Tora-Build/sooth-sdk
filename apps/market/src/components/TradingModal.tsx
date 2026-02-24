@@ -1,9 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Loader2 } from 'lucide-react';
+import { useAccount } from 'wagmi';
 import { keccak256, encodePacked, Address } from 'viem';
 import { LaunchpadMarket, getMarketStatus, MarketStatus } from '../types';
 import { useOrderbook } from '../hooks/useOrderbook';
-import { useSoothBookMarket } from '../hooks/useSoothBook';
+import { useSoothBookMarket, useSoothBookBalance } from '../hooks/useSoothBook';
+import { useOrderbookTrade } from '../hooks/useOrderbookTrade';
+import { BuySellPanel } from './BuySellPanel';
+import { MintMergePanel } from './MintMergePanel';
 
 interface TradingModalProps {
   market: LaunchpadMarket;
@@ -50,6 +54,31 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
 
   const { bids, asks, isLoading } = useOrderbook(marketKey);
   const { yesPrice, noPrice, bestYesTick, bestNoTick, isActive } = useSoothBookMarket(market.address);
+
+  const { isConnected } = useAccount();
+  const { cancel, redeem, state } = useOrderbookTrade(market.address);
+  const { yesShares, noShares } = useSoothBookBalance(market.address);
+
+  const [cancelSide, setCancelSide] = useState<'yes' | 'no'>('yes');
+  const [cancelTick, setCancelTick] = useState<string>('');
+
+  const handleCancel = async () => {
+    const tickNum = parseInt(cancelTick, 10);
+    if (isNaN(tickNum) || tickNum < 1 || tickNum > 999) return;
+    await cancel(cancelSide === 'yes' ? 1 : 0, tickNum);
+    if (!state.error) {
+      setCancelTick('');
+    }
+  };
+
+  const handleRedeem = async () => {
+    await redeem();
+  };
+
+  const yesFormatted = yesShares !== undefined ? (Number(yesShares) / 1e18).toFixed(2) : '0.00';
+  const noFormatted = noShares !== undefined ? (Number(noShares) / 1e18).toFixed(2) : '0.00';
+  const hasShares = (yesShares !== undefined && yesShares > 0n) || (noShares !== undefined && noShares > 0n);
+  const canRedeem = marketStatus === 'finalized' && hasShares;
 
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -174,13 +203,101 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
           </div>
           <div className="flex-1 p-6 relative min-h-[400px]">
             {activeTab === 'trade' && (
-              <div className="text-zinc-500 text-sm p-4 text-center mt-12">Coming soon...</div>
+              <BuySellPanel market={market} />
             )}
             {activeTab === 'mint' && (
-              <div className="text-zinc-500 text-sm p-4 text-center mt-12">Coming soon...</div>
+              <MintMergePanel market={market} />
             )}
             {activeTab === 'manage' && (
-              <div className="text-zinc-500 text-sm p-4 text-center mt-12">Coming soon...</div>
+              <div className="flex flex-col gap-5 h-full relative">
+                {!isConnected ? (
+                  <div className="flex flex-col items-center justify-center h-full text-zinc-400 p-8 text-center bg-zinc-900/30 border border-zinc-800/50 rounded-lg">
+                    <p className="font-sans">Connect wallet to manage</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex flex-col bg-zinc-900/30 border border-zinc-800/50 rounded-lg p-5 gap-4">
+                      <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider">Cancel Order</h3>
+                      
+                      <div className="flex p-1 bg-zinc-950/50 rounded-lg border border-zinc-800/50">
+                        <button
+                          className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all font-sans ${
+                            cancelSide === 'yes'
+                              ? 'bg-amber-500/10 text-amber-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]'
+                              : 'text-zinc-400 hover:text-zinc-200'
+                          }`}
+                          onClick={() => setCancelSide('yes')}
+                        >
+                          YES
+                        </button>
+                        <button
+                          className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all font-sans ${
+                            cancelSide === 'no'
+                              ? 'bg-amber-500/10 text-amber-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]'
+                              : 'text-zinc-400 hover:text-zinc-200'
+                          }`}
+                          onClick={() => setCancelSide('no')}
+                        >
+                          NO
+                        </button>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs text-zinc-400 uppercase font-sans tracking-wider ml-1">
+                          Tick (1-999)
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="999"
+                          step="1"
+                          value={cancelTick}
+                          onChange={(e) => setCancelTick(e.target.value)}
+                          placeholder="e.g. 500"
+                          className="w-full bg-zinc-950/50 border border-zinc-800/80 rounded-lg px-4 py-3 text-white font-mono text-lg focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 transition-all placeholder:text-zinc-600"
+                          disabled={state.isPending}
+                        />
+                      </div>
+
+                      <button
+                        onClick={handleCancel}
+                        disabled={!cancelTick || state.isPending}
+                        className="w-full mt-2 py-3 px-4 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-sans font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]"
+                      >
+                        {state.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Cancel Order'}
+                      </button>
+                      
+                      {state.error && (
+                        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm font-sans mt-1 break-words">
+                          {state.error}
+                        </div>
+                      )}
+                      {state.txHash && !state.error && !state.isPending && (
+                        <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-400 text-sm font-sans mt-1 break-words">
+                          Success! TX: <span className="font-mono">{state.txHash.slice(0, 8)}...{state.txHash.slice(-6)}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {['settled', 'finalized'].includes(marketStatus) && (
+                      <div className="flex flex-col bg-zinc-900/30 border border-zinc-800/50 rounded-lg p-5 gap-4">
+                        <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider">Redeem Shares</h3>
+                        <div className="flex justify-between items-center text-sm font-mono text-zinc-300">
+                          <span>YES: {yesFormatted}</span>
+                          <span>NO: {noFormatted}</span>
+                        </div>
+                        <button
+                          onClick={handleRedeem}
+                          disabled={!canRedeem || state.isPending}
+                          className="w-full py-3 px-4 rounded-lg bg-blue-500 hover:bg-blue-400 text-white font-sans font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {state.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : marketStatus === 'finalized' ? 'Redeem Winnings' : 'Waiting for Finalization...'}
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             )}
           </div>
         </div>
