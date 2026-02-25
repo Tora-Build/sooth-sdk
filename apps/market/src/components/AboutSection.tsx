@@ -24,7 +24,7 @@ const FeatureCard = ({
 
 export const AboutSection = () => {
   return (
-    <div className="w-full border-t border-white/[0.04] bg-zinc-900/10 pt-10 pb-8 px-6 mt-8 rounded-b-3xl">
+    <div className="w-full border-t border-white/[0.04] bg-zinc-900/10 pt-10 pb-8 px-6 rounded-xl">
       <div className="flex flex-col items-start mb-8">
         <div className="flex items-center gap-3 mb-3">
           <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />

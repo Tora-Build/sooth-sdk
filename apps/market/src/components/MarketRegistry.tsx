@@ -13,12 +13,10 @@ interface MarketRegistryProps {
 
 function formatDeposit(depositStr: string): string {
   try {
-    let val = depositStr;
-    if (depositStr.startsWith('0x')) {
-      val = BigInt(depositStr).toString();
-    }
-    let num = parseFloat(val) / 1e6;
-    if (num > 1e9) num = num / 1e12;
+    const val = depositStr.startsWith('0x')
+      ? BigInt(depositStr).toString()
+      : depositStr;
+    const num = parseFloat(val) / 1e6;
     return '$' + num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   } catch {
     return depositStr;
