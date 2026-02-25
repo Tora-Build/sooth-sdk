@@ -25,6 +25,19 @@ export const INSTANCES: SoothInstance[] = [
     launchpadEngine: '0xf00fb446d1262d1f4100e6d899cf0c8c298a6e61',
     explorer: 'https://sepolia.basescan.org',
   },
+
+  {
+    id: 'monad-testnet-v12',
+    chainId: 10143,
+    chainName: 'Monad Testnet',
+    soothBook: '0x94818c56b904371bf100acf723a7619dfc2c2ec0',
+    usdc: '0x01843713106f85749335472ccb8b477804ac235f',
+    collateralizer: '0xeb664daf2c4beb41b9f1f5ad1fb822730bb62b03',
+    protocolConfig: '0xd02f94185e6561c48810cab151803c12919f7eea',
+    ammEngine: '0x28b799febd74b92d8ff17745ad432bfa86799fc8',
+    launchpadEngine: '0x6fd82b76045af934354a2033fde5cb64772ae615',
+    explorer: 'https://testnet.monadvision.com',
+  },
 ];
 
 export function getInstanceByChainId(chainId: number): SoothInstance | undefined {

@@ -52,8 +52,8 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
     return keccak256(encodePacked(['address'], [market.address as Address]));
   }, [market.address]);
 
-  const { bids, asks, isLoading } = useOrderbook(marketKey);
-  const { yesShares, noShares } = useSoothBookBalance(market.address);
+  const { bids, asks, isLoading } = useOrderbook(marketKey, market.soothBookAddress);
+  const { yesShares, noShares } = useSoothBookBalance(market.address, market.soothBookAddress);
 
   const { isConnected } = useAppKitAccount();
   const { placeOrder, cancelOrder, redeem, isPending, availableBalance, refetchBalance } = useOrderbookTrade(

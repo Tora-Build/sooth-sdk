@@ -16,6 +16,7 @@ export function useLaunchpadMarkets() {
             .filter((m: any) => m.isGraduated === true)
             .map((m: any) => ({
               ...m,
+              chainId: instance.chainId,
               network: instance.chainName,
               soothBookAddress: instance.soothBook,
             }));
