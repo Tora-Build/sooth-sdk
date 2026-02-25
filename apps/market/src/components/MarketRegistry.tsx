@@ -16,7 +16,7 @@ function formatDeposit(depositStr: string): string {
     const val = depositStr.startsWith('0x')
       ? BigInt(depositStr).toString()
       : depositStr;
-    const num = parseFloat(val) / 1e6;
+    const num = parseFloat(val) / 1e18;
     return '$' + num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   } catch {
     return depositStr;
