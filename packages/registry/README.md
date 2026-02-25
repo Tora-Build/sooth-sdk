@@ -25,7 +25,7 @@ A **Sooth Node** is the atomic unit of the protocol: `(chainId, contracts)`. It 
   "version": "12.0.0",
   "nodes": [
     {
-      "id": "base-sepolia-v12",
+      "id": "03d4f3f7",
       "chainId": 84532,
       "contracts": {
         "launchpadEngine": "0x...",
@@ -58,6 +58,7 @@ Key decisions:
 - **`rpcUrls` = public fallbacks only.** Private RPCs (QuickNode) are injected via env vars at consumer level.
 - **No `markets` array.** Markets are auto-discovered via the indexer.
 - **camelCase contract keys** matching existing frontend convention.
+- **`id` is a computed 8-char SHA-256 hash** of `${chainId}:${launchpadEngine}`. Deterministic — derive it from on-chain facts alone using `computeNodeId()`.
 
 ## Usage
 
@@ -140,9 +141,10 @@ import type { SoothNode, SoothContracts, ChainMeta } from '@sooth/registry/types
 | `getAllNodes()` | `SoothNode[]` | All registered nodes |
 | `getNodeByChainId(chainId)` | `SoothNode \| undefined` | First node on a chain |
 | `getNodesByChainId(chainId)` | `SoothNode[]` | All nodes on a chain |
-| `getNodeById(id)` | `SoothNode \| undefined` | By human-readable ID |
+| `getNodeById(id)` | `SoothNode \| undefined` | By computed 8-char hash ID |
 | `getNodeByLaunchpad(address)` | `SoothNode \| undefined` | By launchpadEngine address |
 | `getNodeBySoothBook(address)` | `SoothNode \| undefined` | By soothBook address |
+| `computeNodeId(chainId, launchpadEngine)` | `string` | Compute 8-char hash ID from on-chain facts (Node.js only) |
 
 ### Chain lookups
 
