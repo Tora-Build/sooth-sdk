@@ -5,6 +5,7 @@ import { LaunchpadMarket, getMarketStatus, MarketStatus } from '../types';
 import { getAddressUrl } from '../config/chains';
 import { Footer } from './Footer';
 import { AboutSection } from './AboutSection';
+import { CardFooter } from './CardFooter';
 
 interface MarketRegistryProps {
   onTrade?: (market: LaunchpadMarket) => void;
@@ -180,7 +181,8 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
   }
 
   return (
-    <div className="surface-card rounded-3xl overflow-hidden w-full flex flex-col">
+    <>
+      <div className="surface-card rounded-3xl overflow-hidden w-full flex flex-col">
       {/* Header Area */}
       <div className="px-6 py-5 border-b border-white/[0.04] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-zinc-900/40">
         <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
@@ -581,8 +583,10 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
         </div>
       )}
 
-      <AboutSection />
-      <Footer />
+      <CardFooter />
     </div>
+    <AboutSection />
+    <Footer />
+    </>
   );
 }
