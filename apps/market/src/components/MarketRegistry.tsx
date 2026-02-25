@@ -186,17 +186,8 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
       {/* Header Area */}
       <div className="px-6 py-5 border-b border-white/[0.04] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-zinc-900/40">
         <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
-          <h2 className="text-lg font-medium tracking-tight text-zinc-50 whitespace-nowrap">Market Registry</h2>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] text-zinc-500 font-mono border border-white/[0.06] bg-zinc-950/50 px-2 py-0.5 rounded">V12.0</span>
-            <span className="text-[10px] text-emerald-500 font-mono border border-white/[0.06] bg-zinc-950/50 px-2 py-0.5 rounded flex items-center gap-1.5">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-              </span>
-              LIVE
-            </span>
-          </div>
+          <h2 className="text-lg font-medium tracking-tight text-zinc-50 whitespace-nowrap">Markets</h2>
+
         </div>
 
         <div className="relative w-full sm:w-72">
@@ -254,10 +245,8 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
           <table className="w-full text-left border-collapse">
             <thead className="sticky top-0 bg-zinc-950/80 backdrop-blur-md z-10 border-b border-white/[0.04] text-[11px] uppercase tracking-wider font-mono">
               <tr>
-                <th className="px-6 py-4 font-normal text-zinc-500 whitespace-nowrap">Network</th>
-                <th className="px-6 py-4 text-left text-[10px] font-mono uppercase tracking-widest text-zinc-500 whitespace-nowrap">
-                  SoothBook
-                </th>
+                <th className="px-6 py-4 font-normal text-zinc-500 whitespace-nowrap">Node</th>
+                <th className="px-4 py-4 font-normal text-zinc-500 whitespace-nowrap">Network</th>
                 <th className="px-4 py-4 font-normal text-zinc-500 whitespace-nowrap">Market Address</th>
                 <th className="px-4 py-4 font-normal text-zinc-500 whitespace-nowrap">Question</th>
                 <th className="px-4 py-4 font-normal text-zinc-500 whitespace-nowrap">Creator</th>
@@ -328,30 +317,15 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
                         }}
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="font-mono text-[10px] px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded">
+                            {m.soothBookAddress ? (getInstanceBySoothBook(m.soothBookAddress)?.id ?? '—') : '—'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             <span className={`w-1.5 h-1.5 rounded-full ${netColor}`} />
                             <span className={`text-[12px] font-medium ${netText}`}>{m.network ?? 'Base Sepolia'}</span>
-                            {m.soothBookAddress && (
-                              <span className="font-mono text-[10px] px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded">
-                                {getInstanceBySoothBook(m.soothBookAddress)?.id ?? ''}
-                              </span>
-                            )}
                           </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          {m.soothBookAddress ? (
-                            <a
-                              href={getAddressUrl(m.soothBookAddress)}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="font-mono text-xs text-zinc-400 hover:text-amber-400 transition-colors"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {shortAddr(m.soothBookAddress)}
-                            </a>
-                          ) : (
-                            <span className="text-zinc-600 text-xs">—</span>
-                          )}
                         </td>
                         <td className="px-4 py-4 font-mono text-zinc-400 text-[13px] whitespace-nowrap">
                           <a
@@ -510,13 +484,13 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-2">
-                        <span className={`w-1.5 h-1.5 rounded-full ${netColor}`} />
-                        <span className={`text-[11px] font-medium uppercase tracking-wider ${netText}`}>{m.network ?? 'Base Sepolia'}</span>
                         {m.soothBookAddress && (
                           <span className="font-mono text-[10px] px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded">
                             {getInstanceBySoothBook(m.soothBookAddress)?.id ?? ''}
                           </span>
                         )}
+                        <span className={`w-1.5 h-1.5 rounded-full ${netColor}`} />
+                        <span className={`text-[11px] font-medium uppercase tracking-wider ${netText}`}>{m.network ?? 'Base Sepolia'}</span>
                       </div>
                       <span className="text-[15px] font-medium text-zinc-100 leading-snug line-clamp-2">
                         {m.question || m.name || 'Unnamed Market'}

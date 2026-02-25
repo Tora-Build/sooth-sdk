@@ -1,5 +1,6 @@
 import React from 'react';
 import type { LaunchpadMarket } from '../types';
+import { getAllNodes } from '@sooth/registry';
 
 interface StatsRowProps {
   markets?: LaunchpadMarket[];
@@ -7,6 +8,7 @@ interface StatsRowProps {
 
 export function StatsRow({ markets }: StatsRowProps) {
   const isLoading = markets === undefined;
+  const nodes = getAllNodes();
 
   const totalMarkets = markets ? markets.length : 0;
   
@@ -43,14 +45,13 @@ export function StatsRow({ markets }: StatsRowProps) {
         <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
         <div className="text-zinc-500 font-mono text-xs uppercase tracking-widest mb-4">Active Protocol Nodes</div>
         <div className="flex items-center gap-4">
-          <div className="text-4xl md:text-5xl font-mono text-zinc-100 tracking-tight">2</div>
+          <div className="text-4xl md:text-5xl font-mono text-zinc-100 tracking-tight">{nodes.length}</div>
           <div className="flex flex-col gap-1.5">
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Base Sepolia
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-purple-500" /> Monad Testnet
-            </span>
+            {nodes.map((node) => (
+              <span key={node.id} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                {node.id}
+              </span>
+            ))}
           </div>
         </div>
       </div>

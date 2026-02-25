@@ -130,6 +130,7 @@ import type { SoothNode, SoothContracts, ChainMeta } from '@sooth/registry/types
 | `@sooth/registry` | All helpers + type re-exports |
 | `@sooth/registry/types` | Type definitions only |
 | `@sooth/registry/viem` | `toViemChain()`, `getAllViemChains()` (requires viem as peer dep) |
+| `@sooth/registry/discover` | `discoverContracts()`, `buildDiscoveredNode()` (requires viem as peer dep) |
 | `@sooth/registry/nodes.json` | Raw JSON manifest |
 
 ## API Reference
@@ -168,6 +169,13 @@ import type { SoothNode, SoothContracts, ChainMeta } from '@sooth/registry/types
 | `toViemChain(chainId, rpcOverride?)` | `Chain` | Viem Chain object |
 | `getAllViemChains(rpcOverrides?)` | `Chain[]` | All chains as viem objects |
 
+### Contract discovery (`@sooth/registry/discover`)
+
+| Function | Returns | Description |
+|---|---|---|
+| `discoverContracts(chainId, rpcUrl, launchpadEngine)` | `Promise<SoothContracts>` | Reads 5 public immutables from LaunchpadEngine via eth_call in parallel |
+| `buildDiscoveredNode(chainId, rpcUrl, launchpadEngine)` | `Promise<DiscoveredNode>` | Discovers contracts + computes deterministic node ID |
+
 ## Consumer Migration
 
 Each consumer has a thin adapter that re-exports from `@sooth/registry` using the existing call signatures. No import sites needed to change.
@@ -177,9 +185,12 @@ Each consumer has a thin adapter that re-exports from `@sooth/registry` using th
 | `apps/market` | `apps/market/src/config/deployments.ts` | `INSTANCES` + helpers now read from registry |
 | `apps/market` | `apps/market/src/config/chains.ts` | Chain list + explorer helpers from registry |
 | `apps/market` | `apps/market/src/lib/wagmi.ts` | `toViemChain()` replaces inline `defineChain()` |
+| `apps/market` | `apps/market/src/pages/RegisterPage.tsx` | Uses `discoverContracts()` for on-chain contract discovery during node registration |
+| `apps/market` | `apps/market/src/pages/NodePage.tsx` | Uses `getNodeById()`, `getChain()`, `getAddressUrl()` for node detail display |
 | SDK | `packages/sdk-core/src/config/deployments.ts` | `DEPLOYMENTS` record replaced; stale monadMainnet removed |
 | CLI | `packages/contracts-testing/script/interactive/config.ts` | `monadTestnet` chain def from registry |
 | Indexer | `packages/indexer/ponder.config.ts` | Chains + contract addresses built from `nodes.json` |
+| Worker | `workers/access-control/index.js` | `POST /register` stores pending nodes; uses `discoverContracts()` for validation |
 
 ## Adding a New Chain
 

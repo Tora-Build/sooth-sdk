@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { discoverContracts } from '@sooth/registry/discover';
 import type { Address } from 'viem';
@@ -8,6 +8,55 @@ export function RegisterPage() {
   const [rpcUrl, setRpcUrl] = useState('');
   const [launchpadEngine, setLaunchpadEngine] = useState('');
   
+  const [chainMeta, setChainMeta] = useState<{name: string, rpcs: string[]} | null>(null);
+  const [chainLookupLoading, setChainLookupLoading] = useState(false);
+  const [chainLookupError, setChainLookupError] = useState<string | null>(null);
+  const [useCustomRpc, setUseCustomRpc] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setChainMeta(null);
+    setChainLookupError(null);
+    setUseCustomRpc(false);
+    setRpcUrl('');
+    
+    if (!chainId) return;
+
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    setChainLookupLoading(true);
+
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://raw.githubusercontent.com/ethereum-lists/chains/master/_data/chains/eip155-${chainId}.json`);
+        if (!res.ok) throw new Error('Chain not found');
+        
+        const data = await res.json();
+        const httpRpcs = (data.rpc || []).filter(
+          (r: string) => r.startsWith('https://') && !r.includes('${')
+        );
+        
+        if (httpRpcs.length > 0) {
+          setChainMeta({ name: data.name, rpcs: httpRpcs });
+          setRpcUrl(httpRpcs[0]);
+        } else {
+          throw new Error('No public HTTP RPCs found');
+        }
+      } catch (err: any) {
+        setChainLookupError(err.message || 'Chain not found');
+        setUseCustomRpc(true);
+      } finally {
+        setChainLookupLoading(false);
+      }
+    }, 600);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [chainId]);
+
   const [discovered, setDiscovered] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [discovering, setDiscovering] = useState(false);
@@ -78,7 +127,7 @@ export function RegisterPage() {
               </h1>
             </div>
           </Link>
-          <div className="font-mono text-xs text-zinc-500">Node Operator Platform</div>
+          <div className="font-mono text-xs text-zinc-500">Node Registry</div>
         </div>
       </header>
 
@@ -119,18 +168,46 @@ export function RegisterPage() {
                   className="bg-zinc-900 border border-white/10 rounded-lg px-4 py-3 text-white font-mono placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50"
                   required
                 />
+                {chainLookupLoading ? (
+                  <div className="text-xs text-zinc-500 mt-1 animate-pulse">Looking up chain...</div>
+                ) : chainMeta ? (
+                  <div className="text-xs text-zinc-400 mt-1">{chainMeta.name}</div>
+                ) : chainLookupError && chainId ? (
+                  <div className="text-xs text-zinc-500 mt-1">Chain not found — enter RPC manually</div>
+                ) : null}
               </div>
 
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-medium text-zinc-300">RPC URL</label>
-                <input
-                  type="url"
-                  value={rpcUrl}
-                  onChange={e => setRpcUrl(e.target.value)}
-                  placeholder="https://..."
-                  className="bg-zinc-900 border border-white/10 rounded-lg px-4 py-3 text-white font-mono placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50"
-                  required
-                />
+                {chainMeta && !useCustomRpc ? (
+                  <select
+                    value={rpcUrl}
+                    onChange={e => {
+                      if (e.target.value === 'custom') {
+                        setUseCustomRpc(true);
+                        setRpcUrl('');
+                      } else {
+                        setRpcUrl(e.target.value);
+                      }
+                    }}
+                    className="bg-zinc-900 border border-white/10 rounded-lg px-4 py-3 text-white font-mono focus:outline-none focus:border-amber-500/50 appearance-none"
+                    required
+                  >
+                    {chainMeta.rpcs.map((rpc, i) => (
+                      <option key={i} value={rpc}>{rpc}</option>
+                    ))}
+                    <option value="custom">Custom RPC...</option>
+                  </select>
+                ) : (
+                  <input
+                    type="url"
+                    value={rpcUrl}
+                    onChange={e => setRpcUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="bg-zinc-900 border border-white/10 rounded-lg px-4 py-3 text-white font-mono placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50"
+                    required
+                  />
+                )}
               </div>
 
               <div className="flex flex-col gap-2">

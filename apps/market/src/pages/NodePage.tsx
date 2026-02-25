@@ -93,7 +93,7 @@ export function NodePage() {
               </h1>
             </div>
           </Link>
-          <div className="font-mono text-xs text-zinc-500">Node Operator Platform</div>
+          <div className="font-mono text-xs text-zinc-500">Node Registry</div>
         </div>
       </header>
 

@@ -18,7 +18,8 @@
     "interactive:base": "bun run script/interactive/interactive-test.ts --chain=baseSepolia",
     "interactive:monad": "bun run script/interactive/interactive-test.ts --chain=monadTestnet",
     "interactive:arc": "bun run script/interactive/interactive-test.ts --chain=arcTestnet",
-    "interactive:megaeth": "bun run script/interactive/interactive-test.ts --chain=megaethTestnet"
+    "interactive:megaeth": "bun run script/interactive/interactive-test.ts --chain=megaethTestnet",
+    "interactive:node": "bun run script/interactive/interactive-test.ts --chain=$NODE_ID"
   },
   "dependencies": {
     "@sooth/registry": "workspace:*",
