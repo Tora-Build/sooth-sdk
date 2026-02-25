@@ -16,7 +16,7 @@ export function MintMergePanel({ market }: MintMergePanelProps) {
   const [amount, setAmount] = useState<string>('');
 
   const { isConnected } = useAccount();
-  const { mint, merge, approve, state } = useOrderbookTrade(market.address);
+  const { mint, merge, approve, isPending } = useOrderbookTrade(market.address, market.soothBookAddress);
   const { yesShares, noShares } = useSoothBookBalance(market.address);
   const { balance, allowance, formatted: usdcFormatted, refetch: refetchUsdc } = useUsdcBalance();
 
@@ -48,10 +48,8 @@ export function MintMergePanel({ market }: MintMergePanelProps) {
       await merge(amount);
     }
 
-    if (!state.error) {
-      setAmount('');
-      refetchUsdc();
-    }
+    setAmount('');
+    refetchUsdc();
   };
 
   const isAmountValid = amount && !isNaN(parseFloat(amount)) && parseFloat(amount) > 0;
@@ -153,13 +151,13 @@ export function MintMergePanel({ market }: MintMergePanelProps) {
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"
                 className="w-full bg-zinc-950 border border-white/[0.06] rounded-xl px-4 py-3 text-zinc-100 font-mono text-lg focus:outline-none focus:border-white/[0.12] transition-colors placeholder:text-zinc-600 pr-20"
-                disabled={state.isPending}
+                disabled={isPending}
               />
               <div className="absolute right-3 top-1/2 -translate-y-1/2">
                 <button
                   onClick={() => setAmount(tab === 'mint' ? usdcFormatted : maxMergeAmountStr)}
                   className="text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-400 px-2 py-1 rounded-xl transition-colors"
-                  disabled={state.isPending}
+                  disabled={isPending}
                 >
                   MAX
                 </button>
@@ -172,18 +170,18 @@ export function MintMergePanel({ market }: MintMergePanelProps) {
           {needsApproval ? (
             <button
               onClick={handleApprove}
-              disabled={state.isPending}
+              disabled={isPending}
               className="w-full py-3 rounded-xl bg-zinc-200 hover:bg-white text-zinc-900 font-semibold transition-transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {state.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Approve USDC'}
+              {isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Approve USDC'}
             </button>
           ) : (
             <button
               onClick={handleMintMerge}
-              disabled={!canAction || state.isPending}
+              disabled={!canAction || isPending}
               className="w-full py-3 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-zinc-950 font-semibold transition-transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {state.isPending ? (
+              {isPending ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : !isAmountValid ? (
                 'Enter Amount'
@@ -198,19 +196,7 @@ export function MintMergePanel({ market }: MintMergePanelProps) {
           )}
         </div>
 
-        {state.error && (
-          <div className="p-3 bg-rose-500/8 border border-rose-500/15 rounded-xl text-rose-400 text-sm break-words">
-            {state.error}
-          </div>
-        )}
-        {state.txHash && !state.error && !state.isPending && (
-          <div className="p-3 bg-emerald-500/8 border border-emerald-500/15 rounded-xl text-emerald-400 text-sm break-words">
-            Success! TX:{' '}
-            <span className="font-mono tabular-nums">
-              {state.txHash.slice(0, 8)}...{state.txHash.slice(-6)}
-            </span>
-          </div>
-        )}
+
       </div>
     </div>
   );
