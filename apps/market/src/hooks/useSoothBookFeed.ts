@@ -4,7 +4,7 @@ import { parseAbiItem } from 'viem';
 import { usePublicClient } from 'wagmi';
 
 const DEFAULT_LOOKBACK_BLOCKS = 10_000n;
-const USER_SCAN_CHUNK_SIZE = 400_000n;
+const USER_SCAN_CHUNK_SIZE = 2_000n;
 
 const CHAIN_START_BLOCKS: Record<number, bigint> = {
   84532: 36_399_046n,
