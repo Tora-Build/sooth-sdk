@@ -50,6 +50,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@sooth/registry": "workspace:*",
     "viem": "^2.21.0"
   },
   "devDependencies": {

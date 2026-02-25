@@ -21,6 +21,7 @@
     "interactive:megaeth": "bun run script/interactive/interactive-test.ts --chain=megaethTestnet"
   },
   "dependencies": {
+    "@sooth/registry": "workspace:*",
     "@sooth/sdk-core": "workspace:*",
     "viem": "^2.21.0",
     "yaml": "^2.3.4"
