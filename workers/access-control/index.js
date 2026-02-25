@@ -6,6 +6,11 @@
 //   GET  /list                            → requires auth (approved wallets)
 //   GET  /requests                        → requires auth (pending requests)
 //   POST /request   { email, wallet? }    → public
+//   POST /register  { chainId, rpcUrl, launchpadEngine, operatorName?, contactEmail? } → public (node registration)
+//   GET  /nodes/pending                   → requires auth (pending node registrations)
+//   GET  /nodes/pending/:nodeId           → requires auth (specific pending node)
+//   POST /nodes/pending/:nodeId/approve   → requires auth (approve node)
+//   POST /nodes/pending/:nodeId/reject    → requires auth (reject node)
 //   GET  /                                → admin dashboard (password protected)
 
 const CORS = {
@@ -22,6 +27,15 @@ function json(data, status = 200) {
 function isAdmin(request, env) {
   const auth = request.headers.get("Authorization");
   return auth === `Bearer ${env.ADMIN_SECRET}`;
+}
+
+async function computeNodeId(chainId, launchpadEngine) {
+  const input = `${chainId}:${launchpadEngine.toLowerCase()}`;
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(input);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', bytes);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 8);
 }
 
 function dashboard(env) {
@@ -70,10 +84,12 @@ function dashboard(env) {
     <div class="flex gap-4 mb-4 border-b border-white/5 pb-2">
       <button onclick="showTab('requests')" id="tab-requests" class="text-sm font-semibold text-[#836ef9]">Requests</button>
       <button onclick="showTab('approved')" id="tab-approved" class="text-sm font-semibold text-white/30 hover:text-white/50">Approved</button>
+      <button onclick="showTab('nodes')" id="tab-nodes" class="text-sm font-semibold text-white/30 hover:text-white/50">Nodes</button>
     </div>
 
     <div id="requests-panel"></div>
     <div id="approved-panel" class="hidden"></div>
+    <div id="nodes-panel" class="hidden"></div>
     <div id="status" class="text-xs text-white/30 mt-4"></div>
   </div>
 
@@ -102,7 +118,7 @@ function dashboard(env) {
     }
 
     async function loadData() {
-      await Promise.all([loadRequests(), loadApproved()]);
+      await Promise.all([loadRequests(), loadApproved(), loadNodes()]);
     }
 
     async function loadRequests() {
@@ -154,13 +170,43 @@ function dashboard(env) {
       } catch(e) { console.error(e); }
     }
 
+    async function loadNodes() {
+      try {
+        const res = await fetch(API + '/nodes/pending', { headers: headers() });
+        if (!res.ok) { logout(); return; }
+        const data = await res.json();
+        const panel = document.getElementById('nodes-panel');
+        if (!data.entries?.length) {
+          panel.innerHTML = '<p class="text-white/20 text-xs">No pending node registrations</p>';
+          return;
+        }
+        panel.innerHTML = data.entries.map(n => \`
+          <div class="p-4 rounded-xl bg-white/[0.03] border border-white/5 mb-2 flex items-center justify-between">
+            <div>
+              <div class="text-xs text-white/70">\${n.operatorName || 'Unknown Operator'}</div>
+              <div class="text-[10px] text-white/30 font-mono">Chain: \${n.chainId} | Engine: \${n.launchpadEngine}</div>
+              <div class="text-[10px] text-white/30">RPC: \${n.rpcUrl.slice(0, 50)}...</div>
+              <div class="text-[10px] text-white/20">\${new Date(n.submittedAt).toLocaleString()}</div>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="approveNode('\${n.nodeId}')" class="px-3 py-1.5 rounded-lg bg-[#00d4aa]/20 text-[#00d4aa] text-[10px] font-semibold hover:bg-[#00d4aa]/30">Approve</button>
+              <button onclick="rejectNode('\${n.nodeId}')" class="px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 text-[10px] font-semibold hover:bg-red-500/20">Reject</button>
+            </div>
+          </div>
+        \`).join('');
+      } catch(e) { console.error(e); }
+    }
+
     function showTab(tab) {
       document.getElementById('requests-panel').classList.toggle('hidden', tab !== 'requests');
       document.getElementById('approved-panel').classList.toggle('hidden', tab !== 'approved');
+      document.getElementById('nodes-panel').classList.toggle('hidden', tab !== 'nodes');
       document.getElementById('tab-requests').classList.toggle('text-[#836ef9]', tab === 'requests');
       document.getElementById('tab-requests').classList.toggle('text-white/30', tab !== 'requests');
       document.getElementById('tab-approved').classList.toggle('text-[#836ef9]', tab === 'approved');
       document.getElementById('tab-approved').classList.toggle('text-white/30', tab !== 'approved');
+      document.getElementById('tab-nodes').classList.toggle('text-[#836ef9]', tab === 'nodes');
+      document.getElementById('tab-nodes').classList.toggle('text-white/30', tab !== 'nodes');
     }
 
     async function approveWallet() {
@@ -189,6 +235,22 @@ function dashboard(env) {
 
     async function deleteRequest(key) {
       await fetch(API + '/delete-request', { method: 'POST', headers: headers(), body: JSON.stringify({ key }) });
+      loadData();
+    }
+
+    async function approveNode(nodeId) {
+      const res = await fetch(API + '/nodes/pending/' + nodeId + '/approve', { method: 'POST', headers: headers() });
+      const data = await res.json();
+      document.getElementById('status').textContent = data.success ? '✓ Approved node ' + nodeId : '✗ ' + (data.error || 'Failed');
+      loadData();
+    }
+
+    async function rejectNode(nodeId) {
+      const reason = prompt('Rejection reason (optional):');
+      if (reason === null) return;
+      const res = await fetch(API + '/nodes/pending/' + nodeId + '/reject', { method: 'POST', headers: headers(), body: JSON.stringify({ reason: reason || '' }) });
+      const data = await res.json();
+      document.getElementById('status').textContent = data.success ? '✓ Rejected node ' + nodeId : '✗ ' + (data.error || 'Failed');
       loadData();
     }
   </script>
@@ -293,6 +355,78 @@ export default {
         requested_at: new Date().toISOString(),
       }));
       return json({ success: true });
+    }
+
+    // POST /register { chainId, rpcUrl, launchpadEngine, operatorName?, contactEmail? }
+    if (path === "/register" && request.method === "POST") {
+      const body = await request.json();
+      const { chainId, rpcUrl, launchpadEngine, operatorName, contactEmail } = body;
+      
+      // Validate
+      if (!chainId || typeof chainId !== 'number') return json({ error: "chainId required (number)" }, 400);
+      if (!rpcUrl || typeof rpcUrl !== 'string') return json({ error: "rpcUrl required" }, 400);
+      if (!launchpadEngine || !/^0x[a-fA-F0-9]{40}$/.test(launchpadEngine)) {
+        return json({ error: "Invalid launchpadEngine address" }, 400);
+      }
+      const nodeId = await computeNodeId(chainId, launchpadEngine);
+      const key = `node-pending:${nodeId}`;
+      
+      await env.ACCESS.put(key, JSON.stringify({
+        nodeId,
+        chainId,
+        rpcUrl,
+        launchpadEngine: launchpadEngine.toLowerCase(),
+        operatorName: operatorName || "",
+        contactEmail: contactEmail || "",
+        submittedAt: new Date().toISOString(),
+        status: "pending",
+      }));
+      
+      return json({ nodeId, status: "pending", message: "Your node registration is pending review." });
+    }
+
+    // POST /nodes/pending/:nodeId/approve (admin)
+    if (path.match(/^\/nodes\/pending\/[^/]+\/approve$/) && request.method === "POST") {
+      if (!isAdmin(request, env)) return json({ error: "Unauthorized" }, 401);
+      const nodeId = path.split("/")[3];
+      const val = await env.ACCESS.get(`node-pending:${nodeId}`, "json");
+      if (!val) return json({ error: "Not found" }, 404);
+      await env.ACCESS.put(`node-approved:${nodeId}`, JSON.stringify({ ...val, status: "approved", approvedAt: new Date().toISOString() }));
+      await env.ACCESS.delete(`node-pending:${nodeId}`);
+      return json({ success: true, nodeId });
+    }
+
+    // POST /nodes/pending/:nodeId/reject (admin)
+    if (path.match(/^\/nodes\/pending\/[^/]+\/reject$/) && request.method === "POST") {
+      if (!isAdmin(request, env)) return json({ error: "Unauthorized" }, 401);
+      const nodeId = path.split("/")[3];
+      const { reason } = await request.json().catch(() => ({}));
+      const val = await env.ACCESS.get(`node-pending:${nodeId}`, "json");
+      if (!val) return json({ error: "Not found" }, 404);
+      await env.ACCESS.delete(`node-pending:${nodeId}`);
+      return json({ success: true, nodeId, reason: reason || "Rejected" });
+    }
+
+    // GET /nodes/pending/:nodeId (admin)
+    if (path.match(/^\/nodes\/pending\/[^/]+$/) && request.method === "GET") {
+      if (!isAdmin(request, env)) return json({ error: "Unauthorized" }, 401);
+      const nodeId = path.replace("/nodes/pending/", "");
+      const val = await env.ACCESS.get(`node-pending:${nodeId}`, "json");
+      if (!val) return json({ error: "Not found" }, 404);
+      return json(val);
+    }
+
+    // GET /nodes/pending (admin)
+    if (path === "/nodes/pending" && request.method === "GET") {
+      if (!isAdmin(request, env)) return json({ error: "Unauthorized" }, 401);
+      const list = await env.ACCESS.list({ prefix: "node-pending:" });
+      const entries = [];
+      for (const key of list.keys) {
+        const val = await env.ACCESS.get(key.name, "json");
+        entries.push({ key: key.name, ...val });
+      }
+      entries.sort((a, b) => (b.submittedAt || "").localeCompare(a.submittedAt || ""));
+      return json({ count: entries.length, entries });
     }
 
     return json({ error: "Not found" }, 404);

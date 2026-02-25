@@ -3,11 +3,12 @@
  * Chain configs, contract addresses, and settings
  */
 
-import { baseSepolia } from 'viem/chains';
 import type { Chain } from 'viem';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { getAllNodes, getNodeById, getChain } from '@sooth/registry';
+import type { SoothNode, ChainMeta } from '@sooth/registry/types';
 import { toViemChain } from '@sooth/registry/viem';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -76,68 +77,29 @@ export const megaethTestnet: Chain = {
   testnet: true,
 };
 
-export interface ChainConfig {
-  chain: Chain;
-  rpc: string;
-  deploymentFile: string;
-  confirmations?: number;
-  postTxWaitMs?: number;
-  aliases?: string[];
-}
-
-export const CHAINS: Record<string, ChainConfig> = {
-  baseSepolia: {
-    chain: baseSepolia,
-    rpc: process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org',
-    deploymentFile: 'baseSepolia.json',
-    confirmations: 1,
-    postTxWaitMs: 0,
-    aliases: ['base', 'base-sepolia', 'basesepolia'],
-  },
-  monadTestnet: {
-    chain: monadTestnet,
-    rpc: process.env.MONAD_TESTNET_RPC_URL || 'https://testnet-rpc.monad.xyz',
-    deploymentFile: 'monadTestnet.json',
-    confirmations: 1,
-    postTxWaitMs: 8000,
-    aliases: ['monad', 'monad-testnet', 'monadtestnet'],
-  },
-  // V11.1: Disabled - single-chain focus
-  /*
-  arcTestnet: {
-     chain: arcTestnet,
-     rpc: process.env.ARC_TESTNET_RPC_URL || 'https://rpc.testnet.arc.network',
-     deploymentFile: 'arcTestnet.json',
-     confirmations: 1,
-     postTxWaitMs: 2000,
-     aliases: ['arc', 'arc-testnet', 'arctestnet'],
-   },
-   */
-   // V11.1: Disabled - single-chain focus
-   /*
-   megaethTestnet: {
-     chain: megaethTestnet,
-     rpc: process.env.MEGAETH_TESTNET_RPC_URL || 'https://carrot.megaeth.com/rpc',
-     deploymentFile: 'megaethTestnet.json',
-     confirmations: 1,
-     postTxWaitMs: 2000,
-     aliases: ['megaeth', 'megaeth-testnet', 'megaethtestnet'],
-   },
-   */
+const LEGACY_ALIASES: Record<string, string> = {
+  basesepolia: '03d4f3f7',
+  'base-sepolia': '03d4f3f7',
+  base: '03d4f3f7',
+  baseSepolia: '03d4f3f7',
+  monad: 'c5059e71',
+  monadtestnet: 'c5059e71',
+  'monad-testnet': 'c5059e71',
+  monadTestnet: 'c5059e71',
 };
 
-function resolveChainKey(input: string): string {
-  const normalized = input.trim().toLowerCase();
-
-  for (const key of Object.keys(CHAINS)) {
-    if (key.toLowerCase() === normalized) return key;
-  }
-
-  for (const [key, cfg] of Object.entries(CHAINS)) {
-    if (cfg.aliases?.some(a => a.toLowerCase() === normalized)) return key;
-  }
-
-  return input;
+function resolveNodeId(input: string): string {
+  const trimmed = input.trim();
+  if (/^[0-9a-f]{8}$/.test(trimmed)) return trimmed;
+  const lower = trimmed.toLowerCase();
+  const fromAlias = LEGACY_ALIASES[trimmed] || LEGACY_ALIASES[lower];
+  if (fromAlias) return fromAlias;
+  const node = getAllNodes().find(n => {
+    const chain = getChain(n.chainId);
+    return chain?.name.toLowerCase().replace(/\s/g, '') === lower;
+  });
+  if (node) return node.id;
+  throw new Error(`Unknown node or alias: "${input}". Available: ${getAllNodes().map(n => n.id).join(', ')}`);
 }
 
 export interface Deployment {
@@ -163,65 +125,36 @@ export interface Deployment {
   }>;
 }
 
-export function loadDeployment(chainName: string): Deployment {
-  const chainKey = resolveChainKey(chainName);
-  const config = CHAINS[chainKey];
-  if (!config) {
-    throw new Error(`Unknown chain: ${chainName}. Available: ${Object.keys(CHAINS).join(', ')}`);
-  }
+function nodeToDeployment(node: SoothNode, chain: ChainMeta): Deployment {
+  return {
+    chainId: node.chainId,
+    chainName: chain.name,
+    version: '12.0.0',
+    contracts: {
+      SoothBook: node.contracts.soothBook,
+      MockUSDC: node.contracts.usdc,
+      Collateralizer: node.contracts.collateralizer,
+      AMMEngine: node.contracts.ammEngine,
+      LaunchpadEngine: node.contracts.launchpadEngine,
+      ProtocolConfig: node.contracts.protocolConfig,
+    },
+    markets: [],
+  };
+}
 
-  // Try contracts-core first, then contracts-testing
-  const paths = [
-    path.join(__dirname, '..', '..', '..', 'contracts-core', 'deployments', config.deploymentFile),
-    path.join(__dirname, '..', 'deployments', config.deploymentFile),
-  ];
+function getRpcUrl(chainId: number, chainMeta: ChainMeta): string {
+  const envVars: Record<number, string | undefined> = {
+    84532: process.env.BASE_SEPOLIA_RPC_URL,
+    10143: process.env.MONAD_TESTNET_RPC_URL,
+    5042002: process.env.ARC_TESTNET_RPC_URL,
+    6343: process.env.MEGAETH_TESTNET_RPC_URL,
+  };
+  return envVars[chainId] || chainMeta.rpcUrls[0];
+}
 
-  for (const deployPath of paths) {
-    if (fs.existsSync(deployPath)) {
-      const parsed = JSON.parse(fs.readFileSync(deployPath, 'utf-8')) as {
-        [key: string]: unknown;
-        contracts?: Deployment['contracts'];
-        markets?: unknown;
-      };
-
-      const rawMarkets = Array.isArray(parsed.markets) ? parsed.markets : [];
-      const normalizedMarkets: Deployment['markets'] = rawMarkets.map((entry, index) => {
-        const market = typeof entry === 'object' && entry !== null
-          ? (entry as Record<string, unknown>)
-          : {};
-
-        const keyValue = typeof market.key === 'string'
-          ? market.key
-          : typeof market.marketKey === 'string'
-            ? market.marketKey
-            : '';
-        const nameValue = typeof market.name === 'string' ? market.name : `Market ${index + 1}`;
-        const yesTokenValue = typeof market.yesToken === 'string'
-          ? market.yesToken
-          : '0x0000000000000000000000000000000000000000';
-        const noTokenValue = typeof market.noToken === 'string'
-          ? market.noToken
-          : '0x0000000000000000000000000000000000000000';
-
-        return {
-          key: keyValue,
-          marketKey: keyValue,
-          name: nameValue,
-          yesToken: yesTokenValue,
-          noToken: noTokenValue,
-          address: typeof market.address === 'string' ? market.address : undefined,
-        };
-      });
-
-      return {
-        ...(parsed as Omit<Deployment, 'markets' | 'contracts'>),
-        contracts: parsed.contracts as Deployment['contracts'],
-        markets: normalizedMarkets,
-      };
-    }
-  }
-
-  throw new Error(`Deployment file not found: ${config.deploymentFile}`);
+function getPostTxWait(chainId: number): number {
+  if (chainId === 10143) return 8000;
+  return 0;
 }
 
 export interface InteractiveConfig {
@@ -235,23 +168,28 @@ export interface InteractiveConfig {
   defaultMarketIndex: number;
 }
 
-export function createConfig(chainName: string): InteractiveConfig {
-  const chainKey = resolveChainKey(chainName);
-  const chainConfig = CHAINS[chainKey];
-  if (!chainConfig) {
-    throw new Error(`Unknown chain: ${chainName}`);
+export function createConfig(nodeIdOrAlias: string): InteractiveConfig {
+  const nodeId = resolveNodeId(nodeIdOrAlias);
+  const node = getNodeById(nodeId);
+  if (!node) {
+    throw new Error(`Node not found: "${nodeId}". Is it registered in nodes.json?`);
+  }
+  const chainMeta = getChain(node.chainId);
+  if (!chainMeta) {
+    throw new Error(`Chain metadata not found for chainId ${node.chainId}`);
   }
 
-  const deployment = loadDeployment(chainKey);
+  const rpc = getRpcUrl(node.chainId, chainMeta);
+  const chain = toViemChain(node.chainId, [rpc]);
 
   return {
-    chainName: chainKey,
-    chain: chainConfig.chain,
-    rpc: chainConfig.rpc,
-    deployment,
+    chainName: chainMeta.name,
+    chain,
+    rpc,
+    deployment: nodeToDeployment(node, chainMeta),
     gasMultiplier: 1.2,
-    confirmations: chainConfig.confirmations ?? 1,
-    postTxWaitMs: chainConfig.postTxWaitMs ?? 0,
+    confirmations: 1,
+    postTxWaitMs: getPostTxWait(node.chainId),
     defaultMarketIndex: 0,
   };
 }

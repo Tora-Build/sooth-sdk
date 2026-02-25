@@ -19,6 +19,10 @@
       "types": "./dist/viem.d.ts",
       "import": "./dist/viem.js"
     },
+    "./discover": {
+      "types": "./dist/discover.d.ts",
+      "import": "./dist/discover.js"
+    },
     "./nodes.json": "./nodes.json"
   },
   "files": [
