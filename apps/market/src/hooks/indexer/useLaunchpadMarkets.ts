@@ -1,14 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { fetchFromIndexer } from './config';
 import type { LaunchpadMarket } from '../../types';
-import { INSTANCES } from '../../config/deployments';
+import { getIndexedInstances } from '../../config/deployments';
 
 export function useLaunchpadMarkets() {
   const query = useQuery({
     queryKey: ['launchpad-markets', 'all-chains'],
     queryFn: async () => {
+      const instances = getIndexedInstances();
       const results = await Promise.allSettled(
-        INSTANCES.map(async (instance) => {
+        instances.map(async (instance) => {
           const data = await fetchFromIndexer<any[]>(`/launchpad-markets/${instance.chainId}`);
           if (!data) return { instance, markets: [] };
           // Filter to graduated only (bonding filtered out)
@@ -31,7 +32,7 @@ export function useLaunchpadMarkets() {
         if (result.status === 'fulfilled') {
           markets.push(...result.value.markets);
         } else {
-          chainErrors[INSTANCES[i].chainName] = result.reason?.message ?? 'RPC error';
+          chainErrors[instances[i].chainName] = result.reason?.message ?? 'RPC error';
         }
       });
 

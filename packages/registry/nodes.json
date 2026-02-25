@@ -15,7 +15,8 @@
       },
       "deployedAt": "2026-02-20T00:02:00.000Z",
       "deployedBy": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
-      "startBlock": 37890676
+      "startBlock": 37890676,
+      "indexed": true
     },
     {
       "id": "c5059e71",
@@ -30,7 +31,8 @@
       },
       "deployedAt": "2026-02-19T03:07:40.162Z",
       "deployedBy": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
-      "startBlock": 13700000
+      "startBlock": 13700000,
+      "indexed": true
     }
   ],
   "chains": {

@@ -1,5 +1,4 @@
 import manifest from '../nodes.json';
-import { createHash } from 'node:crypto';
 
 import type { SoothNode, ChainMeta, NodesManifest, Address } from './types';
 
@@ -10,6 +9,11 @@ const data = manifest as NodesManifest;
 /** All registered Sooth nodes */
 export function getAllNodes(): SoothNode[] {
   return data.nodes;
+}
+
+/** Nodes that are actively indexed (indexed !== false) */
+export function getIndexedNodes(): SoothNode[] {
+  return data.nodes.filter((n) => n.indexed !== false);
 }
 
 /** First node on a given chain (most common lookup) */
@@ -76,12 +80,15 @@ export function getTxUrl(chainId: number, txHash: string): string {
 /**
  * Compute deterministic 8-char node ID from chainId + launchpadEngine address.
  * SHA-256(`${chainId}:${launchpadEngine}`).slice(0, 8)
- * Use this when registering a new deployment to generate its canonical id.
- * Node.js only — not available in browser bundles.
+ * Uses Web Crypto API (globalThis.crypto.subtle) — works in browsers and Node.js 18+.
  */
-export function computeNodeId(chainId: number, launchpadEngine: string): string {
+export async function computeNodeId(chainId: number, launchpadEngine: string): Promise<string> {
   const input = `${chainId}:${launchpadEngine.toLowerCase()}`;
-  return createHash('sha256').update(input).digest('hex').slice(0, 8);
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(input);
+  const hashBuffer = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 8);
 }
 
 /** Registry manifest version */
