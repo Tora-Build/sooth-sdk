@@ -19,7 +19,7 @@
       "symbol": "",
       "yesToken": "",
       "noToken": "",
-      "isGraduated": false,
+      "isGraduated": true,
       "soothBookKey": "0x9c6f8ea7f2cc622c5077c96bd6b3e2bc2787b0dbbe93b08599f7bd370d162da1"
     },
     {
@@ -28,7 +28,7 @@
       "symbol": "",
       "yesToken": "",
       "noToken": "",
-      "isGraduated": false,
+      "isGraduated": true,
       "soothBookKey": "0x55b6043f587b03c022153a08b132adae7e4a3fd620ce5d5f6cdc548fe48f845f"
     },
     {
@@ -37,7 +37,7 @@
       "symbol": "",
       "yesToken": "",
       "noToken": "",
-      "isGraduated": false,
+      "isGraduated": true,
       "soothBookKey": "0xb520628d9bcd87a6e7a9ac4b15ff1d14b32da97e1aa4b957aa1de8b034892561"
     }
   ]
