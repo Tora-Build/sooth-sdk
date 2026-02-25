@@ -14,7 +14,7 @@ export const Footer = () => {
   const isSynced = syncLag !== null && syncLag < 10;
 
   return (
-    <footer className="border-t border-white/[0.04] bg-zinc-950/50 py-8 mt-12 text-sm text-zinc-500 font-mono">
+    <footer className="border-t border-white/[0.04] bg-zinc-950/50 py-8 text-sm text-zinc-500 font-mono">
       <div className="container mx-auto max-w-7xl px-6 flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="flex items-center gap-4">
           <span className="text-zinc-500 tracking-tight uppercase">© 2026 Sooth Protocol | V12</span>
