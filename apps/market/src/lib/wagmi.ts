@@ -9,7 +9,7 @@ const baseSepolia = defineChain({
   id: 84532,
   name: 'Base Sepolia',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: { default: { http: ['https://sepolia.base.org'] } },
+  rpcUrls: { default: { http: [import.meta.env.VITE_BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org'] } },
   blockExplorers: { default: { name: 'Basescan', url: 'https://sepolia.basescan.org' } },
   testnet: true,
 });
@@ -18,7 +18,7 @@ const monadTestnet = defineChain({
   id: 10143,
   name: 'Monad Testnet',
   nativeCurrency: { name: 'MON', symbol: 'MON', decimals: 18 },
-  rpcUrls: { default: { http: ['https://testnet-rpc.monad.xyz'] } },
+  rpcUrls: { default: { http: [import.meta.env.VITE_MONAD_TESTNET_RPC_URL || 'https://testnet-rpc.monad.xyz'] } },
   blockExplorers: { default: { name: 'Monad Vision', url: 'https://testnet.monadvision.com' } },
   testnet: true,
 });
@@ -40,12 +40,12 @@ export const wagmiAdapter = new WagmiAdapter({
   projectId,
   ssr: false,
   transports: {
-    [baseSepolia.id]: http('https://sepolia.base.org', {
+    [baseSepolia.id]: http(import.meta.env.VITE_BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org', {
       retryCount: 3,
       retryDelay: 3000,
       timeout: 30_000,
     }),
-    [monadTestnet.id]: http('https://testnet-rpc.monad.xyz', {
+    [monadTestnet.id]: http(import.meta.env.VITE_MONAD_TESTNET_RPC_URL || 'https://testnet-rpc.monad.xyz', {
       retryCount: 3,
       retryDelay: 5000,
       timeout: 30_000,

@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useLaunchpadMarkets } from '../hooks/indexer/useLaunchpadMarkets';
 import { LaunchpadMarket, getMarketStatus, MarketStatus } from '../types';
 import { getAddressUrl } from '../config/chains';
+import { Footer } from './Footer';
+import { AboutSection } from './AboutSection';
 
 interface MarketRegistryProps {
   onTrade?: (market: LaunchpadMarket) => void;
@@ -578,6 +580,9 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
           ))}
         </div>
       )}
+
+      <AboutSection />
+      <Footer />
     </div>
   );
 }
