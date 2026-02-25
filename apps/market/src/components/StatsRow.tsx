@@ -11,7 +11,7 @@ export function StatsRow({ markets }: StatsRowProps) {
   const totalMarkets = markets ? markets.length : 0;
   
   const totalDeposits = markets
-    ? markets.reduce((acc, m) => acc + (parseFloat(m.deposit) || 0) / 1e6, 0)
+    ? markets.reduce((acc, m) => acc + (parseFloat(m.deposit) || 0) / 1e18, 0)
     : 0;
 
   return (
