@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { createPublicClient, http, parseAbi } from 'viem';
-import { fetchFromIndexer } from './config';
 import type { LaunchpadMarket } from '../../types';
 import { getIndexedInstances, type SoothInstance } from '../../config/deployments';
 import { getChain } from '@sooth/registry';
@@ -83,23 +82,8 @@ export function useLaunchpadMarkets() {
       const instances = getIndexedInstances();
       const results = await Promise.allSettled(
         instances.map(async (instance) => {
-          const data = await fetchFromIndexer<any[]>(`/launchpad-markets/${instance.chainId}`);
-          const graduated = (data ?? [])
-            .filter((m: any) => m.isGraduated === true)
-            .map((m: any) => ({
-              ...m,
-              chainId: instance.chainId,
-              network: instance.chainName,
-              soothBookAddress: instance.soothBook,
-            }));
-
-          // Fallback: indexer returned nothing — query on-chain
-          if (graduated.length === 0) {
-            const onChain = await fetchMarketsOnChain(instance).catch(() => []);
-            return { instance, markets: onChain };
-          }
-
-          return { instance, markets: graduated as LaunchpadMarket[] };
+          const markets = await fetchMarketsOnChain(instance).catch(() => []);
+          return { instance, markets };
         })
       );
 
