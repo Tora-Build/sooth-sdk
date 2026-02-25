@@ -15,6 +15,7 @@ export interface LaunchpadMarket {
   question?: string;
   name?: string;
   marketKey?: string;
+  soothBookAddress?: string;
 }
 
 // Only statuses shown in UI (bonding is filtered out before display)
