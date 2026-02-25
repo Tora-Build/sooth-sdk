@@ -75,11 +75,15 @@ async function fetchMarketsOnChain(instance: SoothInstance): Promise<LaunchpadMa
     .filter((m): m is LaunchpadMarket => m !== null);
 }
 
-export function useLaunchpadMarkets() {
+export function useLaunchpadMarkets(options?: { nodeId?: string }) {
+  const nodeId = options?.nodeId;
   const query = useQuery({
-    queryKey: ['launchpad-markets', 'all-chains'],
+    queryKey: ['launchpad-markets', nodeId ?? 'all-chains'],
     queryFn: async () => {
-      const instances = getIndexedInstances();
+      const allInstances = getIndexedInstances();
+      const instances = nodeId 
+        ? allInstances.filter(i => i.id === nodeId)
+        : allInstances;
       const results = await Promise.allSettled(
         instances.map(async (instance) => {
           const markets = await fetchMarketsOnChain(instance).catch(() => []);
