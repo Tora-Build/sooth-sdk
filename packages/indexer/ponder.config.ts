@@ -1,74 +1,97 @@
 import { createConfig } from "ponder";
+import nodesManifest from "@sooth/registry/nodes.json";
+import type { NodesManifest } from "@sooth/registry";
 
 import { LaunchpadEngineAbi } from "./src/abis/LaunchpadEngine";
 import { AMMEngineAbi } from "./src/abis/AMMEngine";
 import { SoothBookAbi } from "./src/abis/SoothBook";
 
-const monadTestnetRpcUrls = [
-  "https://blue-stylish-friday.monad-testnet.quiknode.pro/REDACTED_QUICKNODE_TOKEN/",
-  "https://testnet-rpc.monad.xyz",
-];
+const registry = nodesManifest as NodesManifest;
 
-const baseSepoliaRpcEnv = process.env.BASE_SEPOLIA_RPC_URL
-  ?? process.env.PONDER_RPC_URL_BASE_SEPOLIA
-  ?? "";
-const baseSepoliaRpcUrls = baseSepoliaRpcEnv
-  ? [baseSepoliaRpcEnv, "https://sepolia.base.org"]
-  : ["https://sepolia.base.org"];
+// Chain-specific overrides (private RPCs, polling, block range limits)
+const chainOverrides: Record<string, {
+  rpc?: string[];
+  pollingInterval?: number;
+  ethGetLogsBlockRange?: number;
+}> = {
+  "10143": {
+    rpc: [
+      "https://blue-stylish-friday.monad-testnet.quiknode.pro/REDACTED_QUICKNODE_TOKEN/",
+      "https://testnet-rpc.monad.xyz",
+    ],
+    pollingInterval: 500,
+    ethGetLogsBlockRange: 50,
+  },
+  "84532": {
+    pollingInterval: 2_000,
+  },
+};
+
+// Build chain name from registry (ponder needs string keys)
+function chainKey(chainId: number): string {
+  const meta = registry.chains[String(chainId)];
+  if (!meta) return `chain_${chainId}`;
+  return meta.name.replace(/\s+/g, '').replace(/^(.)/, (_, c) => c.toLowerCase());
+}
+
+// Build chains config dynamically
+const chains: Record<string, { id: number; rpc: string[]; pollingInterval?: number; ethGetLogsBlockRange?: number }> = {};
+for (const node of registry.nodes) {
+  const key = chainKey(node.chainId);
+  const meta = registry.chains[String(node.chainId)];
+  const overrides = chainOverrides[String(node.chainId)] ?? {};
+
+  const baseSepoliaRpcEnv = process.env.BASE_SEPOLIA_RPC_URL
+    ?? process.env.PONDER_RPC_URL_BASE_SEPOLIA
+    ?? "";
+
+  let rpcUrls: string[];
+  if (overrides.rpc) {
+    rpcUrls = overrides.rpc;
+  } else if (node.chainId === 84532 && baseSepoliaRpcEnv) {
+    rpcUrls = [baseSepoliaRpcEnv, ...(meta?.rpcUrls ?? [])];
+  } else {
+    rpcUrls = meta?.rpcUrls ?? [];
+  }
+
+  chains[key] = {
+    id: node.chainId,
+    rpc: rpcUrls,
+    ...(overrides.pollingInterval && { pollingInterval: overrides.pollingInterval }),
+    ...(overrides.ethGetLogsBlockRange && { ethGetLogsBlockRange: overrides.ethGetLogsBlockRange }),
+  };
+}
+
+// Build per-chain contract addresses from registry
+type ChainAddress = { address: `0x${string}`; startBlock: number };
+type ContractChains = Record<string, ChainAddress>;
+
+function buildContractChains(contractKey: keyof typeof registry.nodes[0]['contracts']): ContractChains {
+  const result: ContractChains = {};
+  for (const node of registry.nodes) {
+    const key = chainKey(node.chainId);
+    result[key] = {
+      address: node.contracts[contractKey] as `0x${string}`,
+      startBlock: node.startBlock,
+    };
+  }
+  return result;
+}
 
 export default createConfig({
-  chains: {
-    monadTestnet: {
-      id: 10143,
-      rpc: monadTestnetRpcUrls,
-      pollingInterval: 500,
-      ethGetLogsBlockRange: 50,
-    },
-    baseSepolia: {
-      id: 84532,
-      rpc: baseSepoliaRpcUrls,
-      pollingInterval: 2_000,
-    },
-  },
+  chains,
   contracts: {
     LaunchpadEngine: {
       abi: LaunchpadEngineAbi,
-      chain: {
-        monadTestnet: {
-          address: "0x6fd82b76045af934354a2033fde5cb64772ae615",
-          startBlock: 13700000,
-        },
-        baseSepolia: {
-          address: "0xf00fb446d1262d1f4100e6d899cf0c8c298a6e61",
-          startBlock: 37890676,
-        },
-      },
+      chain: buildContractChains('launchpadEngine'),
     },
     AMMEngine: {
       abi: AMMEngineAbi,
-      chain: {
-        monadTestnet: {
-          address: "0x28b799febd74b92d8ff17745ad432bfa86799fc8",
-          startBlock: 13700000,
-        },
-        baseSepolia: {
-          address: "0x1d736e5008b775948e0cbd06bbf0074d48a9803a",
-          startBlock: 37890676,
-        },
-      },
+      chain: buildContractChains('ammEngine'),
     },
     SoothBook: {
       abi: SoothBookAbi,
-      chain: {
-        monadTestnet: {
-          address: "0x94818c56b904371bf100acf723a7619dfc2c2ec0",
-          startBlock: 13700000,
-        },
-        baseSepolia: {
-          address: "0x0eb179c7e79e62bac3ee40d379425e32cb00d22b",
-          startBlock: 37890676,
-        },
-      },
+      chain: buildContractChains('soothBook'),
     },
   },
 });

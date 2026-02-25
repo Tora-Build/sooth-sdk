@@ -8,6 +8,7 @@ import type { Chain } from 'viem';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { toViemChain } from '@sooth/registry/viem';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -38,25 +39,12 @@ for (const envPath of envPaths) {
   }
 }
 
-// Custom chain definitions
-export const monadTestnet: Chain = {
-  id: 10143,
-  name: 'Monad Testnet',
-  nativeCurrency: { name: 'MON', symbol: 'MON', decimals: 18 },
-  rpcUrls: {
-    default: {
-      http: [
-        'https://testnet-rpc.monad.xyz',
-        'https://rpc.ankr.com/monad_testnet',
-        'https://rpc-testnet.monadinfra.com',
-      ],
-    },
-  },
-  blockExplorers: {
-    default: { name: 'MonadVision', url: 'https://testnet.monadvision.com' },
-  },
-  testnet: true,
-};
+// Chain definitions from registry (with extra Monad RPC fallbacks)
+export const monadTestnet: Chain = toViemChain(10143, [
+  'https://testnet-rpc.monad.xyz',
+  'https://rpc.ankr.com/monad_testnet',
+  'https://rpc-testnet.monadinfra.com',
+]);
 
 export const arcTestnet: Chain = {
   id: 5042002,

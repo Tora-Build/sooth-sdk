@@ -10,6 +10,7 @@
     "codegen": "ponder codegen"
   },
   "dependencies": {
+    "@sooth/registry": "workspace:*",
     "ponder": "^0.15.16",
     "hono": "^4.0.0",
     "viem": "^2.21.0"
