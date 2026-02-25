@@ -95,21 +95,29 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
   const { markets: soothBookMarkets, isLoading: isLoadingSoothBookMarkets } = useSoothBookMarkets(chainId);
 
   const soothBookMarketKeys = useMemo(() => new Set(soothBookMarkets.map((m) => m.marketKey.toLowerCase())), [soothBookMarkets]);
+  const hasIndexerData = soothBookMarkets.length > 0;
 
   const allMarkets = useMemo(() => {
-    const eligibleMarkets = onChainMarkets.filter((m) => {
-      const marketKey = keccak256(encodePacked(['address'], [m.address as `0x${string}`])).toLowerCase();
-      return soothBookMarketKeys.has(marketKey);
-    });
+    // When indexer has data, intersect with SoothBook markets.
+    // When indexer is down, fall back to all graduated on-chain markets.
+    const eligibleMarkets = hasIndexerData
+      ? onChainMarkets.filter((m) => {
+          const marketKey = keccak256(encodePacked(['address'], [m.address as `0x${string}`])).toLowerCase();
+          return soothBookMarketKeys.has(marketKey);
+        })
+      : onChainMarkets.filter((m) => m.isGraduated);
 
     return eligibleMarkets.map((m) => {
       const key = keccak256(encodePacked(['address'], [m.address as `0x${string}`]));
       const indexed = soothBookMarkets.find((sm) => sm.marketKey.toLowerCase() === key.toLowerCase());
-      const derivedStage: 'live' | 'settled' | 'finalized' = indexed?.finalized
-        ? 'finalized'
-        : indexed?.active
-          ? 'live'
-          : 'settled';
+
+      let derivedStage: 'live' | 'settled' | 'finalized';
+      if (indexed) {
+        derivedStage = indexed.finalized ? 'finalized' : indexed.active ? 'live' : 'settled';
+      } else {
+        // Fallback to on-chain stage when indexer is unavailable
+        derivedStage = m.isFinalized ? 'finalized' : m.isSettled ? 'settled' : 'live';
+      }
 
       return {
         contractAddress: m.address,
@@ -125,7 +133,7 @@ const ProMarketList = ({ chainId }: { chainId: number }) => {
         createdAt: m.createdAt,
       };
     });
-  }, [onChainMarkets, soothBookMarketKeys, soothBookMarkets]);
+  }, [onChainMarkets, soothBookMarketKeys, soothBookMarkets, hasIndexerData]);
 
   // Filter by search, category, and stage
   const filteredMarkets = useMemo(() => {
