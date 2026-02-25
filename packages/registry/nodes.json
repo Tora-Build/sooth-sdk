@@ -3,7 +3,7 @@
   "updatedAt": "2026-02-20T00:02:00.000Z",
   "nodes": [
     {
-      "id": "base-sepolia-v12",
+      "id": "03d4f3f7",
       "chainId": 84532,
       "contracts": {
         "launchpadEngine": "0xf00fb446d1262d1f4100e6d899cf0c8c298a6e61",
@@ -18,7 +18,7 @@
       "startBlock": 37890676
     },
     {
-      "id": "monad-testnet-v12",
+      "id": "c5059e71",
       "chainId": 10143,
       "contracts": {
         "launchpadEngine": "0x6fd82b76045af934354a2033fde5cb64772ae615",

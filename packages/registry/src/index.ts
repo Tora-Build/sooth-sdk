@@ -1,4 +1,6 @@
 import manifest from '../nodes.json';
+import { createHash } from 'node:crypto';
+
 import type { SoothNode, ChainMeta, NodesManifest, Address } from './types';
 
 export type { SoothNode, SoothContracts, ChainMeta, NodesManifest, Address } from './types';
@@ -69,6 +71,17 @@ export function getTxUrl(chainId: number, txHash: string): string {
   const chain = getChain(chainId);
   const base = chain?.explorer.url ?? 'https://sepolia.basescan.org';
   return `${base}/tx/${txHash}`;
+}
+
+/**
+ * Compute deterministic 8-char node ID from chainId + launchpadEngine address.
+ * SHA-256(`${chainId}:${launchpadEngine}`).slice(0, 8)
+ * Use this when registering a new deployment to generate its canonical id.
+ * Node.js only — not available in browser bundles.
+ */
+export function computeNodeId(chainId: number, launchpadEngine: string): string {
+  const input = `${chainId}:${launchpadEngine.toLowerCase()}`;
+  return createHash('sha256').update(input).digest('hex').slice(0, 8);
 }
 
 /** Registry manifest version */
