@@ -172,9 +172,9 @@ Each consumer has a thin adapter that re-exports from `@sooth/registry` using th
 
 | Consumer | Adapter file | What changed |
 |---|---|---|
-| Frontend | `apps/market/src/config/deployments.ts` | `INSTANCES` + helpers now read from registry |
-| Frontend | `apps/market/src/config/chains.ts` | Chain list + explorer helpers from registry |
-| Frontend | `apps/market/src/lib/wagmi.ts` | `toViemChain()` replaces inline `defineChain()` |
+| `apps/market` | `apps/market/src/config/deployments.ts` | `INSTANCES` + helpers now read from registry |
+| `apps/market` | `apps/market/src/config/chains.ts` | Chain list + explorer helpers from registry |
+| `apps/market` | `apps/market/src/lib/wagmi.ts` | `toViemChain()` replaces inline `defineChain()` |
 | SDK | `packages/sdk-core/src/config/deployments.ts` | `DEPLOYMENTS` record replaced; stale monadMainnet removed |
 | CLI | `packages/contracts-testing/script/interactive/config.ts` | `monadTestnet` chain def from registry |
 | Indexer | `packages/indexer/ponder.config.ts` | Chains + contract addresses built from `nodes.json` |
