@@ -1,4 +1,5 @@
 import { defineChain } from 'viem';
+import { INSTANCES } from './deployments';
 
 export const baseSepolia = defineChain({
   id: 84532,
@@ -28,17 +29,22 @@ export const monadTestnet = {
 };
 
 export const SUPPORTED_CHAINS = [
-  { id: 84532, name: 'Base Sepolia', color: 'blue' },
-  { id: 10143, name: 'Monad Testnet', color: 'purple' },
+  ...INSTANCES.map((instance) => ({
+    id: instance.chainId,
+    name: instance.chainName,
+    color: 'blue',
+  })),
 ];
 
-export const CHAIN_ID = 84532;
-export const EXPLORER_URL = 'https://sepolia.basescan.org';
+export const DEFAULT_CHAIN_ID = INSTANCES[0]?.chainId ?? 84532;
+export const EXPLORER_URL = INSTANCES[0]?.explorer ?? 'https://sepolia.basescan.org';
 
-export function getAddressUrl(address: string): string {
-  return `${EXPLORER_URL}/address/${address}`;
+export function getAddressUrl(address: string, explorerBase?: string): string {
+  const base = explorerBase ?? EXPLORER_URL;
+  return `${base}/address/${address}`;
 }
 
-export function getTxUrl(hash: string): string {
-  return `${EXPLORER_URL}/tx/${hash}`;
+export function getTxUrl(hash: string, explorerBase?: string): string {
+  const base = explorerBase ?? EXPLORER_URL;
+  return `${base}/tx/${hash}`;
 }

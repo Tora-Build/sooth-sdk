@@ -3,11 +3,13 @@ import { useAccount, useReadContract } from 'wagmi';
 import { type Address, encodePacked, keccak256, isAddress } from 'viem';
 import { SOOTH_BOOK_ABI } from '../config/abis';
 import { getDeployment } from '../config/deployments';
+import { DEFAULT_CHAIN_ID } from '../config/chains';
 
 // ── useSoothBookMarket ────────────────────────────────────────────────────
 
-export function useSoothBookMarket(marketAddress?: string) {
-  const soothBookAddress = getDeployment(84532)?.SoothBook as Address | undefined;
+export function useSoothBookMarket(marketAddress?: string, instanceSoothBook?: string) {
+  const fallback = getDeployment(DEFAULT_CHAIN_ID)?.SoothBook;
+  const soothBookAddress = (instanceSoothBook ?? fallback) as Address | undefined;
 
   const marketKey = useMemo(() => {
     if (!marketAddress || !isAddress(marketAddress)) return undefined;
@@ -70,9 +72,10 @@ export function useSoothBookMarket(marketAddress?: string) {
 
 // ── useSoothBookBalance ───────────────────────────────────────────────────
 
-export function useSoothBookBalance(marketAddress?: string) {
+export function useSoothBookBalance(marketAddress?: string, instanceSoothBook?: string) {
   const { address: userAddress } = useAccount();
-  const soothBookAddress = getDeployment(84532)?.SoothBook as Address | undefined;
+  const fallback = getDeployment(DEFAULT_CHAIN_ID)?.SoothBook;
+  const soothBookAddress = (instanceSoothBook ?? fallback) as Address | undefined;
 
   const marketKey = useMemo(() => {
     if (!marketAddress || !isAddress(marketAddress)) return undefined;

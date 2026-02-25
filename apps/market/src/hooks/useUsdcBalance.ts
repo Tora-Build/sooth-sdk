@@ -1,12 +1,19 @@
 import { useAccount, useReadContract } from 'wagmi';
 import { type Address } from 'viem';
 import { ERC20_ABI } from '../config/abis';
-import { getDeployment } from '../config/deployments';
+import { getDeployment, getInstanceBySoothBook } from '../config/deployments';
+import { DEFAULT_CHAIN_ID } from '../config/chains';
 
-export function useUsdcBalance() {
+export function useUsdcBalance(instanceSoothBook?: string) {
   const { address } = useAccount();
-  const usdcAddress = getDeployment(84532)?.MockUSDC as Address | undefined;
-  const soothBookAddress = getDeployment(84532)?.SoothBook as Address | undefined;
+  const instance = instanceSoothBook ? getInstanceBySoothBook(instanceSoothBook) : undefined;
+  const fallbackDeployment = getDeployment(DEFAULT_CHAIN_ID);
+  const usdcAddress = (instance?.usdc ?? fallbackDeployment?.MockUSDC) as
+    | Address
+    | undefined;
+  const soothBookAddress = (instanceSoothBook ?? fallbackDeployment?.SoothBook) as
+    | Address
+    | undefined;
 
   const { data: balance, refetch: refetchBalance } = useReadContract({
     address: usdcAddress,

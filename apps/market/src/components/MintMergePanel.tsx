@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useAccount } from 'wagmi';
 import { parseUnits } from 'viem';
 import { Loader2 } from 'lucide-react';
@@ -22,8 +22,8 @@ export function MintMergePanel({ market }: MintMergePanelProps) {
 
   if (!isConnected) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-zinc-400 p-8 text-center bg-zinc-900/30 border border-zinc-800/50 rounded-lg">
-        <p className="font-sans">Connect wallet to trade</p>
+      <div className="flex flex-col items-center justify-center h-full text-zinc-500 py-12 text-center">
+        <p>Connect wallet to trade</p>
       </div>
     );
   }
@@ -80,13 +80,13 @@ export function MintMergePanel({ market }: MintMergePanelProps) {
   const canAction = isAmountValid && isBalanceSufficient && !needsApproval;
 
   return (
-    <div className="flex flex-col gap-5 h-full relative">
-      <div className="flex p-1 bg-zinc-950/50 rounded-lg border border-zinc-800/50">
+    <div className="flex flex-col gap-6">
+      <div className="flex p-1 bg-zinc-950 rounded-xl border border-white/[0.06]">
         <button
-          className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all font-sans ${
+          className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all text-center ${
             tab === 'mint'
-              ? 'bg-amber-500/10 text-amber-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]'
-              : 'text-zinc-400 hover:text-zinc-200'
+              ? 'bg-zinc-800 text-zinc-100 shadow-sm'
+              : 'text-zinc-500 hover:text-zinc-300'
           }`}
           onClick={() => {
             setTab('mint');
@@ -96,10 +96,10 @@ export function MintMergePanel({ market }: MintMergePanelProps) {
           Mint
         </button>
         <button
-          className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all font-sans ${
+          className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all text-center ${
             tab === 'merge'
-              ? 'bg-amber-500/10 text-amber-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]'
-              : 'text-zinc-400 hover:text-zinc-200'
+              ? 'bg-zinc-800 text-zinc-100 shadow-sm'
+              : 'text-zinc-500 hover:text-zinc-300'
           }`}
           onClick={() => {
             setTab('merge');
@@ -110,37 +110,37 @@ export function MintMergePanel({ market }: MintMergePanelProps) {
         </button>
       </div>
 
-      <div className="flex flex-col bg-zinc-900/30 border border-zinc-800/50 rounded-lg p-5 gap-4">
-        <p className="text-sm text-zinc-400 font-sans text-center mb-2">
+      <div className="flex flex-col gap-6">
+        <p className="text-sm text-zinc-500 text-center">
           {tab === 'mint'
             ? 'Mint equal YES + NO tokens by depositing USDC'
             : 'Burn equal YES + NO tokens to recover USDC'}
         </p>
 
         {tab === 'merge' && (
-          <div className="flex justify-between items-center mb-1">
-            <div className="flex flex-col">
-              <span className="text-xs text-zinc-500 uppercase font-sans tracking-wider">
+          <div className="flex justify-between items-center px-1">
+            <div className="flex items-baseline gap-2">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">
                 YES Balance
               </span>
-              <span className="text-sm text-zinc-300 font-mono">{yesFormatted}</span>
+              <span className="text-sm font-medium text-zinc-300 tabular-nums">{yesFormatted}</span>
             </div>
-            <div className="flex flex-col text-right">
-              <span className="text-xs text-zinc-500 uppercase font-sans tracking-wider">
+            <div className="flex items-baseline gap-2 text-right">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">
                 NO Balance
               </span>
-              <span className="text-sm text-zinc-300 font-mono">{noFormatted}</span>
+              <span className="text-sm font-medium text-zinc-300 tabular-nums">{noFormatted}</span>
             </div>
           </div>
         )}
 
         <div className="space-y-4">
-          <div className="flex flex-col gap-1.5">
-            <div className="flex justify-between items-center">
-              <label className="text-xs text-zinc-400 uppercase font-sans tracking-wider ml-1">
+          <div className="flex flex-col gap-2">
+            <div className="flex justify-between items-center px-1">
+              <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">
                 {tab === 'mint' ? 'Amount (USDC)' : 'Amount (Shares)'}
               </label>
-              <span className="text-xs text-zinc-500 font-mono">
+              <span className="text-[11px] text-zinc-500 font-mono tabular-nums">
                 Bal: {tab === 'mint' ? usdcFormatted : maxMergeSharesFormatted}
               </span>
             </div>
@@ -152,31 +152,28 @@ export function MintMergePanel({ market }: MintMergePanelProps) {
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"
-                className="w-full bg-zinc-950/50 border border-zinc-800/80 rounded-lg px-4 py-3 text-white font-mono text-lg focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 transition-all placeholder:text-zinc-600 pr-24"
+                className="w-full bg-zinc-950 border border-white/[0.06] rounded-xl px-4 py-3 text-zinc-100 font-mono text-lg focus:outline-none focus:border-white/[0.12] transition-colors placeholder:text-zinc-600 pr-20"
                 disabled={state.isPending}
               />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
                 <button
                   onClick={() => setAmount(tab === 'mint' ? usdcFormatted : maxMergeAmountStr)}
-                  className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-2 py-1 rounded transition-colors font-sans"
+                  className="text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-400 px-2 py-1 rounded-xl transition-colors"
                   disabled={state.isPending}
                 >
                   MAX
                 </button>
-                <span className="text-zinc-500 font-sans text-sm">
-                  {tab === 'mint' ? 'USDC' : 'SHRS'}
-                </span>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="mt-3">
+        <div className="mt-2">
           {needsApproval ? (
             <button
               onClick={handleApprove}
               disabled={state.isPending}
-              className="w-full py-3 px-4 rounded-lg bg-zinc-200 hover:bg-white text-zinc-900 font-sans font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 rounded-xl bg-zinc-200 hover:bg-white text-zinc-900 font-semibold transition-transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {state.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Approve USDC'}
             </button>
@@ -184,7 +181,7 @@ export function MintMergePanel({ market }: MintMergePanelProps) {
             <button
               onClick={handleMintMerge}
               disabled={!canAction || state.isPending}
-              className="w-full py-3 px-4 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-sans font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]"
+              className="w-full py-3 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-zinc-950 font-semibold transition-transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {state.isPending ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -202,14 +199,14 @@ export function MintMergePanel({ market }: MintMergePanelProps) {
         </div>
 
         {state.error && (
-          <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm font-sans mt-1 break-words">
+          <div className="p-3 bg-rose-500/8 border border-rose-500/15 rounded-xl text-rose-400 text-sm break-words">
             {state.error}
           </div>
         )}
         {state.txHash && !state.error && !state.isPending && (
-          <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-400 text-sm font-sans mt-1 break-words">
+          <div className="p-3 bg-emerald-500/8 border border-emerald-500/15 rounded-xl text-emerald-400 text-sm break-words">
             Success! TX:{' '}
-            <span className="font-mono">
+            <span className="font-mono tabular-nums">
               {state.txHash.slice(0, 8)}...{state.txHash.slice(-6)}
             </span>
           </div>

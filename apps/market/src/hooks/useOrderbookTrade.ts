@@ -1,247 +1,618 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   useAccount,
   usePublicClient,
+  useReadContract,
   useWaitForTransactionReceipt,
   useWriteContract,
 } from 'wagmi';
 import {
-  type Address,
   encodePacked,
+  formatUnits,
   isAddress,
   keccak256,
   maxUint256,
   parseUnits,
 } from 'viem';
 import toast from 'react-hot-toast';
-import { SOOTH_BOOK_ABI, ERC20_ABI } from '../config/abis';
-import { getDeployment } from '../config/deployments';
+import { ERC20_ABI, SOOTH_BOOK_ABI } from '../config/abis';
+import { getInstanceBySoothBook, INSTANCES } from '../config/deployments';
 
-export interface TradeHookState {
-  isPending: boolean;
-  error: string | null;
-  txHash: string | null;
-}
+type CancelTarget =
+  | {
+      kind: 'level';
+      side: 0 | 1;
+      tick: number;
+    }
+  | {
+      kind: 'id';
+      orderId: bigint;
+    };
 
-const CHAIN_ID = 84532;
-
-// USDC 6 decimals → WAD 18 decimals: multiply by 1e12
-const toWad = (usdcAmount: string): bigint => {
-  const usdcWei = parseUnits(usdcAmount, 6);
-  return usdcWei * 1_000_000_000_000n;
+type WriteFunctionName =
+  | 'buyYes'
+  | 'buyNo'
+  | 'cancel'
+  | 'cancelById'
+  | 'mint'
+  | 'merge'
+  | 'redeem';
+type ExecuteWriteOptions = {
+  silent?: boolean;
 };
 
-function computeMarketKey(marketAddress: Address): `0x${string}` {
-  return keccak256(encodePacked(['address'], [marketAddress]));
-}
+const GAS_LIMIT_CAP = 25_000_000n;
+const MIN_SHARE_CHUNK = 10n ** 18n;
 
-function normalizeError(error: unknown): string {
-  if (!(error instanceof Error)) return 'Transaction failed';
-  const msg = error.message;
-  if (msg.includes('User rejected') || msg.includes('user denied')) {
+const clampTick = (price: string) => {
+  const value = Number(price);
+  if (!Number.isFinite(value)) return 500;
+  return Math.max(1, Math.min(999, Math.round(value * 1000)));
+};
+
+const toWad = (amount: bigint, decimals: number) => {
+  if (decimals === 18) return amount;
+  if (decimals < 18) return amount * 10n ** BigInt(18 - decimals);
+  return amount / 10n ** BigInt(decimals - 18);
+};
+
+const fromWad = (amount: bigint, decimals: number) => {
+  if (decimals === 18) return amount;
+  if (decimals < 18) return amount / 10n ** BigInt(18 - decimals);
+  return amount * 10n ** BigInt(decimals - 18);
+};
+
+const parseOrderId = (orderId: string): CancelTarget | null => {
+  const normalized = orderId.trim().toLowerCase();
+  if (!normalized) return null;
+
+  if (/^\d+$/.test(normalized)) {
+    return { kind: 'id', orderId: BigInt(normalized) };
+  }
+
+  const directMatch = normalized.match(/^(0|1):(\d{1,3})$/);
+  if (directMatch) {
+    const side = Number(directMatch[1]) as 0 | 1;
+    const tick = Number(directMatch[2]);
+    if (tick >= 1 && tick <= 999) return { kind: 'level', side, tick };
+  }
+
+  const suffixTick = normalized.match(/(\d{1,3})$/);
+  if (!suffixTick) return null;
+
+  const tick = Number(suffixTick[1]);
+  if (tick < 1 || tick > 999) return null;
+
+  if (normalized.includes('no')) return { kind: 'level', side: 0, tick };
+  if (normalized.includes('yes') || normalized.includes('bid')) {
+    return { kind: 'level', side: 1, tick };
+  }
+  if (normalized.includes('ask')) return { kind: 'level', side: 0, tick };
+
+  return { kind: 'level', side: 1, tick };
+};
+
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error ?? '');
+  }
+};
+
+const isGasCapMessage = (message: string): boolean => {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes('exceeds maximum per-transaction gas limit') ||
+    lower.includes('gas-per-tx limit') ||
+    (lower.includes('transaction gas') && lower.includes('limit'))
+  );
+};
+
+const normalizeTxErrorMessage = (error: unknown): string => {
+  const message = getErrorMessage(error);
+  if (isGasCapMessage(message)) {
+    return 'Order exceeds chain gas-per-tx limit. Split size or use a less aggressive price.';
+  }
+
+  const lower = message.toLowerCase();
+  if (lower.includes('user rejected') || lower.includes('user denied')) {
     return 'Transaction rejected in wallet.';
   }
-  const reasonMatch = msg.match(/reverted with the following reason:\s*([^\n]+)/i);
-  if (reasonMatch?.[1]) return reasonMatch[1].trim();
-  return msg.split('\n')[0]?.trim() || 'Transaction failed';
-}
 
-export function useOrderbookTrade(marketAddress?: string) {
+  const reasonMatch = message.match(/reverted with the following reason:\s*([^\n]+)/i);
+  if (reasonMatch?.[1]) {
+    return reasonMatch[1].trim();
+  }
+
+  const firstLine = message.split('\n')[0]?.trim();
+  return firstLine || 'Transaction failed';
+};
+
+export function useOrderbookTrade(
+  marketAddress?: string,
+  instanceSoothBook?: string,
+) {
   const { address: userAddress } = useAccount();
   const publicClient = usePublicClient();
-  const deployment = getDeployment(CHAIN_ID);
-  const soothBookAddress = deployment?.SoothBook as Address | undefined;
-  const usdcAddress = deployment?.MockUSDC as Address | undefined;
 
-  const { writeContractAsync, data: txHash, isPending: isWritePending } = useWriteContract();
+  const resolvedInstance = instanceSoothBook
+    ? getInstanceBySoothBook(instanceSoothBook)
+    : INSTANCES[0];
+  const soothBookAddress = (resolvedInstance?.soothBook ??
+    instanceSoothBook) as `0x${string}` | undefined;
+  const marketAddress_addr = marketAddress as `0x${string}` | undefined;
+
+  const marketKey = useMemo(() => {
+    if (!marketAddress || !isAddress(marketAddress as `0x${string}`)) {
+      return undefined;
+    }
+    return keccak256(encodePacked(['address'], [marketAddress as `0x${string}`]));
+  }, [marketAddress]);
+
+  const collateralAddress = resolvedInstance?.usdc as `0x${string}` | undefined;
+  const collateralDecimals = 6;
+
+  const { data: walletBalanceRaw = 0n, refetch: refetchWalletBalance } =
+    useReadContract({
+      address: collateralAddress,
+      abi: ERC20_ABI,
+      functionName: 'balanceOf',
+      args: userAddress ? [userAddress] : undefined,
+      query: { enabled: !!collateralAddress && !!userAddress },
+    });
+
+  const { data: allowance = 0n, refetch: refetchAllowance } = useReadContract({
+    address: collateralAddress,
+    abi: ERC20_ABI,
+    functionName: 'allowance',
+    args:
+      userAddress && soothBookAddress
+        ? [userAddress, soothBookAddress]
+        : undefined,
+    query: { enabled: !!collateralAddress && !!userAddress && !!soothBookAddress },
+  });
+
+  const walletBalance = (walletBalanceRaw as bigint) ?? 0n;
+  const allowanceAmount = (allowance as bigint) ?? 0n;
+  const availableBalance = toWad(walletBalance, collateralDecimals);
+
+  const { writeContractAsync, data: txHash, isPending: isWritePending } =
+    useWriteContract();
+  const [localPending, setLocalPending] = useState(false);
+
   const { isLoading: isConfirming } = useWaitForTransactionReceipt({
     hash: txHash,
     query: { enabled: !!txHash },
   });
 
-  const [state, setState] = useState<TradeHookState>({
-    isPending: false,
-    error: null,
-    txHash: null,
-  });
+  const refetchBalance = useCallback(async () => {
+    await Promise.all([refetchWalletBalance(), refetchAllowance()]);
+  }, [refetchAllowance, refetchWalletBalance]);
 
-  const marketKey =
-    marketAddress && isAddress(marketAddress as Address)
-      ? computeMarketKey(marketAddress as Address)
-      : undefined;
-
-  const execWrite = useCallback(
-    async (
-      label: string,
-      address: Address,
-      abi: typeof SOOTH_BOOK_ABI | typeof ERC20_ABI,
-      functionName: string,
-      args: readonly unknown[],
-    ): Promise<boolean> => {
-      if (!userAddress || !publicClient) {
-        toast.error('Connect wallet first');
+  const ensureApproval = useCallback(
+    async (requiredWad: bigint) => {
+      if (!collateralAddress || !soothBookAddress || !userAddress || !publicClient) {
+        toast.error('Missing approval context');
         return false;
       }
 
-      setState({ isPending: true, error: null, txHash: null });
-      const toastId = toast.loading(label);
+      const requiredRaw = fromWad(requiredWad, collateralDecimals);
+      if (allowanceAmount >= requiredRaw) return true;
+
+      const toastId = toast.loading('Approving collateral...');
+      try {
+        const approveHash = await writeContractAsync({
+          address: collateralAddress,
+          abi: ERC20_ABI,
+          functionName: 'approve',
+          args: [soothBookAddress, maxUint256],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: approveHash });
+        toast.success('Approval confirmed', { id: toastId });
+        await refetchAllowance();
+        return true;
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Approval failed';
+        toast.error(message, { id: toastId });
+        return false;
+      }
+    },
+    [
+      allowanceAmount,
+      collateralAddress,
+      collateralDecimals,
+      publicClient,
+      refetchAllowance,
+      soothBookAddress,
+      userAddress,
+      writeContractAsync,
+    ],
+  );
+
+  const executeWrite = useCallback(
+    async (
+      label: string,
+      functionName: WriteFunctionName,
+      args: readonly unknown[],
+      approvalWad?: bigint,
+      options?: ExecuteWriteOptions,
+    ) => {
+      if (!soothBookAddress || !marketKey || !userAddress || !publicClient) {
+        toast.error('Connect wallet and select a valid market');
+        return false;
+      }
+
+      if (approvalWad && approvalWad > 0n) {
+        const approved = await ensureApproval(approvalWad);
+        if (!approved) return false;
+      }
 
       try {
+        const estimatedGas = await publicClient.estimateContractGas({
+          address: soothBookAddress,
+          abi: SOOTH_BOOK_ABI,
+          functionName: functionName as never,
+          args: args as never,
+          account: userAddress,
+        });
+        if (estimatedGas > GAS_LIMIT_CAP) {
+          toast.error(
+            `Estimated gas ${estimatedGas.toString()} exceeds chain limit ${GAS_LIMIT_CAP.toString()}. Try smaller size or less aggressive price.`,
+          );
+          return false;
+        }
+      } catch (error: unknown) {
+        if (isGasCapMessage(getErrorMessage(error))) {
+          toast.error(
+            'Order exceeds chain gas-per-tx limit. Split into smaller orders or use a less aggressive price.',
+          );
+          return false;
+        }
+      }
+
+      setLocalPending(true);
+      const silent = options?.silent === true;
+      const toastId = silent ? '' : toast.loading(label);
+      try {
         const hash = await writeContractAsync({
-          address,
-          abi: abi as never,
+          address: soothBookAddress,
+          abi: SOOTH_BOOK_ABI,
           functionName: functionName as never,
           args: args as never,
         });
 
         await publicClient.waitForTransactionReceipt({ hash });
-        setState({ isPending: false, error: null, txHash: hash });
-        toast.success('Transaction confirmed', { id: toastId });
+        if (!silent) {
+          toast.success('Transaction confirmed', { id: toastId });
+        }
+        await refetchBalance();
         return true;
       } catch (error: unknown) {
-        const message = normalizeError(error);
-        setState({ isPending: false, error: message, txHash: null });
-        toast.error(message, { id: toastId });
+        const message = normalizeTxErrorMessage(error);
+        if (!silent) {
+          toast.error(message, { id: toastId });
+        }
+        return false;
+      } finally {
+        setLocalPending(false);
+      }
+    },
+    [
+      ensureApproval,
+      marketKey,
+      publicClient,
+      refetchBalance,
+      soothBookAddress,
+      userAddress,
+      writeContractAsync,
+    ],
+  );
+
+  const estimateGas = useCallback(
+    async (functionName: WriteFunctionName, args: readonly unknown[]) => {
+      if (!soothBookAddress || !userAddress || !publicClient) {
+        return { gasCapHit: false };
+      }
+
+      try {
+        const estimatedGas = await publicClient.estimateContractGas({
+          address: soothBookAddress,
+          abi: SOOTH_BOOK_ABI,
+          functionName: functionName as never,
+          args: args as never,
+          account: userAddress,
+        });
+        return {
+          gasCapHit: estimatedGas > GAS_LIMIT_CAP,
+          estimatedGas,
+        };
+      } catch (error: unknown) {
+        if (isGasCapMessage(getErrorMessage(error))) {
+          return { gasCapHit: true };
+        }
+        return { gasCapHit: false };
+      }
+    },
+    [publicClient, soothBookAddress, userAddress],
+  );
+
+  const placeOrder = useCallback(
+    async (outcome: 0 | 1, price: string, amount: string, isBuy = true) => {
+      if (!marketKey || !marketAddress_addr) {
+        toast.error('Market key unavailable');
         return false;
       }
+
+      let shares: bigint;
+      let maxCostWad: bigint;
+      try {
+        shares = parseUnits(amount, 18);
+        const priceNum = Number(price);
+        const amountNum = Number(amount);
+        if (!Number.isFinite(priceNum) || !Number.isFinite(amountNum)) {
+          toast.error('Invalid order inputs');
+          return false;
+        }
+        const estimatedCost = Math.max(0, priceNum * amountNum);
+        maxCostWad = parseUnits(estimatedCost.toFixed(18), 18);
+      } catch {
+        toast.error('Invalid order amount');
+        return false;
+      }
+
+      const directTick = clampTick(price);
+      const oppositeTick = clampTick((1 - Number(price)).toFixed(4));
+
+      let success = false;
+
+      if (isBuy) {
+        if (outcome === 0) {
+          success = await executeWrite(
+            'Submitting buy YES order...',
+            'buyYes',
+            [marketKey, directTick, shares, false, maxCostWad],
+            maxCostWad,
+          );
+        } else {
+          success = await executeWrite(
+            'Submitting buy NO order...',
+            'buyNo',
+            [marketKey, directTick, shares, false, maxCostWad],
+            maxCostWad,
+          );
+        }
+      } else {
+        const sellFunction: WriteFunctionName = outcome === 0 ? 'buyNo' : 'buyYes';
+        const sellLabel =
+          outcome === 0
+            ? 'Submitting sell YES order...'
+            : 'Submitting sell NO order...';
+        const sellMaxCost = 0n;
+        const buildSellArgs = (chunkShares: bigint) =>
+          [marketKey, oppositeTick, chunkShares, true, sellMaxCost] as const;
+
+        const fullEstimate = await estimateGas(sellFunction, buildSellArgs(shares));
+        if (!fullEstimate.gasCapHit) {
+          success = await executeWrite(
+            sellLabel,
+            sellFunction,
+            buildSellArgs(shares),
+          );
+        } else {
+          let chunkSize = shares / 2n;
+          if (chunkSize < MIN_SHARE_CHUNK) chunkSize = MIN_SHARE_CHUNK;
+
+          while (chunkSize >= MIN_SHARE_CHUNK) {
+            const check = await estimateGas(sellFunction, buildSellArgs(chunkSize));
+            if (!check.gasCapHit) break;
+            if (chunkSize === MIN_SHARE_CHUNK) {
+              toast.error(
+                'Order too deep for per-tx gas cap. Raise price or submit smaller slices manually.',
+              );
+              return false;
+            }
+            chunkSize = chunkSize / 2n;
+            if (chunkSize < MIN_SHARE_CHUNK) chunkSize = MIN_SHARE_CHUNK;
+          }
+
+          const totalShares = shares;
+          let remaining = shares;
+          let submitted = 0n;
+          toast('Large sweep detected. Splitting into smaller transactions.');
+
+          while (remaining > 0n) {
+            const currentChunk = remaining > chunkSize ? chunkSize : remaining;
+            const chunkSuccess = await executeWrite(
+              sellLabel,
+              sellFunction,
+              buildSellArgs(currentChunk),
+            );
+            if (!chunkSuccess) {
+              if (submitted > 0n) {
+                const submittedShares = Number(formatUnits(submitted, 18));
+                toast.error(
+                  `Partially submitted ${submittedShares.toLocaleString(undefined, {
+                    maximumFractionDigits: 3,
+                  })} shares. Submit remaining manually.`,
+                );
+              }
+              return false;
+            }
+            submitted += currentChunk;
+            remaining -= currentChunk;
+          }
+
+          success = submitted === totalShares;
+        }
+      }
+
+      return success;
     },
-    [publicClient, userAddress, writeContractAsync],
+    [estimateGas, executeWrite, marketAddress_addr, marketKey],
   );
 
-  const buyYes = useCallback(
-    async (tick: number, amount: string, escrow: boolean, maxCost: string) => {
-      if (!soothBookAddress || !marketKey) {
-        toast.error('Market or SoothBook unavailable');
-        return;
-      }
-      const wadAmount = toWad(amount);
-      const maxCostWad = toWad(maxCost);
-      await execWrite(
-        'Placing YES order...',
-        soothBookAddress,
-        SOOTH_BOOK_ABI,
-        'buyYes',
-        [marketKey, tick, wadAmount, escrow, maxCostWad],
-      );
+  const placeSpotOrder = useCallback(
+    async (outcome: 0 | 1, price: string, amount: string) => {
+      return placeOrder(outcome, price, amount, false);
     },
-    [execWrite, marketKey, soothBookAddress],
+    [placeOrder],
   );
 
-  const buyNo = useCallback(
-    async (tick: number, amount: string, escrow: boolean, maxCost: string) => {
-      if (!soothBookAddress || !marketKey) {
-        toast.error('Market or SoothBook unavailable');
-        return;
-      }
-      const wadAmount = toWad(amount);
-      const maxCostWad = toWad(maxCost);
-      await execWrite(
-        'Placing NO order...',
-        soothBookAddress,
-        SOOTH_BOOK_ABI,
-        'buyNo',
-        [marketKey, tick, wadAmount, escrow, maxCostWad],
-      );
+  const executeHybridSell = useCallback(
+    async (outcome: 0 | 1, price: string, amount: string) => {
+      return placeOrder(outcome, price, amount, false);
     },
-    [execWrite, marketKey, soothBookAddress],
+    [placeOrder],
+  );
+
+  const executeTakerOrder = useCallback(
+    async (outcome: 0 | 1, price: string, amount: string, isBuy: boolean) => {
+      return placeOrder(outcome, price, amount, isBuy);
+    },
+    [placeOrder],
+  );
+
+  const cancelOrder = useCallback(
+    async (orderId: string, options?: ExecuteWriteOptions) => {
+      if (!marketKey) {
+        toast.error('Market key unavailable');
+        return false;
+      }
+
+      const target = parseOrderId(orderId);
+      if (!target) {
+        toast.error('Unable to decode order id for cancel');
+        return false;
+      }
+
+      const success =
+        target.kind === 'id'
+          ? await executeWrite(
+              'Cancelling order...',
+              'cancelById',
+              [target.orderId],
+              undefined,
+              options,
+            )
+          : await executeWrite(
+              'Cancelling order...',
+              'cancel',
+              [marketKey, target.side, target.tick],
+              undefined,
+              options,
+            );
+
+      return success;
+    },
+    [executeWrite, marketKey],
   );
 
   const mint = useCallback(
     async (amount: string) => {
-      if (!soothBookAddress || !marketKey) {
-        toast.error('Market or SoothBook unavailable');
-        return;
+      if (!marketKey) {
+        toast.error('Market key unavailable');
+        return false;
       }
-      const wadAmount = toWad(amount);
-      await execWrite(
-        'Minting YES+NO tokens...',
-        soothBookAddress,
-        SOOTH_BOOK_ABI,
-        'mint',
-        [marketKey, wadAmount],
-      );
+
+      let amountWad: bigint;
+      try {
+        amountWad = parseUnits(amount, 18);
+      } catch {
+        toast.error('Invalid mint amount');
+        return false;
+      }
+
+      return executeWrite('Minting YES+NO...', 'mint', [marketKey, amountWad], amountWad);
     },
-    [execWrite, marketKey, soothBookAddress],
+    [executeWrite, marketKey],
   );
 
   const merge = useCallback(
     async (amount: string) => {
-      if (!soothBookAddress || !marketKey) {
-        toast.error('Market or SoothBook unavailable');
-        return;
+      if (!marketKey) {
+        toast.error('Market key unavailable');
+        return false;
       }
-      const wadAmount = toWad(amount);
-      await execWrite(
-        'Merging YES+NO tokens...',
-        soothBookAddress,
-        SOOTH_BOOK_ABI,
-        'merge',
-        [marketKey, wadAmount],
-      );
-    },
-    [execWrite, marketKey, soothBookAddress],
-  );
 
-  const cancel = useCallback(
-    async (side: 0 | 1, tick: number) => {
-      if (!soothBookAddress || !marketKey) {
-        toast.error('Market or SoothBook unavailable');
-        return;
+      let amountWad: bigint;
+      try {
+        amountWad = parseUnits(amount, 18);
+      } catch {
+        toast.error('Invalid merge amount');
+        return false;
       }
-      await execWrite(
-        'Cancelling order...',
-        soothBookAddress,
-        SOOTH_BOOK_ABI,
-        'cancel',
-        [marketKey, side, tick],
-      );
+
+      return executeWrite('Merging YES+NO...', 'merge', [marketKey, amountWad]);
     },
-    [execWrite, marketKey, soothBookAddress],
+    [executeWrite, marketKey],
   );
 
   const redeem = useCallback(async () => {
-    if (!soothBookAddress || !marketKey) {
-      toast.error('Market or SoothBook unavailable');
-      return;
+    if (!marketKey) {
+      toast.error('Market key unavailable');
+      return false;
     }
-    await execWrite(
-      'Redeeming payout...',
-      soothBookAddress,
-      SOOTH_BOOK_ABI,
-      'redeem',
-      [marketKey],
-    );
-  }, [execWrite, marketKey, soothBookAddress]);
+    return executeWrite('Redeeming settled payout...', 'redeem', [marketKey]);
+  }, [executeWrite, marketKey]);
 
   const approve = useCallback(
     async (amount: string) => {
-      if (!usdcAddress || !soothBookAddress) {
+      if (!collateralAddress || !soothBookAddress || !userAddress || !publicClient) {
         toast.error('USDC or SoothBook address unavailable');
-        return;
+        return false;
       }
       const approveAmount = amount === 'max' ? maxUint256 : parseUnits(amount, 6);
-      await execWrite(
-        'Approving USDC...',
-        usdcAddress,
-        ERC20_ABI,
-        'approve',
-        [soothBookAddress, approveAmount],
-      );
+      const toastId = toast.loading('Approving USDC...');
+      try {
+        const hash = await writeContractAsync({
+          address: collateralAddress,
+          abi: ERC20_ABI,
+          functionName: 'approve',
+          args: [soothBookAddress, approveAmount],
+        });
+        await publicClient.waitForTransactionReceipt({ hash });
+        toast.success('Approval confirmed', { id: toastId });
+        await refetchAllowance();
+        return true;
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Approval failed';
+        toast.error(message, { id: toastId });
+        return false;
+      }
     },
-    [execWrite, soothBookAddress, usdcAddress],
+    [
+      collateralAddress,
+      publicClient,
+      refetchAllowance,
+      soothBookAddress,
+      userAddress,
+      writeContractAsync,
+    ],
   );
 
+  const depositShares = useCallback(async (_outcome: number, _amount: string) => {
+    toast('Shares are held in wallet in SoothBook mode.');
+    return false;
+  }, []);
+
   return {
-    buyYes,
-    buyNo,
+    placeOrder,
+    placeSpotOrder,
+    executeHybridSell,
+    cancelOrder,
+    executeTakerOrder,
+    depositShares,
     mint,
     merge,
-    cancel,
     redeem,
     approve,
-    state: {
-      ...state,
-      isPending: state.isPending || isWritePending || isConfirming,
-    },
+    isPending: localPending || isWritePending || isConfirming,
+    availableBalance,
+    internalYesShares: 0n,
+    internalNoShares: 0n,
+    refetchBalance,
   };
 }

@@ -3,7 +3,8 @@ import { usePublicClient } from 'wagmi';
 import { type Address, formatUnits } from 'viem';
 import { fetchFromIndexer } from './indexer/config';
 import { SOOTH_BOOK_ABI } from '../config/abis';
-import { getDeployment } from '../config/deployments';
+import { getDeployment, getInstanceBySoothBook } from '../config/deployments';
+import { DEFAULT_CHAIN_ID } from '../config/chains';
 
 
 
@@ -32,7 +33,7 @@ interface RawIndexerOrder {
 
 
 
-const CHAIN_ID = 84532;
+const CHAIN_ID = DEFAULT_CHAIN_ID;
 const REFRESH_INTERVAL = 10_000; // 10s
 const RPC_BATCH_SIZE = 120;
 
@@ -136,7 +137,10 @@ async function scanTicksFromRpc(
 
 
 
-export function useOrderbook(marketKey?: string): OrderbookData {
+export function useOrderbook(
+  marketKey?: string,
+  instanceSoothBook?: string,
+): OrderbookData {
   const [bids, setBids] = useState<OrderLevel[]>([]);
   const [asks, setAsks] = useState<OrderLevel[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -145,7 +149,12 @@ export function useOrderbook(marketKey?: string): OrderbookData {
 
   const publicClient = usePublicClient();
   const deployment = getDeployment(CHAIN_ID);
-  const soothBookAddress = deployment?.SoothBook as Address | undefined;
+  const soothBookAddress = (instanceSoothBook ?? deployment?.SoothBook) as
+    | Address
+    | undefined;
+  const chainId = instanceSoothBook
+    ? (getInstanceBySoothBook(instanceSoothBook)?.chainId ?? CHAIN_ID)
+    : CHAIN_ID;
 
   const fetchOrderbook = useCallback(
     async (background = false) => {
@@ -157,7 +166,7 @@ export function useOrderbook(marketKey?: string): OrderbookData {
       try {
         // 1) Try indexer first
         const raw = await fetchFromIndexer<RawIndexerOrder[]>(
-          `/v12/orders/${CHAIN_ID}/${marketKey}`,
+          `/v12/orders/${chainId}/${marketKey}`,
         );
 
         if (raw && Array.isArray(raw) && raw.length > 0) {
@@ -194,7 +203,7 @@ export function useOrderbook(marketKey?: string): OrderbookData {
         if (!background) setIsLoading(false);
       }
     },
-    [marketKey, publicClient, soothBookAddress],
+    [chainId, marketKey, publicClient, soothBookAddress],
   );
 
   // Initial fetch

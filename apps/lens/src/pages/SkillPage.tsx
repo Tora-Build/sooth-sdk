@@ -54,6 +54,11 @@ const CONTRACTS = [
   { name: 'WGHO', address: '0x6bDc36E20D267Ff0dd6097799f82e78907105e2F', chain: 'Lens mainnet (232)', desc: 'Wrapped GHO — collateral token for all Sooth markets' },
   { name: 'ActionHub', address: '0xc6D57Ee750Ef2ee017a9E985A0C4198bEd16A802', chain: 'Lens mainnet (232)', desc: 'Lens protocol router — all post actions route through here' },
   { name: 'SoothPostAction', address: '(mainnet soon)', chain: 'Lens mainnet (232)', desc: 'Mainnet deployment in progress' },
+  { name: 'SoothBook', address: '0x94818c56b904371bf100acf723a7619dfc2c2ec0', chain: 'Monad Testnet (10143)', desc: 'Orderbook for graduated prediction markets — FIFO matching, 4 atomic actions' },
+  { name: 'LaunchpadEngine', address: '0x6fd82b76045af934354a2033fde5cb64772ae615', chain: 'Monad Testnet (10143)', desc: 'Market creation + AMM trading before graduation' },
+  { name: 'MockUSDC', address: '0x01843713106f85749335472ccb8b477804ac235f', chain: 'Monad Testnet (10143)', desc: 'Test USDC collateral token' },
+  { name: 'SoothBook', address: '0x12a38bc9e3bd2359265ce70451777ede2fd875a3', chain: 'Monad Mainnet (143)', desc: 'Production orderbook — Moltbook live markets' },
+  { name: 'LaunchpadEngine', address: '0xaa3ffae62a8af00d08ac395e9551776b0a01e492', chain: 'Monad Mainnet (143)', desc: 'Production market creation + graduation engine' },
 ];
 
 export function SkillPage() {
