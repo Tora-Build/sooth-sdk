@@ -6,6 +6,7 @@ import { getAddressUrl } from '../config/chains';
 import { Footer } from './Footer';
 import { AboutSection } from './AboutSection';
 import { CardFooter } from './CardFooter';
+import { EcosystemCards } from './EcosystemCards';
 
 interface MarketRegistryProps {
   onTrade?: (market: LaunchpadMarket) => void;
@@ -583,6 +584,7 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
 
       <CardFooter />
     </div>
+    <EcosystemCards />
     <AboutSection />
     <Footer />
     </>
