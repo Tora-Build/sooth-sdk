@@ -134,6 +134,17 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                 <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">Status</span>
                 {renderBadge(marketStatus)}
               </div>
+              {market.soothBookAddress && (() => {
+                const inst = getInstanceBySoothBook(market.soothBookAddress);
+                return inst ? (
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">Node</span>
+                    <span className="font-mono text-[10px] px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded">
+                      {inst.id}
+                    </span>
+                  </div>
+                ) : null;
+              })()}
             </div>
 
             {market.soothBookAddress && (

@@ -3,6 +3,7 @@ import {
   getNodeByChainId,
   getNodeBySoothBook,
   getChain,
+  getIndexedNodes,
 } from '@sooth/registry';
 import type { SoothNode } from '@sooth/registry';
 
@@ -50,6 +51,10 @@ export function getInstanceBySoothBook(address: string): SoothInstance | undefin
 
 export function getAllInstances(): SoothInstance[] {
   return INSTANCES;
+}
+
+export function getIndexedInstances(): SoothInstance[] {
+  return getIndexedNodes().map(toInstance);
 }
 
 export function getDeployment(chainId: number) {

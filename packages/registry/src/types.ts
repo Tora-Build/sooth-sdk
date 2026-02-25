@@ -16,6 +16,7 @@ export interface SoothNode {
   deployedAt: string;
   deployedBy: Address;
   startBlock: number;
+  indexed?: boolean;
 }
 
 export interface ChainMeta {

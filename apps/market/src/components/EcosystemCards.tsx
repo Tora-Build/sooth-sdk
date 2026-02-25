@@ -1,6 +1,19 @@
 import React from 'react';
+import { getNodeByChainId } from '@sooth/registry';
+
+function NodeIdChip({ nodeId }: { nodeId?: string }) {
+  if (!nodeId) return <span className="font-mono text-[10px] text-zinc-600">—</span>;
+  return (
+    <span className="font-mono text-[10px] px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded">
+      {nodeId}
+    </span>
+  );
+}
 
 export function EcosystemCards() {
+  const demoNode = getNodeByChainId(84532);
+  const moltbookNode = getNodeByChainId(10143);
+
   return (
     <div className="mb-12">
       <p className="text-zinc-500 font-mono text-xs uppercase tracking-widest mb-4">
@@ -15,7 +28,10 @@ export function EcosystemCards() {
           className="group bg-zinc-900/50 border border-zinc-800/50 backdrop-blur rounded-xl p-5 block hover:border-zinc-700/70 transition-all"
         >
           <div className="flex items-center justify-between mb-4">
-            <span className="text-zinc-400 font-mono text-xs">Base Sepolia</span>
+            <div className="flex items-center gap-2">
+              <span className="text-zinc-400 font-mono text-xs">Base Sepolia</span>
+              <NodeIdChip nodeId={demoNode?.id} />
+            </div>
             <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider">
               Invite Only
             </span>
@@ -31,7 +47,10 @@ export function EcosystemCards() {
           className="group bg-zinc-900/50 border border-zinc-800/50 backdrop-blur rounded-xl p-5 block hover:border-zinc-700/70 transition-all"
         >
           <div className="flex items-center justify-between mb-4">
-            <span className="text-zinc-400 font-mono text-xs">Monad Testnet</span>
+            <div className="flex items-center gap-2">
+              <span className="text-zinc-400 font-mono text-xs">Monad Testnet</span>
+              <NodeIdChip nodeId={moltbookNode?.id} />
+            </div>
             <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider">
               Open Access
             </span>
@@ -47,7 +66,10 @@ export function EcosystemCards() {
           className="group bg-zinc-900/50 border border-zinc-800/50 backdrop-blur rounded-xl p-5 block hover:border-zinc-700/70 transition-all opacity-60 hover:opacity-100"
         >
           <div className="flex items-center justify-between mb-4">
-            <span className="text-zinc-400 font-mono text-xs">Lens Testnet</span>
+            <div className="flex items-center gap-2">
+              <span className="text-zinc-400 font-mono text-xs">Lens Testnet</span>
+              <NodeIdChip nodeId={undefined} />
+            </div>
             <span className="bg-zinc-500/10 text-zinc-400 border border-zinc-500/20 px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider">
               Coming Soon
             </span>

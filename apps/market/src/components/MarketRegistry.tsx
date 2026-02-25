@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useLaunchpadMarkets } from '../hooks/indexer/useLaunchpadMarkets';
 import { LaunchpadMarket, getMarketStatus, MarketStatus } from '../types';
 import { getAddressUrl } from '../config/chains';
+import { getInstanceBySoothBook } from '../config/deployments';
 import { Footer } from './Footer';
 import { AboutSection } from './AboutSection';
 import { CardFooter } from './CardFooter';
@@ -330,6 +331,11 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
                           <div className="flex items-center gap-2">
                             <span className={`w-1.5 h-1.5 rounded-full ${netColor}`} />
                             <span className={`text-[12px] font-medium ${netText}`}>{m.network ?? 'Base Sepolia'}</span>
+                            {m.soothBookAddress && (
+                              <span className="font-mono text-[10px] px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded">
+                                {getInstanceBySoothBook(m.soothBookAddress)?.id ?? ''}
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -506,6 +512,11 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
                       <div className="flex items-center gap-2">
                         <span className={`w-1.5 h-1.5 rounded-full ${netColor}`} />
                         <span className={`text-[11px] font-medium uppercase tracking-wider ${netText}`}>{m.network ?? 'Base Sepolia'}</span>
+                        {m.soothBookAddress && (
+                          <span className="font-mono text-[10px] px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded">
+                            {getInstanceBySoothBook(m.soothBookAddress)?.id ?? ''}
+                          </span>
+                        )}
                       </div>
                       <span className="text-[15px] font-medium text-zinc-100 leading-snug line-clamp-2">
                         {m.question || m.name || 'Unnamed Market'}
