@@ -2,9 +2,16 @@ import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
 import { parseAbiItem } from 'viem';
 import { usePublicClient } from 'wagmi';
+import { getInstanceBySoothBook } from '../config/deployments';
 
-const DEFAULT_LOOKBACK_BLOCKS = 10_000n;
-const USER_SCAN_CHUNK_SIZE = 2_000n;
+const CHAIN_LOOKBACK_BLOCKS: Record<number, bigint> = {
+  84532: 10_000n,  // Base Sepolia
+  10143: 500n,     // Monad Testnet (strict public RPC limit)
+};
+const CHAIN_CHUNK_SIZES: Record<number, bigint> = {
+  84532: 2_000n,
+  10143: 200n,     // Monad Testnet
+};
 
 const CHAIN_START_BLOCKS: Record<number, bigint> = {
   84532: 36_399_046n,
@@ -74,7 +81,9 @@ export function useSoothBookFeed(
   marketKey: `0x${string}` | undefined,
   options?: UseSoothBookFeedOptions,
 ) {
-  const publicClient = usePublicClient();
+  const marketChainId = soothBookAddress ? getInstanceBySoothBook(soothBookAddress)?.chainId : undefined;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const publicClient = usePublicClient({ chainId: marketChainId as any });
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -83,6 +92,8 @@ export function useSoothBookFeed(
   const refresh = useCallback(async () => {
     if (!publicClient || !soothBookAddress || !marketKey) return;
     setIsLoading(true);
+    const lookbackBlocks = CHAIN_LOOKBACK_BLOCKS[marketChainId ?? 0] ?? 10_000n;
+    const chunkSize = CHAIN_CHUNK_SIZES[marketChainId ?? 0] ?? 2_000n;
     try {
       const latest = await publicClient.getBlockNumber();
 
@@ -95,7 +106,7 @@ export function useSoothBookFeed(
 
       const ownerLower = owner?.toLowerCase() as `0x${string}` | undefined;
       if (!ownerLower) {
-        const from = latest > DEFAULT_LOOKBACK_BLOCKS ? latest - DEFAULT_LOOKBACK_BLOCKS : 0n;
+        const from = latest > lookbackBlocks ? latest - lookbackBlocks : 0n;
         [placed, placedV2, filled, filledV2, cancelled, cancelledV2] = await Promise.all([
           publicClient.getLogs({
             address: soothBookAddress,
@@ -144,7 +155,7 @@ export function useSoothBookFeed(
         const chainId = publicClient.chain?.id;
         const fallbackStart = latest > 2_000_000n ? latest - 2_000_000n : 0n;
         const startBlock = CHAIN_START_BLOCKS[chainId ?? 0] ?? fallbackStart;
-        const ranges = getScanRanges(startBlock, latest, USER_SCAN_CHUNK_SIZE);
+        const ranges = getScanRanges(startBlock, latest, chunkSize);
 
         for (const range of ranges) {
           const [chunkPlaced, chunkPlacedV2, chunkFilledAsTaker, chunkFilledV2AsTaker, chunkFilledAsMaker, chunkFilledV2AsMaker, chunkCancelled, chunkCancelledV2] = await Promise.all([
@@ -347,7 +358,7 @@ export function useSoothBookFeed(
     } finally {
       setIsLoading(false);
     }
-  }, [publicClient, soothBookAddress, marketKey, owner]);
+  }, [publicClient, marketChainId, soothBookAddress, marketKey, owner]);
 
   return { feed, isLoading, refresh };
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { usePublicClient } from 'wagmi';
 import { type Address, formatUnits } from 'viem';
-import { fetchFromIndexer } from './indexer/config';
+
 import { SOOTH_BOOK_ABI } from '../config/abis';
 import { getDeployment, getInstanceBySoothBook } from '../config/deployments';
 import { DEFAULT_CHAIN_ID } from '../config/chains';
@@ -147,14 +147,15 @@ export function useOrderbook(
   const [isError, setIsError] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(0);
 
-  const publicClient = usePublicClient();
+  const chainId = instanceSoothBook
+    ? (getInstanceBySoothBook(instanceSoothBook)?.chainId ?? CHAIN_ID)
+    : CHAIN_ID;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const publicClient = usePublicClient({ chainId: chainId as any });
   const deployment = getDeployment(CHAIN_ID);
   const soothBookAddress = (instanceSoothBook ?? deployment?.SoothBook) as
     | Address
     | undefined;
-  const chainId = instanceSoothBook
-    ? (getInstanceBySoothBook(instanceSoothBook)?.chainId ?? CHAIN_ID)
-    : CHAIN_ID;
 
   const fetchOrderbook = useCallback(
     async (background = false) => {
@@ -164,21 +165,7 @@ export function useOrderbook(
       setIsError(false);
 
       try {
-        // 1) Try indexer first
-        const raw = await fetchFromIndexer<RawIndexerOrder[]>(
-          `/v12/orders/${chainId}/${marketKey}`,
-        );
-
-        if (raw && Array.isArray(raw) && raw.length > 0) {
-          const aggregated = aggregateByTick(raw);
-          const { bids: b, asks: a } = toOrderLevels(aggregated);
-          setBids(b);
-          setAsks(a);
-          setLastUpdated(Date.now());
-          return;
-        }
-
-        // 2) Fallback to RPC multicall if indexer is unavailable
+        // Use RPC multicall directly — indexer /v12/orders/ endpoint not available
         if (publicClient && soothBookAddress && marketKey.startsWith('0x')) {
           const mk = marketKey as `0x${string}`;
           const [rpcBids, rpcAsks] = await Promise.all([
