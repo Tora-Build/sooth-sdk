@@ -14,6 +14,15 @@ const baseSepolia = defineChain({
   testnet: true,
 });
 
+const monadTestnet = defineChain({
+  id: 10143,
+  name: 'Monad Testnet',
+  nativeCurrency: { name: 'MON', symbol: 'MON', decimals: 18 },
+  rpcUrls: { default: { http: ['https://testnet-rpc.monad.xyz'] } },
+  blockExplorers: { default: { name: 'Monad Vision', url: 'https://testnet.monadvision.com' } },
+  testnet: true,
+});
+
 export const metadata = {
   name: 'sooth.market',
   description: 'Pro Trading Registry — Sooth Protocol',
@@ -23,6 +32,7 @@ export const metadata = {
 
 export const networks: [AppKitNetwork, ...AppKitNetwork[]] = [
   baseSepolia as unknown as AppKitNetwork,
+  monadTestnet as unknown as AppKitNetwork,
 ];
 
 export const wagmiAdapter = new WagmiAdapter({
@@ -33,6 +43,11 @@ export const wagmiAdapter = new WagmiAdapter({
     [baseSepolia.id]: http('https://sepolia.base.org', {
       retryCount: 3,
       retryDelay: 3000,
+      timeout: 30_000,
+    }),
+    [monadTestnet.id]: http('https://testnet-rpc.monad.xyz', {
+      retryCount: 3,
+      retryDelay: 5000,
       timeout: 30_000,
     }),
   },
