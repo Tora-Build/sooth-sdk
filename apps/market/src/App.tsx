@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { MarketRegistry } from './components/MarketRegistry';
 import { StatsRow } from './components/StatsRow';
-import { EcosystemCards } from './components/EcosystemCards';
+
 import { TradingModal } from './components/TradingModal';
 import { WalletButton } from './components/WalletButton';
 import { useLaunchpadMarkets } from './hooks/indexer/useLaunchpadMarkets';
@@ -62,7 +62,7 @@ export default function App() {
       <main className="max-w-[1400px] mx-auto px-6 py-8 flex flex-col gap-8">
         <StatsRow markets={isLoading ? undefined : markets} />
         <MarketRegistry onTrade={handleTrade} />
-        <EcosystemCards />
+
       </main>
 
       {selectedMarket && (

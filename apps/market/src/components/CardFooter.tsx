@@ -27,7 +27,7 @@ export const CardFooter = () => {
 
   return (
     <div className="border-t border-white/[0.04] px-6 py-3 flex items-center gap-3 bg-zinc-900/20">
-      <span className="font-mono text-[11px] text-zinc-600 uppercase tracking-widest">V12.0</span>
+
       {!isLoading && (
         <div className={`w-1.5 h-1.5 rounded-full ${dotColor}`} title={dotTitle} />
       )}
