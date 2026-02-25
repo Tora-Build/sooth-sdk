@@ -49,6 +49,7 @@
       "nativeCurrency": { "name": "MON", "symbol": "MON", "decimals": 18 },
       "rpcUrls": ["https://testnet-rpc.monad.xyz"],
       "explorer": { "name": "MonadVision", "url": "https://testnet.monadvision.com" },
+      "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
       "testnet": true
     }
   }
