@@ -30,6 +30,7 @@ export function NodesSection() {
   const nodes = getAllNodes();
   
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState(true);
 
   const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -39,10 +40,16 @@ export function NodesSection() {
 
   return (
     <section className="flex flex-col gap-4">
-      <div className="text-zinc-500 font-mono text-xs uppercase tracking-widest px-2">
-        Protocol Nodes
+      <div
+        className="text-zinc-500 font-mono text-xs uppercase tracking-widest px-2 flex items-center gap-2 cursor-pointer select-none hover:text-zinc-400 transition-colors"
+        onClick={() => setCollapsed(!collapsed)}
+      >
+        <span className="text-[10px]">{collapsed ? '▸' : '▾'}</span>
+        Nodes
+        <span className="text-zinc-600">{instances.length}</span>
       </div>
       
+      {!collapsed && (<>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {instances.map((instance) => {
           const nodeDetails = nodes.find(n => n.chainId === instance.chainId && n.id === instance.id);
@@ -174,6 +181,7 @@ export function NodesSection() {
           );
         })}
       </div>
+      </>)}
       <div className="flex justify-center mt-4">
         <Link 
           to="/register" 

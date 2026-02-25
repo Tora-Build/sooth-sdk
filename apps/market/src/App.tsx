@@ -8,23 +8,7 @@ import { WalletButton } from './components/WalletButton';
 import { useLaunchpadMarkets } from './hooks/indexer/useLaunchpadMarkets';
 import type { LaunchpadMarket } from './types';
 
-function ChainDot({ name, color, delay = '0s' }: { name: string; color: string; delay?: string }) {
-  const colors: Record<string, { outer: string; inner: string }> = {
-    blue: { outer: 'bg-blue-400', inner: 'bg-blue-500' },
-    purple: { outer: 'bg-purple-400', inner: 'bg-purple-500' },
-    amber: { outer: 'bg-amber-400', inner: 'bg-amber-500' },
-  };
-  const c = colors[color] ?? colors.amber;
-  return (
-    <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-wider text-zinc-400">
-      <span className="relative flex h-2 w-2">
-        <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${c.outer} opacity-75`} style={{ animationDelay: delay }} />
-        <span className={`relative inline-flex rounded-full h-2 w-2 ${c.inner}`} />
-      </span>
-      {name}
-    </div>
-  );
-}
+
 
 export default function App() {
   const [selectedMarket, setSelectedMarket] = useState<LaunchpadMarket | null>(null);
@@ -48,13 +32,11 @@ export default function App() {
                 SOOTH<span className="text-zinc-500">.MARKET</span>
               </h1>
               <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mt-1">
-                Cross-Chain Registry Terminal
+                Sooth Nodes Aggregator
               </div>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-6">
-            <ChainDot name="Base Sepolia" color="blue" delay="0s" />
-            <ChainDot name="Monad Testnet" color="purple" delay="0.5s" />
             <WalletButton />
           </div>
         </div>
