@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { getAllInstances } from '../config/deployments';
 import { getAllNodes, getChain } from '@sooth/registry';
+import { Link } from 'react-router-dom';
 import { getAddressUrl } from '../config/chains';
 
 function shortAddr(addr: string): string {
@@ -69,27 +70,30 @@ export function NodesSection() {
                     <span className="text-zinc-500 font-mono text-[10px] uppercase tracking-widest">{instance.chainId}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {nodeDetails?.indexed !== false ? (
-                    <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium font-mono uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      <span className="relative flex h-1.5 w-1.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-                      </span>
-                      Indexed
-                    </div>
-                  ) : (
-                    <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium font-mono uppercase tracking-wider bg-zinc-500/10 text-zinc-400 border border-zinc-500/20">
-                      <div className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
-                      Not Indexed
-                    </div>
-                  )}
-                  {chain?.testnet === true && (
-                    <div className="px-2 py-0.5 rounded-full text-[10px] font-medium font-mono uppercase tracking-wider bg-zinc-500/10 text-zinc-400 border border-zinc-500/20 flex items-center gap-1.5">
-                      <div className="w-1 h-1 rounded-full bg-zinc-500" />
-                      Testnet
-                    </div>
-                  )}
+                <div className="flex items-center gap-4">
+                  <Link to={`/node/${instance.id}`} className="text-amber-400 hover:text-amber-300 font-mono text-xs">View →</Link>
+                  <div className="flex items-center gap-2">
+                    {nodeDetails?.indexed !== false ? (
+                      <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium font-mono uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                        </span>
+                        Indexed
+                      </div>
+                    ) : (
+                      <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium font-mono uppercase tracking-wider bg-zinc-500/10 text-zinc-400 border border-zinc-500/20">
+                        <div className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                        Not Indexed
+                      </div>
+                    )}
+                    {chain?.testnet === true && (
+                      <div className="px-2 py-0.5 rounded-full text-[10px] font-medium font-mono uppercase tracking-wider bg-zinc-500/10 text-zinc-400 border border-zinc-500/20 flex items-center gap-1.5">
+                        <div className="w-1 h-1 rounded-full bg-zinc-500" />
+                        Testnet
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -169,6 +173,14 @@ export function NodesSection() {
             </div>
           );
         })}
+      </div>
+      <div className="flex justify-center mt-4">
+        <Link 
+          to="/register" 
+          className="px-6 py-3 border border-amber-500 rounded-lg text-amber-400 hover:bg-amber-500/10 transition-colors font-mono text-sm tracking-wide"
+        >
+          Register Your Node →
+        </Link>
       </div>
     </section>
   );
