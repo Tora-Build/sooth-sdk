@@ -58,7 +58,7 @@ function formatDeadline(deadline?: string | number): string {
 
 function shortAddr(addr: string): string {
   if (!addr) return '';
-  return addr.slice(0, 6) + '...' + addr.slice(-4);
+  return addr.slice(0, 6) + '...';
 }
 
 function renderBadge(status: MarketStatus) {
@@ -91,7 +91,7 @@ const ErrorIcon = () => (
   </svg>
 );
 
-type SortCol = 'status' | 'deposit' | 'created' | null;
+type SortCol = 'status' | 'deposit' | 'created' | 'expires' | null;
 type SortDir = 'asc' | 'desc';
 
 export function MarketRegistry({ onTrade }: MarketRegistryProps) {
@@ -158,6 +158,9 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
         } else if (sortCol === 'created') {
           valA = parseFloat((a.createdAt as string) || '0');
           valB = parseFloat((b.createdAt as string) || '0');
+        } else if (sortCol === 'expires') {
+          valA = parseFloat((a.deadline as string) || '0');
+          valB = parseFloat((b.deadline as string) || '0');
         }
 
         if (valA < valB) return sortDir === 'asc' ? -1 : 1;
@@ -175,7 +178,7 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
   };
 
   const colClass = (col: SortCol) => {
-    return `px-4 py-4 cursor-pointer transition-colors whitespace-nowrap ${
+    return `px-2 py-3 cursor-pointer transition-colors whitespace-nowrap ${
       sortCol === col ? 'text-zinc-300' : 'hover:text-zinc-300 text-zinc-500'
     }`;
   };
@@ -260,43 +263,48 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
           <table className="w-full text-left border-collapse">
             <thead className="sticky top-0 bg-zinc-950/80 backdrop-blur-md z-10 border-b border-white/[0.04] text-[11px] uppercase tracking-wider font-mono">
               <tr>
-                <th className="px-6 py-4 font-normal text-zinc-500 whitespace-nowrap">Node</th>
-                <th className="px-4 py-4 font-normal text-zinc-500 whitespace-nowrap">Network</th>
-                <th className="px-4 py-4 font-normal text-zinc-500 whitespace-nowrap">Market Address</th>
-                <th className="px-4 py-4 font-normal text-zinc-500 whitespace-nowrap">Question</th>
-                <th className="px-4 py-4 font-normal text-zinc-500 whitespace-nowrap">Creator</th>
+                <th className="pl-4 pr-2 py-3 font-normal text-zinc-500 whitespace-nowrap">Node</th>
+                <th className="px-2 py-3 font-normal text-zinc-500 whitespace-nowrap">Network</th>
+                <th className="px-2 py-3 font-normal text-zinc-500 whitespace-nowrap">Market</th>
+                <th className="px-2 py-3 font-normal text-zinc-500 whitespace-nowrap">Question</th>
+                <th className="px-2 py-3 font-normal text-zinc-500 whitespace-nowrap">Creator</th>
                 <th className={colClass('status')} onClick={() => handleSort('status')}>
-                  <div className="flex items-center gap-1.5 group">
+                  <div className="flex items-center gap-1 group">
                     Status <span className={`opacity-50 transition-opacity ${sortCol === 'status' ? 'opacity-100' : 'group-hover:opacity-100 group-hover:text-zinc-400'}`}>{getSortIcon('status')}</span>
                   </div>
                 </th>
                 <th className={`${colClass('deposit')} text-right`} onClick={() => handleSort('deposit')}>
-                  <div className="flex items-center justify-end gap-1.5 group">
+                  <div className="flex items-center justify-end gap-1 group">
                     Deposit <span className={`opacity-50 transition-opacity ${sortCol === 'deposit' ? 'opacity-100' : 'group-hover:opacity-100 group-hover:text-zinc-400'}`}>{getSortIcon('deposit')}</span>
                   </div>
                 </th>
                 <th className={`${colClass('created')} text-right`} onClick={() => handleSort('created')}>
-                  <div className="flex items-center justify-end gap-1.5 group">
+                  <div className="flex items-center justify-end gap-1 group">
                     Created <span className={`opacity-50 transition-opacity ${sortCol === 'created' ? 'opacity-100' : 'group-hover:opacity-100 group-hover:text-zinc-400'}`}>{getSortIcon('created')}</span>
                   </div>
                 </th>
-                <th className="px-4 py-4 font-normal text-zinc-500 whitespace-nowrap text-right">Expires</th>
-                <th className="px-6 py-4"></th>
+                <th className={`${colClass('expires')} text-right`} onClick={() => handleSort('expires')}>
+                  <div className="flex items-center justify-end gap-1 group">
+                    Expires <span className={`opacity-50 transition-opacity ${sortCol === 'expires' ? 'opacity-100' : 'group-hover:opacity-100 group-hover:text-zinc-400'}`}>{getSortIcon('expires')}</span>
+                  </div>
+                </th>
+                <th className="pl-2 pr-4 py-3 w-16"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.04] text-sm">
               {isLoading ? (
                 Array.from({ length: 7 }).map((_, i) => (
                   <tr key={i} className="hover:bg-transparent">
-                    <td className="px-6 py-4"><div className="skeleton h-4 w-20 rounded" /></td>
-                    <td className="px-4 py-4"><div className="skeleton h-4 w-24 rounded" /></td>
-                    <td className="px-4 py-4"><div className="skeleton h-4 w-48 rounded" /></td>
-                    <td className="px-4 py-4"><div className="skeleton h-4 w-24 rounded" /></td>
-                    <td className="px-4 py-4"><div className="skeleton h-5 w-16 rounded-full" /></td>
-                    <td className="px-4 py-4 flex justify-end"><div className="skeleton h-4 w-16 rounded" /></td>
-                    <td className="px-4 py-4 flex justify-end"><div className="skeleton h-4 w-16 rounded" /></td>
-                    <td className="px-4 py-4 flex justify-end"><div className="skeleton h-4 w-16 rounded" /></td>
-                    <td className="px-6 py-4"></td>
+                    <td className="pl-4 pr-2 py-3"><div className="skeleton h-4 w-16 rounded" /></td>
+                    <td className="px-2 py-3"><div className="skeleton h-4 w-20 rounded" /></td>
+                    <td className="px-2 py-3"><div className="skeleton h-4 w-14 rounded" /></td>
+                    <td className="px-2 py-3"><div className="skeleton h-4 w-40 rounded" /></td>
+                    <td className="px-2 py-3"><div className="skeleton h-4 w-14 rounded" /></td>
+                    <td className="px-2 py-3"><div className="skeleton h-5 w-12 rounded-full" /></td>
+                    <td className="px-2 py-3"><div className="skeleton h-4 w-14 rounded" /></td>
+                    <td className="px-2 py-3"><div className="skeleton h-4 w-12 rounded" /></td>
+                    <td className="px-2 py-3"><div className="skeleton h-4 w-16 rounded" /></td>
+                    <td className="pl-2 pr-4 py-3"></td>
                   </tr>
                 ))
               ) : filteredAndSorted.length === 0 ? (
@@ -332,16 +340,15 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
                           }
                         }}
                       >
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="pl-4 pr-2 py-3 whitespace-nowrap">
                           <span className="font-mono text-[10px] px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded">
                             {m.soothBookAddress ? (getInstanceBySoothBook(m.soothBookAddress)?.id ?? '—') : '—'}
                           </span>
                         </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
+                        <td className="px-2 py-3 whitespace-nowrap">
                           <span className={`text-[12px] font-medium ${netText}`}>{m.network ?? 'Base Sepolia'}</span>
                         </td>
-
-                        <td className="px-4 py-4 font-mono text-zinc-400 text-[13px] whitespace-nowrap">
+                        <td className="px-2 py-3 font-mono text-zinc-400 text-[13px] whitespace-nowrap">
                           <a
                             href={getAddressUrl(m.address)}
                             target="_blank"
@@ -352,12 +359,12 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
                             {shortAddr(m.address)}
                           </a>
                         </td>
-                        <td className="px-4 py-4 text-zinc-200 font-medium">
-                          <div className="max-w-[280px] lg:max-w-md truncate" title={m.question || m.name}>
+                        <td className="px-2 py-3 text-zinc-200 font-medium">
+                          <div className="max-w-[220px] lg:max-w-sm truncate" title={m.question || m.name}>
                             {m.question || m.name || 'Unnamed Market'}
                           </div>
                         </td>
-                        <td className="px-4 py-4 font-mono text-zinc-400 text-[13px] whitespace-nowrap">
+                        <td className="px-2 py-3 font-mono text-zinc-400 text-[13px] whitespace-nowrap">
                           <a
                             href={getAddressUrl(m.creator)}
                             target="_blank"
@@ -368,20 +375,20 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
                             {shortAddr(m.creator)}
                           </a>
                         </td>
-                        <td className="px-4 py-4 whitespace-nowrap">{renderBadge(status)}</td>
-                        <td className="px-4 py-4 font-mono tabular-nums text-right text-zinc-300 whitespace-nowrap">
+                        <td className="px-2 py-3 whitespace-nowrap">{renderBadge(status)}</td>
+                        <td className="px-2 py-3 font-mono tabular-nums text-right text-zinc-300 whitespace-nowrap">
                           {formatDeposit(m.deposit || '0')}
                         </td>
-                        <td className="px-4 py-4 text-right text-zinc-500 whitespace-nowrap font-mono text-[13px]">
+                        <td className="px-2 py-3 text-right text-zinc-500 whitespace-nowrap font-mono text-[13px]">
                           {m.createdAt ? timeAgo(parseFloat(m.createdAt as string)) : '-'}
                         </td>
-                        <td className="px-4 py-4 text-right text-zinc-500 whitespace-nowrap font-mono text-[13px]">
+                        <td className="px-2 py-3 text-right text-zinc-500 whitespace-nowrap font-mono text-[13px]">
                           {formatDeadline(m.deadline)}
                         </td>
-                        <td className="px-6 py-4 text-right whitespace-nowrap w-24">
+                        <td className="pl-2 pr-4 py-3 text-right whitespace-nowrap w-16">
                           {status === 'live' ? (
-                            <span className="text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity font-medium text-[11px] uppercase tracking-wider inline-flex items-center justify-end gap-1">
-                              Trade <span className="text-sm leading-none">→</span>
+                            <span className="text-amber-400 font-medium text-[11px] uppercase tracking-wider inline-flex items-center justify-end gap-0.5">
+                              Trade<span className="text-sm leading-none">→</span>
                             </span>
                           ) : (
                             <span className="text-zinc-500 opacity-0 group-hover:opacity-100 transition-opacity font-medium text-[11px] uppercase tracking-wider">
