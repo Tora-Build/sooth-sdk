@@ -142,40 +142,46 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
       );
     }
 
-    if (sortCol) {
+    // Default sort: newest first when no column is explicitly selected
+    const effectiveSortCol = sortCol ?? 'created';
+    const effectiveSortDir = sortCol ? sortDir : 'desc';
+
+    {
+      const col = effectiveSortCol;
+      const dir = effectiveSortDir;
       result.sort((a, b) => {
-        if (sortCol === 'node' || sortCol === 'network') {
-          const strA = sortCol === 'node'
+        if (col === 'node' || col === 'network') {
+          const strA = col === 'node'
             ? (a.soothBookAddress ? (getInstanceBySoothBook(a.soothBookAddress)?.id ?? '') : '')
             : (a.network ?? '');
-          const strB = sortCol === 'node'
+          const strB = col === 'node'
             ? (b.soothBookAddress ? (getInstanceBySoothBook(b.soothBookAddress)?.id ?? '') : '')
             : (b.network ?? '');
           const cmp = strA.localeCompare(strB);
-          return sortDir === 'asc' ? cmp : -cmp;
+          return dir === 'asc' ? cmp : -cmp;
         }
 
         let valA: number = 0;
         let valB: number = 0;
 
-        if (sortCol === 'status') {
+        if (col === 'status') {
           const map: Record<string, number> = { live: 0, settled: 1, finalized: 2, dismissed: 3 };
           valA = map[getMarketStatus(a)] ?? 99;
           valB = map[getMarketStatus(b)] ?? 99;
-        } else if (sortCol === 'deposit') {
+        } else if (col === 'deposit') {
           const parseDep = (d: string) => parseFloat(d.startsWith('0x') ? BigInt(d).toString() : d);
           valA = parseDep(a.deposit || '0');
           valB = parseDep(b.deposit || '0');
-        } else if (sortCol === 'created') {
+        } else if (col === 'created') {
           valA = parseFloat((a.createdAt as string) || '0');
           valB = parseFloat((b.createdAt as string) || '0');
-        } else if (sortCol === 'expires') {
+        } else if (col === 'expires') {
           valA = parseFloat((a.deadline as string) || '0');
           valB = parseFloat((b.deadline as string) || '0');
         }
 
-        if (valA < valB) return sortDir === 'asc' ? -1 : 1;
-        if (valA > valB) return sortDir === 'asc' ? 1 : -1;
+        if (valA < valB) return dir === 'asc' ? -1 : 1;
+        if (valA > valB) return dir === 'asc' ? 1 : -1;
         return 0;
       });
     }
