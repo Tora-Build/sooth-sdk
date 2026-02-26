@@ -4,6 +4,19 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed (Trading Panel — 2026-02-26)
+- **ABI mismatch**: Corrected SoothBook ABI types — `uint16` tick, `uint128` amount, `uint64` orderId, scalar `getOrdersAtTick` returns (was all `uint256`).
+- **Orderbook rewrite**: Replaced 999-tick brute-force RPC scan with indexer-first approach (`/v12/orders/:chainId/:marketKey`) + `getBestTick` ±50 radius RPC fallback.
+- **USDC decimals**: Both Base Sepolia and Monad MockUSDC use 18 decimals. `useOrderbookTrade` and `useUsdcBalance` now read decimals from chain instead of hardcoding 6.
+- **Chain routing**: Added `chainId` to all `useReadContract` and `writeContractAsync` calls. Prevents wrong-chain transactions (e.g. Base Sepolia USDC approval on Monad).
+- **Auto chain-switch**: Added `useSwitchChain` to prompt wallet to switch to target chain before any write operation.
+- **Orderbook prices**: Display YES-equivalent prices for both sides instead of raw ticks. NO asks at tick 100 now show 90.0% (not 10.0%).
+- **Orderbook sort**: Both sides sorted by YES-equivalent price — best bid/ask closest to spread.
+- **MintMergePanel decimals**: Uses dynamic `usdcDecimals` from `useUsdcBalance` hook.
+
+### Added (Market App — 2026-02-26)
+- **Multichain footer**: Per-chain indexer status with block numbers (Monad, Base, Arc).
+
 ### Added (Moltbook AAP v2 — 2026-02-21)
 - **FeedCard**: `parseQuestionTags()` parser for §question, §rule, §event, §category, §picture tags with rule badge display (Auto/Manual).
 - **AAP page**: Full rewrite — architecture diagram, §tag question format, tags reference table, rule keys table, pipeline steps, manual resolution example, verification challenges section, principles list.
