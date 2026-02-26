@@ -9,6 +9,7 @@ export interface LaunchpadMarket {
   isSettled: boolean;
   isFinalized: boolean;
   createdAt?: string | number;
+  deadline?: string | number;
   yesProbability?: number;
   yesReserves?: string;
   noReserves?: string;
