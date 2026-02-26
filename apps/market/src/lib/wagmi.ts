@@ -16,6 +16,10 @@ const monadTestnetPublicUrls = [
   'https://rpc.ankr.com/monad_testnet',
 ];
 
+const lensTestnetPublicUrls = [
+  'https://rpc.testnet.lens.xyz',
+];
+
 // --- HTTP transport options per chain ---
 
 const baseSepoliaHttpOptions = {
@@ -26,6 +30,12 @@ const baseSepoliaHttpOptions = {
 };
 
 const monadHttpOptions = {
+  retryCount: 3,
+  retryDelay: 1000,
+  timeout: 30_000,
+};
+
+const lensHttpOptions = {
   retryCount: 3,
   retryDelay: 1000,
   timeout: 30_000,
@@ -52,6 +62,10 @@ const monadTestnet = toViemChain(10143, [
   import.meta.env.VITE_MONAD_TESTNET_RPC_URL || 'https://testnet-rpc.monad.xyz',
 ]);
 
+const lensTestnet = toViemChain(37111, [
+  import.meta.env.VITE_LENS_TESTNET_RPC_URL || 'https://rpc.testnet.lens.xyz',
+]);
+
 export const metadata = {
   name: 'sooth.market',
   description: 'Pro Trading Registry — Sooth Protocol',
@@ -62,6 +76,7 @@ export const metadata = {
 export const networks: [AppKitNetwork, ...AppKitNetwork[]] = [
   baseSepolia as unknown as AppKitNetwork,
   monadTestnet as unknown as AppKitNetwork,
+  lensTestnet as unknown as AppKitNetwork,
 ];
 
 export const wagmiAdapter = new WagmiAdapter({
@@ -78,6 +93,11 @@ export const wagmiAdapter = new WagmiAdapter({
       monadTestnetPublicUrls,
       monadHttpOptions,
       'VITE_MONAD_TESTNET_RPC_URL',
+    ),
+    [lensTestnet.id]: createTransport(
+      lensTestnetPublicUrls,
+      lensHttpOptions,
+      'VITE_LENS_TESTNET_RPC_URL',
     ),
   },
 });
