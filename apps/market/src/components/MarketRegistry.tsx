@@ -91,7 +91,7 @@ const ErrorIcon = () => (
   </svg>
 );
 
-type SortCol = 'status' | 'deposit' | 'created' | 'expires' | null;
+type SortCol = 'node' | 'network' | 'status' | 'deposit' | 'created' | 'expires' | null;
 type SortDir = 'asc' | 'desc';
 
 export function MarketRegistry({ onTrade }: MarketRegistryProps) {
@@ -144,6 +144,17 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
 
     if (sortCol) {
       result.sort((a, b) => {
+        if (sortCol === 'node' || sortCol === 'network') {
+          const strA = sortCol === 'node'
+            ? (a.soothBookAddress ? (getInstanceBySoothBook(a.soothBookAddress)?.id ?? '') : '')
+            : (a.network ?? '');
+          const strB = sortCol === 'node'
+            ? (b.soothBookAddress ? (getInstanceBySoothBook(b.soothBookAddress)?.id ?? '') : '')
+            : (b.network ?? '');
+          const cmp = strA.localeCompare(strB);
+          return sortDir === 'asc' ? cmp : -cmp;
+        }
+
         let valA: number = 0;
         let valB: number = 0;
 
@@ -263,8 +274,16 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
           <table className="w-full text-left border-collapse">
             <thead className="sticky top-0 bg-zinc-950/80 backdrop-blur-md z-10 border-b border-white/[0.04] text-[11px] uppercase tracking-wider font-mono">
               <tr>
-                <th className="pl-4 pr-2 py-3 font-normal text-zinc-500 whitespace-nowrap">Node</th>
-                <th className="px-2 py-3 font-normal text-zinc-500 whitespace-nowrap">Network</th>
+                <th className={`pl-4 pr-2 ${colClass('node')}`} onClick={() => handleSort('node')}>
+                  <div className="flex items-center gap-1 group">
+                    Node <span className={`opacity-50 transition-opacity ${sortCol === 'node' ? 'opacity-100' : 'group-hover:opacity-100 group-hover:text-zinc-400'}`}>{getSortIcon('node')}</span>
+                  </div>
+                </th>
+                <th className={colClass('network')} onClick={() => handleSort('network')}>
+                  <div className="flex items-center gap-1 group">
+                    Network <span className={`opacity-50 transition-opacity ${sortCol === 'network' ? 'opacity-100' : 'group-hover:opacity-100 group-hover:text-zinc-400'}`}>{getSortIcon('network')}</span>
+                  </div>
+                </th>
                 <th className="px-2 py-3 font-normal text-zinc-500 whitespace-nowrap">Market</th>
                 <th className="px-2 py-3 font-normal text-zinc-500 whitespace-nowrap">Question</th>
                 <th className="px-2 py-3 font-normal text-zinc-500 whitespace-nowrap">Creator</th>
@@ -283,12 +302,11 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
                     Created <span className={`opacity-50 transition-opacity ${sortCol === 'created' ? 'opacity-100' : 'group-hover:opacity-100 group-hover:text-zinc-400'}`}>{getSortIcon('created')}</span>
                   </div>
                 </th>
-                <th className={`${colClass('expires')} text-right`} onClick={() => handleSort('expires')}>
+                <th className={`${colClass('expires')} text-right pr-4`} onClick={() => handleSort('expires')}>
                   <div className="flex items-center justify-end gap-1 group">
                     Expires <span className={`opacity-50 transition-opacity ${sortCol === 'expires' ? 'opacity-100' : 'group-hover:opacity-100 group-hover:text-zinc-400'}`}>{getSortIcon('expires')}</span>
                   </div>
                 </th>
-                <th className="pl-2 pr-4 py-3 w-16"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.04] text-sm">
@@ -303,8 +321,7 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
                     <td className="px-2 py-3"><div className="skeleton h-5 w-12 rounded-full" /></td>
                     <td className="px-2 py-3"><div className="skeleton h-4 w-14 rounded" /></td>
                     <td className="px-2 py-3"><div className="skeleton h-4 w-12 rounded" /></td>
-                    <td className="px-2 py-3"><div className="skeleton h-4 w-16 rounded" /></td>
-                    <td className="pl-2 pr-4 py-3"></td>
+                    <td className="px-2 pr-4 py-3"><div className="skeleton h-4 w-16 rounded" /></td>
                   </tr>
                 ))
               ) : filteredAndSorted.length === 0 ? (
@@ -331,7 +348,15 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: index * 0.03 }}
-                        className={`hover:bg-zinc-800/30 cursor-pointer group transition-colors duration-200 ${isExpanded ? 'bg-zinc-800/20' : ''}`}
+                        style={isExpanded ? { boxShadow: 'inset 3px 0 0 0 rgba(251,191,36,0.4)' } : undefined}
+                        className={[
+                          'cursor-pointer transition-all duration-200',
+                          isExpanded
+                            ? 'bg-zinc-800/20'
+                            : status === 'live'
+                              ? 'hover:bg-amber-400/[0.05] hover:[box-shadow:inset_3px_0_0_0_#f59e0b]'
+                              : 'hover:bg-zinc-800/20 hover:[box-shadow:inset_3px_0_0_0_rgba(113,113,122,0.5)]',
+                        ].join(' ')}
                         onClick={() => {
                           if (status === 'live' && onTrade) {
                             onTrade(m);
@@ -382,19 +407,8 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
                         <td className="px-2 py-3 text-right text-zinc-500 whitespace-nowrap font-mono text-[13px]">
                           {m.createdAt ? timeAgo(parseFloat(m.createdAt as string)) : '-'}
                         </td>
-                        <td className="px-2 py-3 text-right text-zinc-500 whitespace-nowrap font-mono text-[13px]">
+                        <td className="px-2 pr-4 py-3 text-right text-zinc-500 whitespace-nowrap font-mono text-[13px]">
                           {formatDeadline(m.deadline)}
-                        </td>
-                        <td className="pl-2 pr-4 py-3 text-right whitespace-nowrap w-16">
-                          {status === 'live' ? (
-                            <span className="text-amber-400 font-medium text-[11px] uppercase tracking-wider inline-flex items-center justify-end gap-0.5">
-                              Trade<span className="text-sm leading-none">→</span>
-                            </span>
-                          ) : (
-                            <span className="text-zinc-500 opacity-0 group-hover:opacity-100 transition-opacity font-medium text-[11px] uppercase tracking-wider">
-                              {isExpanded ? 'Hide' : 'Details'}
-                            </span>
-                          )}
                         </td>
                       </motion.tr>
                       <AnimatePresence>
@@ -496,7 +510,12 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: index * 0.03 }}
-                  className="p-5 flex flex-col gap-3.5 hover:bg-zinc-800/30 active:bg-zinc-800/40 transition-colors cursor-pointer"
+                  className={[
+                    'p-5 flex flex-col gap-3.5 transition-all cursor-pointer',
+                    status === 'live'
+                      ? 'hover:bg-amber-400/[0.05] hover:[box-shadow:inset_3px_0_0_0_#f59e0b] active:bg-amber-400/[0.07]'
+                      : 'hover:bg-zinc-800/20 hover:[box-shadow:inset_3px_0_0_0_rgba(113,113,122,0.5)] active:bg-zinc-800/30',
+                  ].join(' ')}
                   onClick={() => {
                     if (status === 'live' && onTrade) {
                       onTrade(m);
@@ -538,11 +557,6 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
                       <span className="font-mono tabular-nums text-zinc-100 font-medium">
                         {formatDeposit(m.deposit || '0')}
                       </span>
-                      {status === 'live' && (
-                        <span className="text-amber-400 font-medium text-[10px] uppercase tracking-wider mt-1">
-                          Trade →
-                        </span>
-                      )}
                     </div>
                   </div>
                   
