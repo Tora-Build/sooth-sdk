@@ -14,10 +14,16 @@ import { UserOrdersPanel } from './UserOrdersPanel';
 import { getInstanceBySoothBook } from '../config/deployments';
 import { cn } from '../lib/utils';
 
+// ── Types ──────────────────────────────────────────────────────────────
+
+type OrderAction = 'buy_yes' | 'sell_yes' | 'buy_no' | 'sell_no';
+
 interface TradingModalProps {
   market: LaunchpadMarket;
   onClose: () => void;
 }
+
+// ── Helpers ────────────────────────────────────────────────────────────
 
 function shortAddr(addr: string): string {
   if (!addr) return '';
@@ -51,6 +57,8 @@ function formatCents(price: number): string {
   return `${(price * 100).toFixed(1)}¢`;
 }
 
+// ── Component ──────────────────────────────────────────────────────────
+
 export function TradingModal({ market, onClose }: TradingModalProps) {
   const [activeTab, setActiveTab] = useState<'trade' | 'mint' | 'manage'>('trade');
   const marketStatus = getMarketStatus(market);
@@ -78,58 +86,96 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
   const marketChainName = instance?.chainName ?? 'Unknown';
   const isWrongChain = isConnected && walletChainId !== marketChainId;
 
-  const [cancelSide, setCancelSide] = useState<'yes' | 'no'>('yes');
-  const [cancelTick, setCancelTick] = useState<string>('');
-  const [tradeOutcome, setTradeOutcome] = useState<0 | 1>(0);
-  const [tradeIsBuy, setTradeIsBuy] = useState(true);
+  // ── Compound action state (like demo Pro page) ───────────────────────
+  const [action, setAction] = useState<OrderAction>('buy_yes');
+  const isYes = action === 'buy_yes' || action === 'sell_yes';
+  const isBuying = action === 'buy_yes' || action === 'buy_no';
+  const viewOutcome: 'yes' | 'no' = isYes ? 'yes' : 'no';
+  // Map to the outcome param for placeOrder hook (0=YES, 1=NO per hook convention)
+  const tradeOutcome: 0 | 1 = isYes ? 0 : 1;
+
   const [tradePrice, setTradePrice] = useState('0.50');
   const [tradeAmount, setTradeAmount] = useState('1');
-  const [viewOutcome, setViewOutcome] = useState<'yes' | 'no'>('yes');
+  const [isPriceTouched, setIsPriceTouched] = useState(false);
+
+  const [cancelSide, setCancelSide] = useState<'yes' | 'no'>('yes');
+  const [cancelTick, setCancelTick] = useState<string>('');
+
+  // ── Best prices from orderbook ───────────────────────────────────────
+  const bestBidYes = useMemo(() => {
+    if (bids.length === 0) return 0;
+    return bids[0].yesPrice;
+  }, [bids]);
+
+  const bestAskYes = useMemo(() => {
+    if (asks.length === 0) return 0;
+    return asks[0].yesPrice;
+  }, [asks]);
+
+  // Auto-set price to best available when switching action or market
+  useEffect(() => {
+    setIsPriceTouched(false);
+  }, [action, marketKey]);
+
+  useEffect(() => {
+    if (isPriceTouched) return;
+
+    let defaultYesPrice = 0.5;
+    if (isBuying) {
+      defaultYesPrice = isYes
+        ? (bestAskYes > 0 ? bestAskYes : defaultYesPrice)
+        : (bestBidYes > 0 ? bestBidYes : defaultYesPrice);
+    } else {
+      defaultYesPrice = isYes
+        ? (bestBidYes > 0 ? bestBidYes : defaultYesPrice)
+        : (bestAskYes > 0 ? bestAskYes : defaultYesPrice);
+    }
+
+    // Display price in context of selected outcome
+    const displayPrice = isYes ? defaultYesPrice : (1 - defaultYesPrice);
+    const clampedCents = Math.max(0.1, Math.min(99.9, displayPrice * 100));
+    setTradePrice((clampedCents / 100).toFixed(3));
+  }, [action, isBuying, isPriceTouched, isYes, bestAskYes, bestBidYes]);
+
+  // Price as displayed is outcome-relative; convert to YES-equivalent for the hook
+  const priceForHook = useMemo(() => {
+    const p = Number(tradePrice);
+    return isYes ? p : 1 - p;
+  }, [tradePrice, isYes]);
 
   // Cost estimate
   const priceNum = Number(tradePrice);
   const amountNum = Number(tradeAmount);
   const estimatedCost = useMemo(() => {
     if (!Number.isFinite(priceNum) || !Number.isFinite(amountNum) || amountNum <= 0) return null;
-    return tradeIsBuy ? priceNum * amountNum : null;
-  }, [priceNum, amountNum, tradeIsBuy]);
+    return isBuying ? priceNum * amountNum : null;
+  }, [priceNum, amountNum, isBuying]);
 
   // Spread calculation
   const spread = useMemo(() => {
     if (bids.length === 0 || asks.length === 0) return null;
-    const bestBid = bids[0].yesPrice;
-    const bestAsk = asks[0].yesPrice;
-    return Math.abs(bestBid - bestAsk);
+    return Math.abs(bids[0].yesPrice - asks[0].yesPrice);
   }, [bids, asks]);
 
   const midPrice = useMemo(() => {
-    if (bids.length > 0 && asks.length > 0) {
-      return (bids[0].yesPrice + asks[0].yesPrice) / 2;
-    }
+    if (bids.length > 0 && asks.length > 0) return (bids[0].yesPrice + asks[0].yesPrice) / 2;
     if (bids.length > 0) return bids[0].yesPrice;
     if (asks.length > 0) return asks[0].yesPrice;
     return null;
   }, [bids, asks]);
 
-  // Best price for current trade direction
-  const bestPrice = useMemo(() => {
-    if (tradeOutcome === 0) {
-      // YES outcome
-      if (tradeIsBuy) {
-        // Buy YES: best ask = lowest yesPrice from asks (NO buyers offering YES)
-        return asks.length > 0 ? asks[0].yesPrice : null;
-      }
-      // Sell YES: best bid = highest yesPrice from bids (YES buyers)
-      return bids.length > 0 ? bids[0].yesPrice : null;
+  // Best price for display in the current outcome context
+  const bestPriceDisplay = useMemo(() => {
+    if (isYes) {
+      return isBuying
+        ? (bestAskYes > 0 ? bestAskYes : null)
+        : (bestBidYes > 0 ? bestBidYes : null);
     }
-    // NO outcome
-    if (tradeIsBuy) {
-      // Buy NO: best NO ask = derived from highest YES bid
-      return bids.length > 0 ? 1 - bids[0].yesPrice : null;
-    }
-    // Sell NO: best NO bid = derived from lowest YES ask
-    return asks.length > 0 ? 1 - asks[0].yesPrice : null;
-  }, [tradeOutcome, tradeIsBuy, bids, asks]);
+    // NO context: invert YES prices
+    return isBuying
+      ? (bestBidYes > 0 ? 1 - bestBidYes : null)
+      : (bestAskYes > 0 ? 1 - bestAskYes : null);
+  }, [isYes, isBuying, bestBidYes, bestAskYes]);
 
   // Max depth for depth bars
   const maxBidSize = useMemo(() => {
@@ -144,24 +190,25 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
 
   // Click-to-fill: clicking an orderbook level sets the price
   const handleOrderbookClick = useCallback((level: OrderLevel) => {
-    setTradePrice(level.yesPrice.toFixed(3));
-  }, []);
+    const displayP = isYes ? level.yesPrice : 1 - level.yesPrice;
+    setTradePrice(displayP.toFixed(3));
+    setIsPriceTouched(true);
+  }, [isYes]);
 
-  // MAX button: estimate max shares user can buy at current price
+  // MAX button
   const handleMax = useCallback(() => {
     const bal = Number(availableBalance) / 1e18;
-    if (tradeIsBuy && priceNum > 0) {
+    if (isBuying && priceNum > 0) {
       const maxShares = Math.floor(bal / priceNum);
       if (maxShares > 0) setTradeAmount(maxShares.toString());
     } else {
-      // For sells, max = user's shares of that outcome
-      const shares = tradeOutcome === 0 ? yesShares : noShares;
+      const shares = isYes ? yesShares : noShares;
       if (shares !== undefined && shares > 0n) {
         const formatted = Math.floor(Number(shares) / 1e18);
         if (formatted > 0) setTradeAmount(formatted.toString());
       }
     }
-  }, [availableBalance, priceNum, tradeIsBuy, tradeOutcome, yesShares, noShares]);
+  }, [availableBalance, priceNum, isBuying, isYes, yesShares, noShares]);
 
   const handleCancel = async () => {
     const tickNum = parseInt(cancelTick, 10);
@@ -172,27 +219,17 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
     setCancelTick('');
   };
 
-  const handleRedeem = async () => {
-    await redeem();
-  };
-
   const yesFormatted = yesShares !== undefined ? (Number(yesShares) / 1e18).toFixed(2) : '0.00';
   const noFormatted = noShares !== undefined ? (Number(noShares) / 1e18).toFixed(2) : '0.00';
   const hasShares = (yesShares !== undefined && yesShares > 0n) || (noShares !== undefined && noShares > 0n);
   const canRedeem = marketStatus === 'finalized' && hasShares;
 
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
+    if (e.target === e.currentTarget) onClose();
   };
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
+    const handleKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
@@ -277,7 +314,7 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
           </div>
 
           <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
-            {/* Left Column: Orderbook + Chart */}
+            {/* Left Column: Orderbook + Chart + Orders */}
             <div className="w-full md:w-[60%] border-r border-white/[0.04] p-5 flex flex-col gap-3 overflow-y-auto no-scrollbar">
               {/* Orderbook header with spread */}
               <div className="flex items-center justify-between">
@@ -303,7 +340,7 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                     <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Size (YES)</span>
                     <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Price</span>
                   </div>
-                  <div className="overflow-y-auto no-scrollbar h-[320px]">
+                  <div className="overflow-y-auto no-scrollbar h-[280px]">
                     {isLoading ? (
                       <div className="space-y-1.5 p-2">
                         {[...Array(5)].map((_, i) => <div key={i} className="h-5 skeleton rounded w-full" />)}
@@ -321,7 +358,6 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                               onClick={() => handleOrderbookClick(bid)}
                               className="relative flex justify-between items-center px-3 py-1 hover:bg-white/[0.03] transition-colors text-left group"
                             >
-                              {/* Depth bar */}
                               <div
                                 className="absolute inset-y-0 right-0 bg-emerald-500/[0.07] transition-all"
                                 style={{ width: `${depthPct}%` }}
@@ -347,7 +383,7 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                     <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Price</span>
                     <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Size (NO)</span>
                   </div>
-                  <div className="overflow-y-auto no-scrollbar h-[320px]">
+                  <div className="overflow-y-auto no-scrollbar h-[280px]">
                     {isLoading ? (
                       <div className="space-y-1.5 p-2">
                         {[...Array(5)].map((_, i) => <div key={i} className="h-5 skeleton rounded w-full" />)}
@@ -365,7 +401,6 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                               onClick={() => handleOrderbookClick(ask)}
                               className="relative flex justify-between items-center px-3 py-1 hover:bg-white/[0.03] transition-colors text-left group"
                             >
-                              {/* Depth bar */}
                               <div
                                 className="absolute inset-y-0 left-0 bg-rose-500/[0.07] transition-all"
                                 style={{ width: `${depthPct}%` }}
@@ -395,10 +430,23 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                 </div>
               )}
 
+              {/* Historical price chart */}
               <HistoricalPriceCard
                 chainId={market.chainId ?? 84532}
                 marketKey={marketKey as `0x${string}`}
                 viewOutcome={viewOutcome}
+              />
+
+              {/* Open orders */}
+              <UserOrdersPanel
+                marketId={market.address as `0x${string}`}
+                marketKey={marketKey as `0x${string}`}
+                soothBookAddress={market.soothBookAddress as `0x${string}` | undefined}
+                isLoading={false}
+                onRefresh={() => {}}
+                chainId={market.chainId ?? 84532}
+                viewOutcome={viewOutcome}
+                onCancelOrder={cancelOrder}
               />
             </div>
 
@@ -440,49 +488,66 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
               <div className="p-5 flex-1 overflow-y-auto no-scrollbar">
                 {activeTab === 'trade' && (
                   <div className="flex flex-col gap-4">
-                    {/* Buy / Sell toggle */}
-                    <div className="flex p-1 bg-zinc-950 rounded-xl border border-white/[0.06]">
+                    {/* YES / NO toggle (ABOVE buy/sell — controls everything) */}
+                    <div className="flex border-b border-white/[0.04]">
                       <button
-                        className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${tradeIsBuy ? 'bg-emerald-500/20 text-emerald-400' : 'text-zinc-500 hover:text-zinc-300'}`}
-                        onClick={() => setTradeIsBuy(true)}
-                      >
-                        Buy
-                      </button>
-                      <button
-                        className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${!tradeIsBuy ? 'bg-rose-500/20 text-rose-400' : 'text-zinc-500 hover:text-zinc-300'}`}
-                        onClick={() => setTradeIsBuy(false)}
-                      >
-                        Sell
-                      </button>
-                    </div>
-
-                    {/* YES / NO toggle */}
-                    <div className="flex p-1 bg-zinc-950 rounded-xl border border-white/[0.06]">
-                      <button
-                        className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${tradeOutcome === 0 ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}
-                        onClick={() => {
-                          setTradeOutcome(0);
-                          setViewOutcome('yes');
-                        }}
+                        className={cn(
+                          'flex-1 py-2.5 text-sm font-semibold transition-all border-b-2',
+                          isYes
+                            ? 'border-emerald-500 text-emerald-400 bg-emerald-500/[0.05]'
+                            : 'border-transparent text-zinc-500 hover:text-zinc-300',
+                        )}
+                        onClick={() => setAction(isBuying ? 'buy_yes' : 'sell_yes')}
                       >
                         YES
                       </button>
                       <button
-                        className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${tradeOutcome === 1 ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}
-                        onClick={() => {
-                          setTradeOutcome(1);
-                          setViewOutcome('no');
-                        }}
+                        className={cn(
+                          'flex-1 py-2.5 text-sm font-semibold transition-all border-b-2',
+                          !isYes
+                            ? 'border-rose-500 text-rose-400 bg-rose-500/[0.05]'
+                            : 'border-transparent text-zinc-500 hover:text-zinc-300',
+                        )}
+                        onClick={() => setAction(isBuying ? 'buy_no' : 'sell_no')}
                       >
                         NO
+                      </button>
+                    </div>
+
+                    {/* Buy / Sell toggle */}
+                    <div className="flex p-1 bg-zinc-950 rounded-xl border border-white/[0.06]">
+                      <button
+                        className={cn(
+                          'flex-1 py-2 text-sm font-semibold rounded-lg transition-all',
+                          isBuying ? 'bg-emerald-500/20 text-emerald-400' : 'text-zinc-500 hover:text-zinc-300',
+                        )}
+                        onClick={() => setAction(isYes ? 'buy_yes' : 'buy_no')}
+                      >
+                        Buy
+                      </button>
+                      <button
+                        className={cn(
+                          'flex-1 py-2 text-sm font-semibold rounded-lg transition-all',
+                          !isBuying ? 'bg-rose-500/20 text-rose-400' : 'text-zinc-500 hover:text-zinc-300',
+                        )}
+                        onClick={() => setAction(isYes ? 'sell_yes' : 'sell_no')}
+                      >
+                        Sell
                       </button>
                     </div>
 
                     {/* Price */}
                     <div className="flex flex-col gap-1.5">
                       <div className="flex justify-between items-center px-1">
-                        <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">Price</label>
-                        <span className="text-sm font-mono text-amber-400 tabular-nums">{formatCents(Number(tradePrice))}</span>
+                        <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">
+                          {isYes ? 'YES' : 'NO'} Price
+                        </label>
+                        <span className={cn(
+                          'text-sm font-mono tabular-nums',
+                          isYes ? 'text-emerald-400' : 'text-rose-400',
+                        )}>
+                          {formatCents(Number(tradePrice))}
+                        </span>
                       </div>
                       <input
                         type="range"
@@ -490,23 +555,28 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                         max="999"
                         step="1"
                         value={Math.round(Number(tradePrice) * 1000)}
-                        onChange={(e) => setTradePrice((Number(e.target.value) / 1000).toFixed(3))}
-                        className="w-full accent-amber-500"
+                        onChange={(e) => {
+                          setTradePrice((Number(e.target.value) / 1000).toFixed(3));
+                          setIsPriceTouched(true);
+                        }}
+                        className={cn(
+                          'w-full',
+                          isYes ? 'accent-emerald-500' : 'accent-rose-500',
+                        )}
                       />
                       <div className="flex justify-between text-[10px] font-mono text-zinc-600">
                         <span>0¢</span><span>50¢</span><span>100¢</span>
                       </div>
-                      {bestPrice !== null && (
+                      {bestPriceDisplay !== null && (
                         <button
                           onClick={() => {
-                            // For NO outcome, convert back to YES-equivalent for the price state
-                            const priceForState = tradeOutcome === 0 ? bestPrice : 1 - bestPrice;
-                            setTradePrice(priceForState.toFixed(3));
+                            setTradePrice(bestPriceDisplay.toFixed(3));
+                            setIsPriceTouched(true);
                           }}
                           className="flex items-center gap-1.5 px-1 text-[11px] font-mono text-zinc-500 hover:text-amber-400 transition-colors"
                         >
-                          Best {tradeIsBuy ? 'ask' : 'bid'}:
-                          <span className="text-zinc-300">{formatCents(bestPrice)}</span>
+                          Best {isBuying ? 'ask' : 'bid'}:
+                          <span className="text-zinc-300">{formatCents(bestPriceDisplay)}</span>
                           <span className="text-zinc-600 text-[10px]">click to use</span>
                         </button>
                       )}
@@ -517,7 +587,10 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                       <div className="flex justify-between items-center px-1">
                         <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">Amount (shares)</label>
                         <span className="text-[11px] font-mono text-zinc-500 tabular-nums">
-                          Bal: {(Number(availableBalance) / 1e18).toFixed(2)} USDC
+                          {isBuying
+                            ? `Bal: ${(Number(availableBalance) / 1e18).toFixed(2)} USDC`
+                            : `${isYes ? 'YES' : 'NO'}: ${isYes ? yesFormatted : noFormatted}`
+                          }
                         </span>
                       </div>
                       <div className="relative">
@@ -528,7 +601,10 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                           value={tradeAmount}
                           onChange={(e) => setTradeAmount(e.target.value)}
                           placeholder="0"
-                          className="w-full bg-zinc-950 border border-white/[0.06] rounded-xl px-4 py-2.5 text-zinc-100 font-mono text-lg focus:outline-none focus:border-white/[0.12] transition-colors placeholder:text-zinc-600 pr-16"
+                          className={cn(
+                            'w-full bg-zinc-950 border border-white/[0.06] rounded-xl px-4 py-2.5 text-zinc-100 font-mono text-lg focus:outline-none transition-colors placeholder:text-zinc-600 pr-16',
+                            isYes ? 'focus:border-emerald-500/50' : 'focus:border-rose-500/50',
+                          )}
                           disabled={isPending}
                         />
                         <button
@@ -548,6 +624,13 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                         <span className="text-sm font-mono text-zinc-200 tabular-nums">
                           {estimatedCost.toFixed(2)} USDC
                         </span>
+                      </div>
+                    )}
+
+                    {/* Sell info */}
+                    {!isBuying && (
+                      <div className="text-[11px] font-mono text-zinc-500 px-1">
+                        Selling burns your {isYes ? 'YES' : 'NO'} tokens via escrow
                       </div>
                     )}
 
@@ -571,7 +654,8 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                       <button
                         onClick={async () => {
                           if (!tradeAmount || Number(tradeAmount) <= 0) return;
-                          const ok = await placeOrder(tradeOutcome, tradePrice, tradeAmount, tradeIsBuy);
+                          // priceForHook is always YES-equivalent for the hook
+                          const ok = await placeOrder(tradeOutcome, priceForHook.toFixed(3), tradeAmount, isBuying);
                           if (ok) {
                             setTradeAmount('1');
                             refetchBalance();
@@ -580,30 +664,24 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                         disabled={!tradeAmount || Number(tradeAmount) <= 0 || isPending}
                         className={cn(
                           'w-full py-3 rounded-xl font-semibold transition-transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed',
-                          tradeIsBuy
-                            ? 'bg-emerald-500 hover:bg-emerald-400 text-zinc-950'
-                            : 'bg-rose-500 hover:bg-rose-400 text-zinc-50'
+                          isBuying
+                            ? (isYes
+                                ? 'bg-gradient-to-r from-emerald-600 to-emerald-400 hover:from-emerald-500 hover:to-emerald-300 text-zinc-950'
+                                : 'bg-gradient-to-r from-rose-600 to-rose-400 hover:from-rose-500 hover:to-rose-300 text-zinc-50')
+                            : (isYes
+                                ? 'bg-gradient-to-r from-zinc-700 to-zinc-600 hover:from-zinc-600 hover:to-zinc-500 text-emerald-400'
+                                : 'bg-gradient-to-r from-zinc-700 to-zinc-600 hover:from-zinc-600 hover:to-zinc-500 text-rose-400'),
                         )}
                       >
-                        {isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : `${tradeIsBuy ? 'Buy' : 'Sell'} ${tradeOutcome === 0 ? 'YES' : 'NO'}`}
+                        {isPending
+                          ? <Loader2 className="w-5 h-5 animate-spin" />
+                          : `${isBuying ? 'Buy' : 'Sell'} ${isYes ? 'YES' : 'NO'}${estimatedCost !== null ? ` · $${estimatedCost.toFixed(2)}` : ''}`
+                        }
                       </button>
                     )}
-
-                    {/* User orders */}
-                    <div className="mt-2 pt-3 border-t border-white/[0.04]">
-                      <UserOrdersPanel
-                        marketId={market.address as `0x${string}`}
-                        marketKey={marketKey as `0x${string}`}
-                        soothBookAddress={market.soothBookAddress as `0x${string}` | undefined}
-                        isLoading={false}
-                        onRefresh={() => {}}
-                        chainId={market.chainId ?? 84532}
-                        viewOutcome={viewOutcome}
-                        onCancelOrder={cancelOrder}
-                      />
-                    </div>
                   </div>
                 )}
+
                 {activeTab === 'mint' && <MintMergePanel market={market} />}
 
                 {activeTab === 'manage' && (
@@ -689,7 +767,7 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                             </div>
 
                             <button
-                              onClick={handleRedeem}
+                              onClick={() => redeem()}
                               disabled={!canRedeem || isPending}
                               className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold transition-transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
                             >
