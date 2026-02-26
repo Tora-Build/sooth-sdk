@@ -3,6 +3,7 @@ import {
   useAccount,
   usePublicClient,
   useReadContract,
+  useSwitchChain,
   useWaitForTransactionReceipt,
   useWriteContract,
 } from 'wagmi';
@@ -193,6 +194,7 @@ export function useOrderbookTrade(
 
   const { writeContractAsync, data: txHash, isPending: isWritePending } =
     useWriteContract();
+  const { switchChainAsync } = useSwitchChain();
   const [localPending, setLocalPending] = useState(false);
 
   const { isLoading: isConfirming } = useWaitForTransactionReceipt({
@@ -204,6 +206,15 @@ export function useOrderbookTrade(
     await Promise.all([refetchWalletBalance(), refetchAllowance()]);
   }, [refetchAllowance, refetchWalletBalance]);
 
+  const ensureChain = useCallback(async () => {
+    if (!resolvedChainId) return;
+    try {
+      await switchChainAsync({ chainId: resolvedChainId });
+    } catch {
+      // User may reject or chain may already be correct
+    }
+  }, [resolvedChainId, switchChainAsync]);
+
   const ensureApproval = useCallback(
     async (requiredWad: bigint) => {
       if (!collateralAddress || !soothBookAddress || !userAddress || !publicClient) {
@@ -214,6 +225,7 @@ export function useOrderbookTrade(
       const requiredRaw = fromWad(requiredWad, collateralDecimals);
       if (allowanceAmount >= requiredRaw) return true;
 
+      await ensureChain();
       const toastId = toast.loading('Approving collateral...');
       try {
         const approveHash = await writeContractAsync({
@@ -237,6 +249,7 @@ export function useOrderbookTrade(
       allowanceAmount,
       collateralAddress,
       collateralDecimals,
+      ensureChain,
       publicClient,
       refetchAllowance,
       resolvedChainId,
@@ -258,6 +271,8 @@ export function useOrderbookTrade(
         toast.error('Connect wallet and select a valid market');
         return false;
       }
+
+      await ensureChain();
 
       if (approvalWad && approvalWad > 0n) {
         const approved = await ensureApproval(approvalWad);
@@ -317,6 +332,7 @@ export function useOrderbookTrade(
     },
     [
       ensureApproval,
+      ensureChain,
       marketKey,
       publicClient,
       refetchBalance,
@@ -581,6 +597,7 @@ export function useOrderbookTrade(
         return false;
       }
       const approveAmount = amount === 'max' ? maxUint256 : parseUnits(amount, collateralDecimals);
+      await ensureChain();
       const toastId = toast.loading('Approving USDC...');
       try {
         const hash = await writeContractAsync({
@@ -603,6 +620,7 @@ export function useOrderbookTrade(
     [
       collateralAddress,
       collateralDecimals,
+      ensureChain,
       publicClient,
       refetchAllowance,
       resolvedChainId,
