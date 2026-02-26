@@ -25,7 +25,7 @@ services:
       # You must add these manually in the dashboard or sync env groups:
       # - BASE_SEPOLIA_RPC_URL
       # - MONAD_TESTNET_RPC_URL
-      # - ARC_TESTNET_RPC_URL
+      # - LENS_TESTNET_RPC_URL
 
   # --------------------------------------------------------------------------------
   # FRONTEND (Static Site is better for Vite, but Web Service works too if you prefer)
