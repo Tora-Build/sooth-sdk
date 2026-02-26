@@ -16,7 +16,7 @@ export function EcosystemCards() {
 
   return (
     <div>
-      <p className="text-zinc-500 font-mono text-xs uppercase tracking-widest mb-4">
+      <p className="text-zinc-500 font-mono text-xs uppercase tracking-widest px-2 mb-6">
         Ecosystem
       </p>
       
