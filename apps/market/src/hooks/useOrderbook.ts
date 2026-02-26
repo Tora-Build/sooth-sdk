@@ -76,8 +76,8 @@ async function fetchFromIndexerApi(
     else asks.push(level);
   }
 
-  bids.sort((a, b) => b.tick - a.tick);
-  asks.sort((a, b) => a.tick - b.tick);
+  bids.sort((a, b) => b.yesPrice - a.yesPrice);
+  asks.sort((a, b) => a.yesPrice - b.yesPrice);
   return { bids, asks };
 }
 
@@ -162,8 +162,8 @@ async function scanFromRpc(
     else asks.push(level);
   }
 
-  bids.sort((a, b) => b.tick - a.tick);
-  asks.sort((a, b) => a.tick - b.tick);
+  bids.sort((a, b) => b.yesPrice - a.yesPrice);
+  asks.sort((a, b) => a.yesPrice - b.yesPrice);
   return { bids, asks };
 }
 
