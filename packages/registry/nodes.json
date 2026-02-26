@@ -5,6 +5,7 @@
     {
       "id": "03d4f3f7",
       "chainId": 84532,
+      "coreVersion": "12.1",
       "contracts": {
         "launchpadEngine": "0xf00fb446d1262d1f4100e6d899cf0c8c298a6e61",
         "soothBook": "0x0eb179c7e79e62bac3ee40d379425e32cb00d22b",
@@ -21,6 +22,7 @@
     {
       "id": "c5059e71",
       "chainId": 10143,
+      "coreVersion": "12.1",
       "contracts": {
         "launchpadEngine": "0x6fd82b76045af934354a2033fde5cb64772ae615",
         "soothBook": "0x94818c56b904371bf100acf723a7619dfc2c2ec0",
@@ -37,6 +39,7 @@
     {
       "id": "a7f3b2e1",
       "chainId": 37111,
+      "coreVersion": "12.1",
       "contracts": {
         "launchpadEngine": "0xC3d9e3b458bA62c02ee9853d257712374E4376e8",
         "soothBook": "0x85b8A4eE422820d5E7C5Ea33912AAb2Eb46160f4",
@@ -73,6 +76,7 @@
       "nativeCurrency": { "name": "GRASS", "symbol": "GRASS", "decimals": 18 },
       "rpcUrls": ["https://rpc.testnet.lens.xyz"],
       "explorer": { "name": "Lens Explorer", "url": "https://explorer.testnet.lens.xyz" },
+      "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
       "testnet": true
     }
   }
