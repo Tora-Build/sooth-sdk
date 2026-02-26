@@ -19,38 +19,13 @@
       ],
       "description": "Trail of Bits static analysis for smart contract security"
     },
-    "context7": {
+    "github": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@upstash/context7-mcp@latest"
-      ],
-      "description": "Up-to-date library documentation for any prompt"
-    },
-    "git": {
-      "command": "uvx",
-      "args": [
-        "mcp-server-git",
-        "--repository",
-        "."
-      ],
-      "description": "Git repository operations"
-    },
-    "filesystem": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-filesystem",
-        "."
-      ],
-      "description": "Secure file operations with configurable access controls"
-    },
-    "playwriter": {
-      "command": "npx",
-      "args": [
-        "playwriter@latest"
-      ],
-      "description": "Browser automation via Chrome extension with full Playwright API"
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "description": "GitHub API - issues, PRs, code search, repository management",
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "<YOUR_TOKEN>"
+      }
     }
   }
 }
