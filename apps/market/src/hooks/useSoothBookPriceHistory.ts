@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { formatUnits } from 'viem';
-
+import { fetchFromIndexer } from './indexer/config';
 
 export type CandleInterval = '1m' | '15m' | '1h' | '4h';
 
@@ -74,8 +74,10 @@ export function useSoothBookPriceHistory(
   const { data: candles, isLoading, refetch } = useQuery({
     queryKey: ['soothbook-price-history', chainId, marketKey, interval],
     queryFn: async () => {
-      // indexer /v12/fills/ endpoint not yet available
-      return [] as PriceCandle[];
+      if (!chainId || !marketKey) return [] as PriceCandle[];
+      const fills = await fetchFromIndexer<IndexedFill[]>(`/v12/fills/${chainId}/${marketKey}?limit=2000`);
+      if (!fills || fills.length === 0) return [] as PriceCandle[];
+      return aggregateFillsToCandles(fills, interval);
     },
     enabled: !!chainId && !!marketKey,
     staleTime: 20_000,
