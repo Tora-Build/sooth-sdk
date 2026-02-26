@@ -182,7 +182,7 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                 <div className="bg-zinc-950/40 rounded-xl border border-white/[0.04] flex flex-col overflow-hidden">
                   <div className="flex justify-between items-center px-4 py-3 border-b border-white/[0.04]">
                     <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">Size (YES)</span>
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">Tick</span>
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">Price</span>
                   </div>
                   <div className="flex-1 overflow-y-auto p-2 no-scrollbar min-h-[200px]">
                     {isLoading ? (
@@ -198,7 +198,7 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                         {bids.map((bid, i) => (
                           <div key={`bid-${bid.tick}-${i}`} className="flex justify-between items-center px-2 py-1.5 hover:bg-white/[0.02] rounded-lg transition-colors cursor-default">
                             <span className="text-sm font-mono text-emerald-400 tabular-nums">{parseFloat(bid.amount).toFixed(2)}</span>
-                            <span className="text-sm font-mono text-zinc-300 tabular-nums">{(bid.tick / 10).toFixed(1)}%</span>
+                            <span className="text-sm font-mono text-zinc-300 tabular-nums">{(bid.yesPrice * 100).toFixed(1)}%</span>
                           </div>
                         ))}
                       </div>
@@ -209,7 +209,7 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                 {/* Asks */}
                 <div className="bg-zinc-950/40 rounded-xl border border-white/[0.04] flex flex-col overflow-hidden">
                   <div className="flex justify-between items-center px-4 py-3 border-b border-white/[0.04]">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">Tick</span>
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">Price</span>
                     <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">Size (NO)</span>
                   </div>
                   <div className="flex-1 overflow-y-auto p-2 no-scrollbar min-h-[200px]">
@@ -225,7 +225,7 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                       <div className="flex flex-col">
                         {asks.map((ask, i) => (
                           <div key={`ask-${ask.tick}-${i}`} className="flex justify-between items-center px-2 py-1.5 hover:bg-white/[0.02] rounded-lg transition-colors cursor-default">
-                            <span className="text-sm font-mono text-zinc-300 tabular-nums">{(ask.tick / 10).toFixed(1)}%</span>
+                            <span className="text-sm font-mono text-zinc-300 tabular-nums">{(ask.yesPrice * 100).toFixed(1)}%</span>
                             <span className="text-sm font-mono text-rose-400 tabular-nums">{parseFloat(ask.amount).toFixed(2)}</span>
                           </div>
                         ))}
