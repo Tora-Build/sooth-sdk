@@ -25,6 +25,9 @@ const chainOverrides: Record<string, {
   "84532": {
     pollingInterval: 2_000,
   },
+  "37111": {
+    pollingInterval: 2_000,
+  },
 };
 
 // Build chain name from registry (ponder needs string keys)
@@ -45,11 +48,17 @@ for (const node of registry.nodes) {
     ?? process.env.PONDER_RPC_URL_BASE_SEPOLIA
     ?? "";
 
+  const lensTestnetRpcEnv = process.env.LENS_TESTNET_RPC_URL
+    ?? process.env.PONDER_RPC_URL_LENS_TESTNET
+    ?? "";
+
   let rpcUrls: string[];
   if (overrides.rpc) {
     rpcUrls = overrides.rpc;
   } else if (node.chainId === 84532 && baseSepoliaRpcEnv) {
     rpcUrls = [baseSepoliaRpcEnv, ...(meta?.rpcUrls ?? [])];
+  } else if (node.chainId === 37111 && lensTestnetRpcEnv) {
+    rpcUrls = [lensTestnetRpcEnv, ...(meta?.rpcUrls ?? [])];
   } else {
     rpcUrls = meta?.rpcUrls ?? [];
   }
