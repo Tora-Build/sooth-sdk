@@ -20,15 +20,8 @@ import { ERC20_ABI, SOOTH_BOOK_ABI } from '../config/abis';
 import { getInstanceBySoothBook, INSTANCES } from '../config/deployments';
 
 type CancelTarget =
-  | {
-      kind: 'level';
-      side: 0 | 1;
-      tick: number;
-    }
-  | {
-      kind: 'id';
-      orderId: bigint;
-    };
+  | { kind: 'level'; side: 0 | 1; tick: number }
+  | { kind: 'id'; orderId: bigint };
 
 type WriteFunctionName =
   | 'buyYes'
@@ -38,6 +31,7 @@ type WriteFunctionName =
   | 'mint'
   | 'merge'
   | 'redeem';
+
 type ExecuteWriteOptions = {
   silent?: boolean;
 };
@@ -112,20 +106,29 @@ const isGasCapMessage = (message: string): boolean => {
   );
 };
 
+const isUserRejection = (message: string): boolean => {
+  const lower = message.toLowerCase();
+  return lower.includes('user rejected') || lower.includes('user denied');
+};
+
 const normalizeTxErrorMessage = (error: unknown): string => {
   const message = getErrorMessage(error);
   if (isGasCapMessage(message)) {
-    return 'Order exceeds chain gas-per-tx limit. Split size or use a less aggressive price.';
+    return 'Order exceeds chain gas-per-tx limit. Try smaller size or less aggressive price.';
   }
-
-  const lower = message.toLowerCase();
-  if (lower.includes('user rejected') || lower.includes('user denied')) {
+  if (isUserRejection(message)) {
     return 'Transaction rejected in wallet.';
   }
 
   const reasonMatch = message.match(/reverted with the following reason:\s*([^\n]+)/i);
   if (reasonMatch?.[1]) {
     return reasonMatch[1].trim();
+  }
+
+  // Look for common revert patterns
+  const revertMatch = message.match(/revert(?:ed)?[:\s]+(.+?)(?:\n|$)/i);
+  if (revertMatch?.[1]) {
+    return revertMatch[1].trim();
   }
 
   const firstLine = message.split('\n')[0]?.trim();
@@ -146,7 +149,6 @@ export function useOrderbookTrade(
   const publicClient = usePublicClient({ chainId: resolvedChainId as any });
   const soothBookAddress = (resolvedInstance?.soothBook ??
     instanceSoothBook) as `0x${string}` | undefined;
-  const marketAddress_addr = marketAddress as `0x${string}` | undefined;
 
   const marketKey = useMemo(() => {
     if (!marketAddress || !isAddress(marketAddress as `0x${string}`)) {
@@ -206,12 +208,13 @@ export function useOrderbookTrade(
     await Promise.all([refetchWalletBalance(), refetchAllowance()]);
   }, [refetchAllowance, refetchWalletBalance]);
 
-  const ensureChain = useCallback(async () => {
-    if (!resolvedChainId) return;
+  const ensureChain = useCallback(async (): Promise<boolean> => {
+    if (!resolvedChainId) return true;
     try {
       await switchChainAsync({ chainId: resolvedChainId });
+      return true;
     } catch {
-      // User may reject or chain may already be correct
+      return false;
     }
   }, [resolvedChainId, switchChainAsync]);
 
@@ -225,7 +228,8 @@ export function useOrderbookTrade(
       const requiredRaw = fromWad(requiredWad, collateralDecimals);
       if (allowanceAmount >= requiredRaw) return true;
 
-      await ensureChain();
+      const chainOk = await ensureChain();
+      if (!chainOk) return false;
       const toastId = toast.loading('Approving collateral...');
       try {
         const approveHash = await writeContractAsync({
@@ -272,13 +276,21 @@ export function useOrderbookTrade(
         return false;
       }
 
-      await ensureChain();
+      const chainOk = await ensureChain();
+      if (!chainOk) {
+        toast.error('Please switch to the correct network.');
+        return false;
+      }
 
       if (approvalWad && approvalWad > 0n) {
         const approved = await ensureApproval(approvalWad);
         if (!approved) return false;
       }
 
+      // Gas estimation — informational only for buy orders.
+      // If estimation fails with a non-gas error, log it but proceed to let
+      // the wallet handle gas estimation (MetaMask/etc. estimate independently).
+      // Only block if we are SURE it's a gas cap issue.
       try {
         const estimatedGas = await publicClient.estimateContractGas({
           address: soothBookAddress,
@@ -289,17 +301,21 @@ export function useOrderbookTrade(
         });
         if (estimatedGas > GAS_LIMIT_CAP) {
           toast.error(
-            `Estimated gas ${estimatedGas.toString()} exceeds chain limit ${GAS_LIMIT_CAP.toString()}. Try smaller size or less aggressive price.`,
+            `Gas estimate (${estimatedGas.toLocaleString()}) exceeds ${GAS_LIMIT_CAP.toLocaleString()} limit. Try smaller size.`,
           );
           return false;
         }
       } catch (error: unknown) {
-        if (isGasCapMessage(getErrorMessage(error))) {
-          toast.error(
-            'Order exceeds chain gas-per-tx limit. Split into smaller orders or use a less aggressive price.',
-          );
+        const msg = getErrorMessage(error);
+        if (isGasCapMessage(msg)) {
+          toast.error('Order exceeds chain gas limit. Try smaller size or less aggressive price.');
           return false;
         }
+        // Estimation failed for another reason (revert, RPC issue, etc.)
+        // Surface the error instead of silently proceeding.
+        const normalizedMsg = normalizeTxErrorMessage(error);
+        toast.error(`Simulation failed: ${normalizedMsg}`);
+        return false;
       }
 
       setLocalPending(true);
@@ -365,7 +381,8 @@ export function useOrderbookTrade(
         if (isGasCapMessage(getErrorMessage(error))) {
           return { gasCapHit: true };
         }
-        return { gasCapHit: false };
+        // Non-gas error during estimation — treat as revert, not gas cap.
+        return { gasCapHit: false, revertError: getErrorMessage(error) };
       }
     },
     [publicClient, soothBookAddress, userAddress],
@@ -373,7 +390,7 @@ export function useOrderbookTrade(
 
   const placeOrder = useCallback(
     async (outcome: 0 | 1, price: string, amount: string, isBuy = true) => {
-      if (!marketKey || !marketAddress_addr) {
+      if (!marketKey) {
         toast.error('Market key unavailable');
         return false;
       }
@@ -382,14 +399,24 @@ export function useOrderbookTrade(
       let maxCostWad: bigint;
       try {
         shares = parseUnits(amount, 18);
+        if (shares <= 0n) {
+          toast.error('Amount must be greater than 0');
+          return false;
+        }
         const priceNum = Number(price);
         const amountNum = Number(amount);
         if (!Number.isFinite(priceNum) || !Number.isFinite(amountNum)) {
           toast.error('Invalid order inputs');
           return false;
         }
-        const estimatedCost = Math.max(0, priceNum * amountNum);
-        maxCostWad = parseUnits(estimatedCost.toFixed(18), 18);
+        if (priceNum <= 0 || priceNum >= 1) {
+          toast.error('Price must be between 0 and 1');
+          return false;
+        }
+        // maxCost = price * amount, with 5% slippage buffer for crossing
+        const estimatedCost = priceNum * amountNum;
+        const withSlippage = estimatedCost * 1.05;
+        maxCostWad = parseUnits(withSlippage.toFixed(18), 18);
       } catch {
         toast.error('Invalid order amount');
         return false;
@@ -417,6 +444,7 @@ export function useOrderbookTrade(
           );
         }
       } else {
+        // Sell = escrow buy on opposite side
         const sellFunction: WriteFunctionName = outcome === 0 ? 'buyNo' : 'buyYes';
         const sellLabel =
           outcome === 0
@@ -426,7 +454,13 @@ export function useOrderbookTrade(
         const buildSellArgs = (chunkShares: bigint) =>
           [marketKey, oppositeTick, chunkShares, true, sellMaxCost] as const;
 
+        // Check if sell might revert first
         const fullEstimate = await estimateGas(sellFunction, buildSellArgs(shares));
+        if (fullEstimate.revertError) {
+          toast.error(`Order would fail: ${normalizeTxErrorMessage(new Error(fullEstimate.revertError))}`);
+          return false;
+        }
+
         if (!fullEstimate.gasCapHit) {
           success = await executeWrite(
             sellLabel,
@@ -434,6 +468,7 @@ export function useOrderbookTrade(
             buildSellArgs(shares),
           );
         } else {
+          // Gas-chunking for large sweeps
           let chunkSize = shares / 2n;
           if (chunkSize < MIN_SHARE_CHUNK) chunkSize = MIN_SHARE_CHUNK;
 
@@ -442,7 +477,7 @@ export function useOrderbookTrade(
             if (!check.gasCapHit) break;
             if (chunkSize === MIN_SHARE_CHUNK) {
               toast.error(
-                'Order too deep for per-tx gas cap. Raise price or submit smaller slices manually.',
+                'Order too deep for per-tx gas cap. Try smaller size.',
               );
               return false;
             }
@@ -453,7 +488,7 @@ export function useOrderbookTrade(
           const totalShares = shares;
           let remaining = shares;
           let submitted = 0n;
-          toast('Large sweep detected. Splitting into smaller transactions.');
+          toast('Large order. Splitting into smaller transactions.');
 
           while (remaining > 0n) {
             const currentChunk = remaining > chunkSize ? chunkSize : remaining;
@@ -483,7 +518,7 @@ export function useOrderbookTrade(
 
       return success;
     },
-    [estimateGas, executeWrite, marketAddress_addr, marketKey],
+    [estimateGas, executeWrite, marketKey],
   );
 
   const placeSpotOrder = useCallback(
@@ -597,7 +632,8 @@ export function useOrderbookTrade(
         return false;
       }
       const approveAmount = amount === 'max' ? maxUint256 : parseUnits(amount, collateralDecimals);
-      await ensureChain();
+      const chainOk = await ensureChain();
+      if (!chainOk) return false;
       const toastId = toast.loading('Approving USDC...');
       try {
         const hash = await writeContractAsync({
@@ -630,18 +666,12 @@ export function useOrderbookTrade(
     ],
   );
 
-  const depositShares = useCallback(async (_outcome: number, _amount: string) => {
-    toast('Shares are held in wallet in SoothBook mode.');
-    return false;
-  }, []);
-
   return {
     placeOrder,
     placeSpotOrder,
     executeHybridSell,
     cancelOrder,
     executeTakerOrder,
-    depositShares,
     mint,
     merge,
     redeem,
