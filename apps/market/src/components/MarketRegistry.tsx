@@ -183,11 +183,12 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
 
   return (
     <>
-      <div className="text-zinc-500 font-mono text-xs uppercase tracking-widest px-2 flex items-center gap-2 select-none">
-        Markets
-        <span className="text-zinc-600">{counts.all}</span>
-      </div>
-      <div className="surface-card rounded-3xl overflow-hidden w-full flex flex-col">
+      <div>
+        <div className="text-zinc-500 font-mono text-xs uppercase tracking-widest px-2 flex items-center gap-2 select-none mb-6">
+          Markets
+          <span className="text-zinc-600">{counts.all}</span>
+        </div>
+        <div className="surface-card rounded-3xl overflow-hidden w-full flex flex-col">
       {/* Filter pills + Search bar */}
       <div className="px-6 py-3 border-b border-white/[0.04] flex flex-wrap items-center gap-2 bg-zinc-900/20">
         {[
@@ -562,11 +563,10 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
 
 
     </div>
-    <div className="flex flex-col gap-12 mt-4">
-      <EcosystemCards />
-      <AboutSection />
-      <Footer />
     </div>
+    <EcosystemCards />
+    <AboutSection />
+    <Footer />
     </>
   );
 }

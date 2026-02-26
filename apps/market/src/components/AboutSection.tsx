@@ -25,10 +25,10 @@ const FeatureCard = ({
 export const AboutSection = () => {
   return (
     <div>
-      <div className="text-zinc-500 font-mono text-xs uppercase tracking-widest px-2 flex items-center gap-2 select-none mb-4">
+      <div className="text-zinc-500 font-mono text-xs uppercase tracking-widest px-2 flex items-center gap-2 select-none mb-6">
         About Sooth Registry
       </div>
-      <div className="w-full bg-zinc-900/10 pb-8 px-6 rounded-xl">
+      <div className="w-full bg-zinc-900/10 pb-8 rounded-xl">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <FeatureCard
           icon={

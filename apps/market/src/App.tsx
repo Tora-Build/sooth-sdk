@@ -18,7 +18,7 @@ export default function App() {
     <div className="relative z-10 min-h-screen text-zinc-100 font-sans">
       <Navbar />
 
-      <main className="max-w-[1400px] mx-auto px-6 py-8 flex flex-col gap-8">
+      <main className="max-w-[1400px] mx-auto px-6 py-8 flex flex-col gap-12">
         <StatsRow markets={isLoading ? undefined : markets} />
         <MarketRegistry onTrade={handleTrade} />
       </main>
