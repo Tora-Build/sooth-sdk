@@ -304,7 +304,7 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: index * 0.03 }}
-                        className={`hover:bg-white/[0.02] cursor-pointer group transition-colors duration-200 ${isExpanded ? 'bg-white/[0.02]' : ''}`}
+                        className={`hover:bg-zinc-800/30 cursor-pointer group transition-colors duration-200 ${isExpanded ? 'bg-zinc-800/20' : ''}`}
                         onClick={() => {
                           if (status === 'live' && onTrade) {
                             onTrade(m);
@@ -467,7 +467,7 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: index * 0.03 }}
-                  className="p-5 flex flex-col gap-3.5 hover:bg-white/[0.02] active:bg-white/[0.03] transition-colors cursor-pointer"
+                  className="p-5 flex flex-col gap-3.5 hover:bg-zinc-800/30 active:bg-zinc-800/40 transition-colors cursor-pointer"
                   onClick={() => {
                     if (status === 'live' && onTrade) {
                       onTrade(m);
