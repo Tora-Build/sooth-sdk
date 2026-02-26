@@ -817,7 +817,7 @@ export function UserOrdersPanel({
 
   if (panelLoading) {
     return (
-      <div className="rounded-2xl bg-gradient-to-b from-zinc-900/80 to-zinc-950/80 border border-zinc-800/50 p-4">
+      <div className="rounded-2xl bg-zinc-900/60 border border-zinc-800/50 p-4">
         <div className="flex items-center justify-between mb-4">
           <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
             YOUR <span className={viewOutcome === 'yes' ? 'text-emerald-400' : 'text-rose-400'}>{viewOutcome === 'yes' ? 'YES' : 'NO'}</span> ORDERS
@@ -831,7 +831,7 @@ export function UserOrdersPanel({
   }
 
   return (
-    <div className="rounded-2xl bg-gradient-to-b from-zinc-900/80 to-zinc-950/80 border border-zinc-800/50 p-4">
+    <div className="rounded-2xl bg-zinc-900/60 border border-zinc-800/50 p-4">
       <PanelHeader
         group={group}
         onBatchCancel={handleBatchCancel}
