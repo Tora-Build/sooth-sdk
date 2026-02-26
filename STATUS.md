@@ -1,7 +1,7 @@
 # Project Status
 
-> **Codebase Version**: V12.0 (SoothBook)  
-> **Active Testing**: Base Sepolia  
+> **Codebase Version**: V12.1.1 (SoothBook)
+> **Active Testing**: Base Sepolia, Monad Testnet, Lens Testnet
 > **Last Updated**: 2026-02-26
 
 ## V12 SoothBook (Current)
@@ -23,7 +23,7 @@ V12 replaces TickBook with **SoothBook** — an orderbook (602 lines) with 4 ato
 
 | Layer | Status | Details |
 |-------|--------|---------|
-| Contracts | ✅ Deployed | SoothBook + OutcomeToken + TickBitmap on Base Sepolia + Monad Testnet |
+| Contracts | ✅ Deployed | SoothBook + OutcomeToken + TickBitmap on Base Sepolia + Monad Testnet + Lens Testnet |
 | CLI | ✅ Wired | 11 commands (`buyyes`, `buyno`, `sbmint`, `sbmerge`, `sbcancel`, `sbredeem`, `sbresolve`, `sbstate`, `sbbook`, `sbhistory`, `sbsetmarket`) |
 | SDK | ✅ Built | Browser SDK with 11 commands in `apps/web/src/lib/sdk/commands/soothbook.ts` (`sbpositions` removed — never existed) |
 | Indexer | ✅ Configured | 29 event handlers (8 SoothBook + 15 LaunchpadEngine + 6 AMMEngine), 9 schema tables |
@@ -56,9 +56,10 @@ V12 replaces TickBook with **SoothBook** — an orderbook (602 lines) with 4 ato
 
 ## Current Focus
 - **SoothBook escrow insolvency fix** — Code review identified critical collateral accounting bug in escrow matching (high-tick escrow maker/taker can drain more USDC than available). Must fix before V12 mainnet.
-- **Market app trading panel** — Now functional end-to-end (orderbook display, order placement, chain switching). Deployed to sooth.market.
+- **Lens Testnet launch** — Contracts deployed, indexer configured, sooth.market live with 3-chain support (Base Sepolia + Monad + Lens).
 
 ## Recent Changes (Last 5 Sessions)
+- **2026-02-26** — **Lens Testnet + Market Table Polish**: Enabled Lens Testnet (chain 37111) across full stack — registry `indexed: true`, wagmi chain config, Ponder indexer with Alchemy RPC, Cloudflare Pages + Render deploy. Market table UX: added Created/Expires columns, amber left-border hover accent, sortable Node/Network/Expires, tightened layout. RPC shielding: moved private keys to `.env.production` (gitignored) with public fallback transports.
 - **2026-02-26** — **Trading Panel Fix Sprint**: Fixed 6 critical bugs making the market app trading panel non-functional. (1) ABI type mismatch: `uint256` → `uint16`/`uint128`/`uint64` to match SoothBook.sol signatures. (2) Orderbook rewrite: replaced 999-tick brute-force RPC scan with indexer-first + `getBestTick` ±50 fallback. (3) USDC decimals: both chains use 18-decimal MockUSDC, not 6 — now reads from chain. (4) Chain routing: added `chainId` to all `useReadContract`/`writeContractAsync` calls (was sending Base Sepolia txs on Monad). (5) Auto chain-switch: `useSwitchChain` prompts wallet before writes. (6) Orderbook display: YES-equivalent prices instead of raw ticks, sorted best-first. Also added multichain indexer status in footer. Verified on-chain order matching is correct (FIFO, highest opposite tick first).
 - **2026-02-21** — **PR #45 Review & Merge**: Reviewed and merged moltbook AAP v2 changes (5 files: FeedCard §tag parser, AAP page rewrite, AdjudicatorPage v2, crab emoji fix, hidden test market). Rebased PR base from `main` to `v12-4atomic-orderbook` before merge. Also performed deep code review of V12 SoothBook branch — identified critical escrow insolvency bug, `resolveMarket` re-resolution issue, 999-tick RPC scan perf issue, and WAD precision float round-trip.
 - **2026-02-20** — **Docs migration + CLI help fix**: Moved `V11/` docs to `docs/V11/`, rewrote all 6 files to replace TickBook with SoothBook. Added SUPERSEDED headers to stale `.agent/plans/` V11 files. Fixed `SoothSDK.showHelp()`: removed phantom `sbpositions`, removed `lw` section (handled by `Geek.tsx` not SDK), removed stale V11 section labels, collapsed Trial Period / LP Tokens / Protocol into Market section.
@@ -74,11 +75,13 @@ V12 replaces TickBook with **SoothBook** — an orderbook (602 lines) with 4 ato
 - ~~**[HIGH] 999-tick RPC scan**~~ — **RESOLVED** (2026-02-26). Replaced with indexer-first + `getBestTick` ±50 radius fallback.
 - **Alchemy API key in git** — `chainConfigs.ts:53` has hardcoded MegaETH testnet Alchemy key. Move to env var.
 - **IPFS Market Metadata** — Currently storing market metadata (name, category) in browser localStorage. Lost on browser clear or cross-device. Need to store on IPFS and emit CID in contract event for persistence.
-- **Multi-chain SoothBook deploy** — Monad V12 deployed + verified. MegaETH, Arc still need fresh deployments.
+- **Multi-chain SoothBook deploy** — Monad + Lens V12 deployed. MegaETH, Arc still need fresh deployments.
 - **Historical chart polish** — Remaining UX tuning for 1m rendering/dot alignment and stats formatting consistency under narrow widths.
 - **Indexer double-count caveat** — Both LaunchpadEngine and AMMEngine emit `PositionTraded` for the same trade (call chain). Handler comments flag this for testing.
 
 ## Recently Completed
+- ✅ **Lens Testnet Live (2026-02-26)** — Full stack: contracts deployed (node `a7f3b2e1`, startBlock 4291440), registry indexed, wagmi transport, Ponder indexer override, sooth.market deployed, Render `render` branch synced.
+- ✅ **Market Table Polish (2026-02-26)** — Created/Expires columns, amber hover accent, sortable Node/Network/Expires, shortened addresses, tightened layout. RPC keys shielded from git.
 - ✅ **Trading Panel Fix Sprint (2026-02-26)** — 6 bugs fixed: ABI types, indexer-first orderbook, dynamic USDC decimals, chain routing, auto chain-switch, YES-equiv price display. Market app now functional for trading on both Monad and Base Sepolia.
 - ✅ **Indexer LaunchpadEngine/AMMEngine handlers (2026-02-19)** — 15 LaunchpadEngine + 6 AMMEngine handlers added. Schema tables (`launchpadMarket`, `ammPosition`, `lpBalance`, `lockEntry`) now populated.
 - ✅ **CLI scenario YAML update (2026-02-19)** — All 6 scenario files updated from TickBook to SoothBook V12 commands.
@@ -155,7 +158,18 @@ V12 replaces TickBook with **SoothBook** — an orderbook (602 lines) with 4 ato
 
 See V12 Deployment table above for Base Sepolia addresses.
 
-> Other chains (Monad, MegaETH, Arc) have stale TickBook-era deployments and are disabled in tooling. See git history for legacy addresses.
+### Lens Testnet (Chain 37111) — V12.1.1
+
+| Contract | Address |
+|----------|---------|
+| LaunchpadEngine | `0xC3d9e3b458bA62c02ee9853d257712374E4376e8` |
+| SoothBook | `0x85b8A4eE422820d5E7C5Ea33912AAb2Eb46160f4` |
+| AMMEngine | `0xe65c7Bae8FcBe8DD28fE2bC04f01dEad52Db9482` |
+| Collateralizer | `0xC43D4616c13Dbd692F1E3400297ADaB3fD857567` |
+| USDC | `0xBD3B11752ea9C577A9ecA49a00926044F0337FdB` |
+| ProtocolConfig | `0x7E539Df1a41512a9569B203d51dF8b7DB8c6E537` |
+
+> Monad Testnet also deployed (node `c5059e71`). MegaETH, Arc still need fresh deployments.
 
 
 ---
