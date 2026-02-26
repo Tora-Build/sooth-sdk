@@ -24,16 +24,14 @@ const FeatureCard = ({
 
 export const AboutSection = () => {
   return (
-    <div className="w-full border-t border-white/[0.04] bg-zinc-900/10 pt-10 pb-8 px-6 rounded-xl">
-      <div className="flex flex-col items-start mb-8">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-          <h2 className="text-lg font-medium text-zinc-50 tracking-tight">About Sooth Registry</h2>
-        </div>
-        <p className="text-zinc-400 text-sm max-w-xl font-sans leading-relaxed">
+    <>
+      <div className="text-zinc-500 font-mono text-xs uppercase tracking-widest px-2 flex items-center gap-2 select-none">
+        About Sooth Registry
+      </div>
+      <div className="w-full bg-zinc-900/10 pb-8 px-6 rounded-xl">
+        <p className="text-zinc-400 text-sm max-w-xl font-sans leading-relaxed mb-8">
           The central directory for graduated Sooth Protocol markets. Markets listed here have met the liquidity thresholds on SoothBook and are actively resolving.
         </p>
-      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <FeatureCard
@@ -81,5 +79,6 @@ export const AboutSection = () => {
         />
       </div>
     </div>
+    </>
   );
 };

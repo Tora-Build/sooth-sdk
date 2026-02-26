@@ -19,3 +19,4 @@
 ### Commit Strategy
 - Wave 1: `feat(lite): add market stage badge and fee-LP hint`
 - Wave 2: `feat(lite): show LP token balance in portfolio`
+- When using Node `crypto` in `@sooth/registry`, ensure dynamic import is used `const { createHash } = await import('node:crypto');` or handle `window.crypto` to prevent Vite browser bundling errors.

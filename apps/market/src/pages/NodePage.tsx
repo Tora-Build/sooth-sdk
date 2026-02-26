@@ -5,6 +5,7 @@ import { getAllInstances } from '../config/deployments';
 import { getAddressUrl } from '../config/chains';
 import { useLaunchpadMarkets } from '../hooks/indexer/useLaunchpadMarkets';
 import { getMarketStatus } from '../types';
+import { Navbar } from '../components/Navbar';
 
 function shortAddr(addr: string): string {
   if (!addr) return '';
@@ -42,23 +43,10 @@ export function NodePage() {
   if (!nodeId || !nodeDetails || !instance) {
     return (
       <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans">
-        <header className="border-b border-white/5 bg-zinc-950/80 backdrop-blur-sm sticky top-0 z-50">
-          <div className="max-w-[1400px] mx-auto px-6 py-5 flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-4 hover:opacity-80 transition-opacity">
-              <div className="w-8 h-8 flex items-center justify-center bg-zinc-900 border border-white/10 rounded-lg shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
-                <div className="w-3 h-3 bg-amber-500 rounded-sm shadow-[0_0_10px_rgba(245,158,11,0.5)]" />
-              </div>
-              <div>
-                <h1 className="font-bold text-xl tracking-tight text-zinc-50 leading-none font-mono">
-                  SOOTH<span className="text-zinc-500">.MARKET</span>
-                </h1>
-              </div>
-            </Link>
-          </div>
-        </header>
+        <Navbar />
         <main className="max-w-[1400px] mx-auto px-6 py-12 text-center">
           <h2 className="text-2xl font-bold mb-4">Node not found</h2>
-          <Link to="/" className="text-amber-400 hover:text-amber-300 font-mono">← Back to Terminal</Link>
+          <Link to="/nodes" className="text-amber-400 hover:text-amber-300 font-mono">← Back to Nodes</Link>
         </main>
       </div>
     );
@@ -81,26 +69,12 @@ export function NodePage() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans">
-      <header className="border-b border-white/5 bg-zinc-950/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-[1400px] mx-auto px-6 py-5 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-4 hover:opacity-80 transition-opacity">
-            <div className="w-8 h-8 flex items-center justify-center bg-zinc-900 border border-white/10 rounded-lg shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
-              <div className="w-3 h-3 bg-amber-500 rounded-sm shadow-[0_0_10px_rgba(245,158,11,0.5)]" />
-            </div>
-            <div>
-              <h1 className="font-bold text-xl tracking-tight text-zinc-50 leading-none font-mono">
-                SOOTH<span className="text-zinc-500">.MARKET</span>
-              </h1>
-            </div>
-          </Link>
-          <div className="font-mono text-xs text-zinc-500">Node Registry</div>
-        </div>
-      </header>
+      <Navbar />
 
       <main className="max-w-[1400px] mx-auto px-6 py-12 flex flex-col gap-12">
         <div>
-          <Link to="/" className="text-zinc-500 hover:text-zinc-300 font-mono text-sm mb-6 inline-block">
-            ← Back to Terminal
+          <Link to="/nodes" className="text-zinc-500 hover:text-zinc-300 font-mono text-sm mb-6 inline-block">
+            ← Back to Nodes
           </Link>
 
           <div className="flex flex-col md:flex-row gap-8 items-start justify-between">
