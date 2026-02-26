@@ -237,7 +237,7 @@ export function HistoricalPriceCard({ chainId, marketKey, viewOutcome }: Histori
   };
 
   return (
-    <div className="rounded-2xl bg-gradient-to-b from-zinc-900/80 to-zinc-950/80 border border-zinc-800/50 overflow-hidden">
+    <div className="rounded-2xl bg-zinc-900/60 border border-zinc-800/50 overflow-hidden">
       <div className="px-4 py-3 border-b border-zinc-800/50 flex items-center justify-between gap-2">
         <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Historical Price</span>
         <div className="flex items-center gap-2">

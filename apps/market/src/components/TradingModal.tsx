@@ -148,8 +148,8 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
   const amountNum = Number(tradeAmount);
   const estimatedCost = useMemo(() => {
     if (!Number.isFinite(priceNum) || !Number.isFinite(amountNum) || amountNum <= 0) return null;
-    return isBuying ? priceNum * amountNum : null;
-  }, [priceNum, amountNum, isBuying]);
+    return priceNum * amountNum;
+  }, [priceNum, amountNum]);
 
   // Spread calculation
   const spread = useMemo(() => {
@@ -234,9 +234,20 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  // Visible orderbook levels (cap at 12 per side)
-  const visibleBids = bids.slice(0, 12);
-  const visibleAsks = asks.slice(0, 12);
+  // Outcome-relative orderbook: flip sides when viewing NO
+  // bids = YES buyers, asks = NO buyers (always in YES terms from hook)
+  // When viewing YES: left = bids (YES buyers), right = asks (NO buyers / YES sellers)
+  // When viewing NO:  left = asks (NO buyers = NO bids), right = bids (YES buyers = NO sellers)
+  const obBids = isYes ? bids : asks;
+  const obAsks = isYes ? asks : bids;
+  const obBidMax = isYes ? maxBidSize : maxAskSize;
+  const obAskMax = isYes ? maxAskSize : maxBidSize;
+  const visibleBids = obBids.slice(0, 12);
+  const visibleAsks = obAsks.slice(0, 12);
+  const obLabel = isYes ? 'YES' : 'NO';
+  const obLabelOpp = isYes ? 'NO' : 'YES';
+  /** Convert a YES-price to display price for the active outcome */
+  const obPrice = (yesPrice: number) => isYes ? yesPrice : 1 - yesPrice;
 
   return (
     <AnimatePresence>
@@ -322,7 +333,7 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                 <div className="flex items-center gap-3 text-[11px] font-mono">
                   {midPrice !== null && (
                     <span className="text-zinc-400">
-                      Mid <span className="text-zinc-200">{formatCents(midPrice)}</span>
+                      Mid <span className="text-zinc-200">{formatCents(isYes ? midPrice : 1 - midPrice)}</span>
                     </span>
                   )}
                   {spread !== null && (
@@ -334,10 +345,10 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                {/* Bids (YES buyers) */}
+                {/* Bids side (outcome-relative) */}
                 <div className="bg-zinc-950/40 rounded-xl border border-white/[0.04] flex flex-col overflow-hidden">
                   <div className="flex justify-between items-center px-3 py-2 border-b border-white/[0.04]">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Size (YES)</span>
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Size ({obLabel})</span>
                     <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Price</span>
                   </div>
                   <div className="overflow-y-auto no-scrollbar h-[280px]">
@@ -351,7 +362,7 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                       <div className="flex flex-col">
                         {visibleBids.map((bid, i) => {
                           const size = parseFloat(bid.amount);
-                          const depthPct = (size / maxBidSize) * 100;
+                          const depthPct = (size / obBidMax) * 100;
                           return (
                             <button
                               key={`bid-${bid.tick}-${i}`}
@@ -363,13 +374,13 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                                 style={{ width: `${depthPct}%` }}
                               />
                               <span className="relative text-xs font-mono text-emerald-400 tabular-nums">{size.toFixed(1)}</span>
-                              <span className="relative text-xs font-mono text-zinc-300 tabular-nums group-hover:text-white">{formatCents(bid.yesPrice)}</span>
+                              <span className="relative text-xs font-mono text-zinc-300 tabular-nums group-hover:text-white">{formatCents(obPrice(bid.yesPrice))}</span>
                             </button>
                           );
                         })}
-                        {bids.length > 12 && (
+                        {obBids.length > 12 && (
                           <div className="px-3 py-1 text-[10px] text-zinc-600 font-mono text-center">
-                            +{bids.length - 12} more levels
+                            +{obBids.length - 12} more levels
                           </div>
                         )}
                       </div>
@@ -377,11 +388,11 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                   </div>
                 </div>
 
-                {/* Asks (NO buyers) */}
+                {/* Asks side (outcome-relative) */}
                 <div className="bg-zinc-950/40 rounded-xl border border-white/[0.04] flex flex-col overflow-hidden">
                   <div className="flex justify-between items-center px-3 py-2 border-b border-white/[0.04]">
                     <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Price</span>
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Size (NO)</span>
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Size ({obLabelOpp})</span>
                   </div>
                   <div className="overflow-y-auto no-scrollbar h-[280px]">
                     {isLoading ? (
@@ -394,7 +405,7 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                       <div className="flex flex-col">
                         {visibleAsks.map((ask, i) => {
                           const size = parseFloat(ask.amount);
-                          const depthPct = (size / maxAskSize) * 100;
+                          const depthPct = (size / obAskMax) * 100;
                           return (
                             <button
                               key={`ask-${ask.tick}-${i}`}
@@ -405,14 +416,14 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                                 className="absolute inset-y-0 left-0 bg-rose-500/[0.07] transition-all"
                                 style={{ width: `${depthPct}%` }}
                               />
-                              <span className="relative text-xs font-mono text-zinc-300 tabular-nums group-hover:text-white">{formatCents(ask.yesPrice)}</span>
+                              <span className="relative text-xs font-mono text-zinc-300 tabular-nums group-hover:text-white">{formatCents(obPrice(ask.yesPrice))}</span>
                               <span className="relative text-xs font-mono text-rose-400 tabular-nums">{size.toFixed(1)}</span>
                             </button>
                           );
                         })}
-                        {asks.length > 12 && (
+                        {obAsks.length > 12 && (
                           <div className="px-3 py-1 text-[10px] text-zinc-600 font-mono text-center">
-                            +{asks.length - 12} more levels
+                            +{obAsks.length - 12} more levels
                           </div>
                         )}
                       </div>
@@ -620,7 +631,7 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                     {/* Cost estimate */}
                     {estimatedCost !== null && amountNum > 0 && (
                       <div className="flex justify-between items-center px-1 py-1.5 bg-zinc-950/60 rounded-lg border border-white/[0.03]">
-                        <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">Est. Cost</span>
+                        <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">{isBuying ? 'Est. Cost' : 'Est. Proceeds'}</span>
                         <span className="text-sm font-mono text-zinc-200 tabular-nums">
                           {estimatedCost.toFixed(2)} USDC
                         </span>
@@ -664,13 +675,9 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                         disabled={!tradeAmount || Number(tradeAmount) <= 0 || isPending}
                         className={cn(
                           'w-full py-3 rounded-xl font-semibold transition-transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed',
-                          isBuying
-                            ? (isYes
-                                ? 'bg-gradient-to-r from-emerald-600 to-emerald-400 hover:from-emerald-500 hover:to-emerald-300 text-zinc-950'
-                                : 'bg-gradient-to-r from-rose-600 to-rose-400 hover:from-rose-500 hover:to-rose-300 text-zinc-50')
-                            : (isYes
-                                ? 'bg-gradient-to-r from-zinc-700 to-zinc-600 hover:from-zinc-600 hover:to-zinc-500 text-emerald-400'
-                                : 'bg-gradient-to-r from-zinc-700 to-zinc-600 hover:from-zinc-600 hover:to-zinc-500 text-rose-400'),
+                          isYes
+                            ? 'bg-emerald-600 hover:bg-emerald-500 text-zinc-950'
+                            : 'bg-rose-600 hover:bg-rose-500 text-zinc-50',
                         )}
                       >
                         {isPending
