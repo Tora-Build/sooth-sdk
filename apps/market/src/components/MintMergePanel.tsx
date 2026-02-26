@@ -18,7 +18,7 @@ export function MintMergePanel({ market }: MintMergePanelProps) {
   const { isConnected } = useAccount();
   const { mint, merge, approve, isPending } = useOrderbookTrade(market.address, market.soothBookAddress);
   const { yesShares, noShares } = useSoothBookBalance(market.address);
-  const { balance, allowance, formatted: usdcFormatted, refetch: refetchUsdc } = useUsdcBalance();
+  const { balance, allowance, formatted: usdcFormatted, decimals: usdcDecimals, refetch: refetchUsdc } = useUsdcBalance(market.soothBookAddress);
 
   if (!isConnected) {
     return (
@@ -28,7 +28,7 @@ export function MintMergePanel({ market }: MintMergePanelProps) {
     );
   }
 
-  const parsedAmount = amount && !isNaN(parseFloat(amount)) ? parseUnits(amount, 6) : 0n;
+  const parsedAmount = amount && !isNaN(parseFloat(amount)) ? parseUnits(amount, usdcDecimals) : 0n;
   const needsApproval =
     tab === 'mint' &&
     allowance !== undefined &&
