@@ -15,7 +15,7 @@ export function EcosystemCards() {
   const moltbookNode = getNodeByChainId(10143);
 
   return (
-    <div className="mb-12">
+    <div>
       <p className="text-zinc-500 font-mono text-xs uppercase tracking-widest mb-4">
         Ecosystem
       </p>
