@@ -29,9 +29,9 @@ export function EcosystemCards() {
         >
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <span className="text-zinc-400 font-mono text-xs">Base Sepolia</span>
               <NodeIdChip nodeId={demoNode?.id} />
             </div>
+            <span className="text-zinc-400 font-mono text-xs">Base Sepolia</span>
             <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider">
               Invite Only
             </span>
@@ -48,9 +48,9 @@ export function EcosystemCards() {
         >
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <span className="text-zinc-400 font-mono text-xs">Monad Testnet</span>
               <NodeIdChip nodeId={moltbookNode?.id} />
             </div>
+            <span className="text-zinc-400 font-mono text-xs">Monad Testnet</span>
             <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider">
               Open Access
             </span>
@@ -67,9 +67,9 @@ export function EcosystemCards() {
         >
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <span className="text-zinc-400 font-mono text-xs">Lens Testnet</span>
               <NodeIdChip nodeId={undefined} />
             </div>
+            <span className="text-zinc-400 font-mono text-xs">Lens Testnet</span>
             <span className="bg-zinc-500/10 text-zinc-400 border border-zinc-500/20 px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider">
               Coming Soon
             </span>

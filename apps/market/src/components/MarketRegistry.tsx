@@ -4,9 +4,10 @@ import { useLaunchpadMarkets } from '../hooks/indexer/useLaunchpadMarkets';
 import { LaunchpadMarket, getMarketStatus, MarketStatus } from '../types';
 import { getAddressUrl } from '../config/chains';
 import { getInstanceBySoothBook } from '../config/deployments';
+
 import { Footer } from './Footer';
 import { AboutSection } from './AboutSection';
-import { CardFooter } from './CardFooter';
+
 import { EcosystemCards } from './EcosystemCards';
 
 interface MarketRegistryProps {
@@ -182,35 +183,12 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
 
   return (
     <>
-      <div className="surface-card rounded-3xl overflow-hidden w-full flex flex-col">
-      {/* Header Area */}
-      <div className="px-6 py-5 border-b border-white/[0.04] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-zinc-900/40">
-        <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
-          <h2 className="text-lg font-medium tracking-tight text-zinc-50 whitespace-nowrap">Markets</h2>
-
-        </div>
-
-        <div className="relative w-full sm:w-72">
-          <input
-            type="text"
-            placeholder="Search address, creator, question..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-zinc-900 border border-white/[0.06] rounded-xl px-4 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-white/[0.12] transition-colors"
-          />
-          {search && (
-            <button
-              onClick={() => setSearch('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors w-4 h-4 flex items-center justify-center"
-              aria-label="Clear search"
-            >
-              ×
-            </button>
-          )}
-        </div>
+      <div className="text-zinc-500 font-mono text-xs uppercase tracking-widest px-2 flex items-center gap-2 select-none">
+        Markets
+        <span className="text-zinc-600">{counts.all}</span>
       </div>
-
-      {/* Filter pills bar */}
+      <div className="surface-card rounded-3xl overflow-hidden w-full flex flex-col">
+      {/* Filter pills + Search bar */}
       <div className="px-6 py-3 border-b border-white/[0.04] flex flex-wrap items-center gap-2 bg-zinc-900/20">
         {[
           { id: 'all', label: 'All', count: counts.all },
@@ -237,6 +215,25 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
             </button>
           );
         })}
+
+        <div className="relative ml-auto w-full sm:w-72">
+          <input
+            type="text"
+            placeholder="Search address, creator, question..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-zinc-900 border border-white/[0.06] rounded-xl px-4 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-white/[0.12] transition-colors"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors w-4 h-4 flex items-center justify-center"
+              aria-label="Clear search"
+            >
+              ×
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="w-full overflow-hidden">
@@ -299,7 +296,6 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
                   const status = getMarketStatus(m);
                   const isExpanded = expandedAddress === m.address;
                   const isMonad = m.network?.includes('Monad');
-                  const netColor = isMonad ? 'bg-zinc-400' : 'bg-zinc-500';
                   const netText = isMonad ? 'text-zinc-400' : 'text-zinc-500';
                   return (
                     <React.Fragment key={m.address}>
@@ -322,11 +318,9 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
                           </span>
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            <span className={`w-1.5 h-1.5 rounded-full ${netColor}`} />
-                            <span className={`text-[12px] font-medium ${netText}`}>{m.network ?? 'Base Sepolia'}</span>
-                          </div>
+                          <span className={`text-[12px] font-medium ${netText}`}>{m.network ?? 'Base Sepolia'}</span>
                         </td>
+
                         <td className="px-4 py-4 font-mono text-zinc-400 text-[13px] whitespace-nowrap">
                           <a
                             href={getAddressUrl(m.address)}
@@ -464,7 +458,7 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
             filteredAndSorted.map((m, index) => {
               const status = getMarketStatus(m);
               const isMonad = m.network?.includes('Monad');
-              const netColor = isMonad ? 'bg-zinc-400' : 'bg-zinc-500';
+
               const netText = isMonad ? 'text-zinc-400' : 'text-zinc-500';
               return (
                 <motion.div
@@ -489,7 +483,6 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
                             {getInstanceBySoothBook(m.soothBookAddress)?.id ?? ''}
                           </span>
                         )}
-                        <span className={`w-1.5 h-1.5 rounded-full ${netColor}`} />
                         <span className={`text-[11px] font-medium uppercase tracking-wider ${netText}`}>{m.network ?? 'Base Sepolia'}</span>
                       </div>
                       <span className="text-[15px] font-medium text-zinc-100 leading-snug line-clamp-2">
@@ -567,7 +560,7 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
         </div>
       )}
 
-      <CardFooter />
+
     </div>
     <EcosystemCards />
     <AboutSection />
