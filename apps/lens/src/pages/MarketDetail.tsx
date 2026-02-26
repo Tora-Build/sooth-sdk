@@ -90,7 +90,7 @@ export function MarketDetail() {
   const phoneMatch = phoneRoute.route.match(/^\/market\/([^/]+)\/(.+)$/);
   const feedAddress = inShowcase && phoneMatch ? phoneMatch[1] : routerParams.feedAddress;
   const postId = inShowcase && phoneMatch ? phoneMatch[2] : routerParams.postId;
-  const state = (location.state ?? {}) as LocationState;
+  const { question, author } = (location.state ?? {}) as LocationState;
 
   const postIdBig = (() => {
     try {
@@ -257,7 +257,7 @@ export function MarketDetail() {
       <SoothTradeDrawer
         postIdStr={postId ?? ''}
         feedAddress={feedAddress ?? ''}
-        question={question}
+        question={question ?? 'Untitled Market'}
         isOpen={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         initialOutcome={drawerOutcome}

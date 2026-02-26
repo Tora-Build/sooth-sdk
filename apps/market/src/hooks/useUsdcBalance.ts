@@ -15,6 +15,14 @@ export function useUsdcBalance(instanceSoothBook?: string) {
     | Address
     | undefined;
 
+  const { data: decimalsRaw } = useReadContract({
+    address: usdcAddress,
+    abi: ERC20_ABI,
+    functionName: 'decimals',
+    query: { enabled: !!usdcAddress },
+  });
+  const decimals = decimalsRaw != null ? Number(decimalsRaw) : 18;
+
   const { data: balance, refetch: refetchBalance } = useReadContract({
     address: usdcAddress,
     abi: ERC20_ABI,
@@ -31,10 +39,13 @@ export function useUsdcBalance(instanceSoothBook?: string) {
     query: { enabled: !!address && !!usdcAddress && !!soothBookAddress },
   });
 
+  const divisor = 10 ** decimals;
+
   return {
     balance: balance as bigint | undefined,
     allowance: allowance as bigint | undefined,
-    formatted: balance ? (Number(balance) / 1e6).toFixed(2) : '0.00',
+    formatted: balance ? (Number(balance) / divisor).toFixed(2) : '0.00',
+    decimals,
     refetch: () => {
       refetchBalance();
       refetchAllowance();

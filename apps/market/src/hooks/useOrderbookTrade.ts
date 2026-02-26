@@ -136,11 +136,13 @@ export function useOrderbookTrade(
   instanceSoothBook?: string,
 ) {
   const { address: userAddress } = useAccount();
-  const publicClient = usePublicClient();
 
   const resolvedInstance = instanceSoothBook
     ? getInstanceBySoothBook(instanceSoothBook)
     : INSTANCES[0];
+  const resolvedChainId = resolvedInstance?.chainId;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const publicClient = usePublicClient({ chainId: resolvedChainId as any });
   const soothBookAddress = (resolvedInstance?.soothBook ??
     instanceSoothBook) as `0x${string}` | undefined;
   const marketAddress_addr = marketAddress as `0x${string}` | undefined;
@@ -153,11 +155,20 @@ export function useOrderbookTrade(
   }, [marketAddress]);
 
   const collateralAddress = resolvedInstance?.usdc as `0x${string}` | undefined;
-  const collateralDecimals = 6;
+
+  const { data: collateralDecimalsRaw } = useReadContract({
+    address: collateralAddress,
+    chainId: resolvedChainId,
+    abi: ERC20_ABI,
+    functionName: 'decimals',
+    query: { enabled: !!collateralAddress },
+  });
+  const collateralDecimals = collateralDecimalsRaw != null ? Number(collateralDecimalsRaw) : 18;
 
   const { data: walletBalanceRaw = 0n, refetch: refetchWalletBalance } =
     useReadContract({
       address: collateralAddress,
+      chainId: resolvedChainId,
       abi: ERC20_ABI,
       functionName: 'balanceOf',
       args: userAddress ? [userAddress] : undefined,
@@ -166,6 +177,7 @@ export function useOrderbookTrade(
 
   const { data: allowance = 0n, refetch: refetchAllowance } = useReadContract({
     address: collateralAddress,
+    chainId: resolvedChainId,
     abi: ERC20_ABI,
     functionName: 'allowance',
     args:
@@ -206,6 +218,7 @@ export function useOrderbookTrade(
       try {
         const approveHash = await writeContractAsync({
           address: collateralAddress,
+          chainId: resolvedChainId,
           abi: ERC20_ABI,
           functionName: 'approve',
           args: [soothBookAddress, maxUint256],
@@ -226,6 +239,7 @@ export function useOrderbookTrade(
       collateralDecimals,
       publicClient,
       refetchAllowance,
+      resolvedChainId,
       soothBookAddress,
       userAddress,
       writeContractAsync,
@@ -279,6 +293,7 @@ export function useOrderbookTrade(
       try {
         const hash = await writeContractAsync({
           address: soothBookAddress,
+          chainId: resolvedChainId,
           abi: SOOTH_BOOK_ABI,
           functionName: functionName as never,
           args: args as never,
@@ -305,6 +320,7 @@ export function useOrderbookTrade(
       marketKey,
       publicClient,
       refetchBalance,
+      resolvedChainId,
       soothBookAddress,
       userAddress,
       writeContractAsync,
@@ -564,11 +580,12 @@ export function useOrderbookTrade(
         toast.error('USDC or SoothBook address unavailable');
         return false;
       }
-      const approveAmount = amount === 'max' ? maxUint256 : parseUnits(amount, 6);
+      const approveAmount = amount === 'max' ? maxUint256 : parseUnits(amount, collateralDecimals);
       const toastId = toast.loading('Approving USDC...');
       try {
         const hash = await writeContractAsync({
           address: collateralAddress,
+          chainId: resolvedChainId,
           abi: ERC20_ABI,
           functionName: 'approve',
           args: [soothBookAddress, approveAmount],
@@ -585,8 +602,10 @@ export function useOrderbookTrade(
     },
     [
       collateralAddress,
+      collateralDecimals,
       publicClient,
       refetchAllowance,
+      resolvedChainId,
       soothBookAddress,
       userAddress,
       writeContractAsync,
