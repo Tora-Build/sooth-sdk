@@ -4,6 +4,28 @@ All notable changes to Sooth Protocol will be documented in this file.
 
 ## [Unreleased]
 
+### Added (Lens Testnet — 2026-02-26)
+- **3-chain support**: Enabled Lens Testnet (chain 37111) across full stack — registry, frontend, indexer.
+- **Registry**: Node `a7f3b2e1` with 6 contracts (LaunchpadEngine, SoothBook, AMMEngine, Collateralizer, USDC, ProtocolConfig), startBlock 4291440, `indexed: true`.
+- **Frontend (wagmi.ts)**: Lens chain definition, public RPC fallback (`rpc.testnet.lens.xyz`), Alchemy private RPC via `VITE_LENS_TESTNET_RPC_URL`.
+- **Indexer (ponder.config.ts)**: Chain override with 2s polling, `LENS_TESTNET_RPC_URL` env var support.
+- **Render deploy**: Synced `render` branch, updated `render.yaml` env var docs.
+
+### Added (Market Table UX — 2026-02-26)
+- **Created column**: Fetches `createdAt` from LaunchpadEngine state tuple (index 9), displays formatted date.
+- **Expires column**: Fetches `deadline` from TruthMarket contract. Shows date, "No expiry" for > year 2100, "Expired" for past deadlines. Sortable.
+- **Amber hover accent**: Replaced Trade/Details column with inset `box-shadow` left border on hover (works on all screen sizes).
+- **Sortable Node/Network**: Added string-based sort to Node ID and Network name columns.
+
+### Changed (Market Table — 2026-02-26)
+- Shortened addresses from `0x1234...5678` to `0x1234...`.
+- Renamed "Market Address" header to "Market".
+- Tightened cell padding from `px-4` to `px-2` for denser layout.
+
+### Fixed (RPC Shielding — 2026-02-26)
+- Moved private RPC keys (Alchemy, QuickNode) from committed `.env.production` to gitignored file.
+- Added fallback transport pattern: private RPC → public RPC with retry/timeout config per chain.
+
 ### Fixed (Trading Panel — 2026-02-26)
 - **ABI mismatch**: Corrected SoothBook ABI types — `uint16` tick, `uint128` amount, `uint64` orderId, scalar `getOrdersAtTick` returns (was all `uint256`).
 - **Orderbook rewrite**: Replaced 999-tick brute-force RPC scan with indexer-first approach (`/v12/orders/:chainId/:marketKey`) + `getBestTick` ±50 radius RPC fallback.
