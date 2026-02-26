@@ -1,6 +1,6 @@
 {
-  "version": "12.0.0",
-  "updatedAt": "2026-02-25T00:00:00.000Z",
+  "version": "12.1.1",
+  "updatedAt": "2026-02-26T10:00:00.000Z",
   "nodes": [
     {
       "id": "03d4f3f7",
@@ -33,6 +33,22 @@
       "deployedBy": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
       "startBlock": 13700000,
       "indexed": true
+    },
+    {
+      "id": "a7f3b2e1",
+      "chainId": 37111,
+      "contracts": {
+        "launchpadEngine": "0xC3d9e3b458bA62c02ee9853d257712374E4376e8",
+        "soothBook": "0x85b8A4eE422820d5E7C5Ea33912AAb2Eb46160f4",
+        "ammEngine": "0xe65c7Bae8FcBe8DD28fE2bC04f01dEad52Db9482",
+        "collateralizer": "0xC43D4616c13Dbd692F1E3400297ADaB3fD857567",
+        "usdc": "0xBD3B11752ea9C577A9ecA49a00926044F0337FdB",
+        "protocolConfig": "0x7E539Df1a41512a9569B203d51dF8b7DB8c6E537"
+      },
+      "deployedAt": "2026-02-26T10:00:00.000Z",
+      "deployedBy": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
+      "startBlock": 4291440,
+      "indexed": true
     }
   ],
   "chains": {
@@ -50,6 +66,13 @@
       "rpcUrls": ["https://testnet-rpc.monad.xyz"],
       "explorer": { "name": "MonadVision", "url": "https://testnet.monadvision.com" },
       "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
+      "testnet": true
+    },
+    "37111": {
+      "name": "Lens Testnet",
+      "nativeCurrency": { "name": "GRASS", "symbol": "GRASS", "decimals": 18 },
+      "rpcUrls": ["https://rpc.testnet.lens.xyz"],
+      "explorer": { "name": "Lens Explorer", "url": "https://explorer.testnet.lens.xyz" },
       "testnet": true
     }
   }
