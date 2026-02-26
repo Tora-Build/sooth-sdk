@@ -24,15 +24,11 @@ const FeatureCard = ({
 
 export const AboutSection = () => {
   return (
-    <>
-      <div className="text-zinc-500 font-mono text-xs uppercase tracking-widest px-2 flex items-center gap-2 select-none">
+    <div>
+      <div className="text-zinc-500 font-mono text-xs uppercase tracking-widest px-2 flex items-center gap-2 select-none mb-4">
         About Sooth Registry
       </div>
       <div className="w-full bg-zinc-900/10 pb-8 px-6 rounded-xl">
-        <p className="text-zinc-400 text-sm max-w-xl font-sans leading-relaxed mb-8">
-          The central directory for graduated Sooth Protocol markets. Markets listed here have met the liquidity thresholds on SoothBook and are actively resolving.
-        </p>
-
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <FeatureCard
           icon={
@@ -42,8 +38,8 @@ export const AboutSection = () => {
               <line x1="9" y1="21" x2="9" y2="9"></line>
             </svg>
           }
-          title="SoothBook CLOB"
-          description="On-chain Central Limit Order Book with 10,000-tick depth and constant-time discovery."
+          title="SoothBook"
+          description="On-chain Central Limit Order Book with 1,000 ticks spreading, auto matching, and constant-time discovery."
         />
         <FeatureCard
           icon={
@@ -56,8 +52,8 @@ export const AboutSection = () => {
               <line x1="12" y1="22.08" x2="12" y2="12"></line>
             </svg>
           }
-          title="Cross-Chain"
-          description="Deploy seamlessly across Monad, MegaETH, Base Sepolia and Arc Testnet."
+          title="Multi-Chain"
+          description="Operators can deploy on any EVM-compatible chain. Unified market aggregation across all networks."
         />
         <FeatureCard
           icon={
@@ -78,7 +74,10 @@ export const AboutSection = () => {
           description="Anyone can create, trade, or resolve markets using ZK-verified autonomous rules."
         />
       </div>
+        <p className="text-zinc-400 text-sm max-w-3xl font-sans leading-relaxed mt-8 mx-auto text-center">
+          The central directory for graduated Sooth Protocol markets. Markets listed here have met the liquidity thresholds on SoothBook and are actively resolving.
+        </p>
+      </div>
     </div>
-    </>
   );
 };

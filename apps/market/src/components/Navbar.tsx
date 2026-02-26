@@ -17,7 +17,7 @@ export function Navbar() {
                 SOOTH<span className="text-zinc-500 group-hover:text-amber-400/50">.MARKET</span>
               </h1>
               <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mt-1">
-                Sooth Markets Aggregator and Nodes Registry
+                Markets Aggregator and Nodes Registry
               </div>
             </div>
           </Link>
@@ -29,12 +29,20 @@ export function Navbar() {
             >
               Markets
             </Link>
-            <Link 
-              to="/nodes" 
+            <Link
+              to="/nodes"
               className={`transition-colors ${location.pathname === '/nodes' ? 'text-amber-400' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
               Nodes
             </Link>
+            <a
+              href="https://sooth.world"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-zinc-500 hover:text-zinc-300 transition-colors"
+            >
+              Protocol
+            </a>
           </nav>
         </div>
         

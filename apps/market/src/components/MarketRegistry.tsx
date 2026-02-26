@@ -562,9 +562,11 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
 
 
     </div>
-    <EcosystemCards />
-    <AboutSection />
-    <Footer />
+    <div className="flex flex-col gap-12 mt-4">
+      <EcosystemCards />
+      <AboutSection />
+      <Footer />
+    </div>
     </>
   );
 }
