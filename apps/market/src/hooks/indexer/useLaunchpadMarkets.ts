@@ -12,6 +12,7 @@ const LAUNCHPAD_V12_ABI = parseAbi([
 
 const TRUTH_MARKET_ABI = parseAbi([
   'function question() view returns (string)',
+  'function deadline() view returns (uint64)',
   'function isSettled() view returns (bool)',
   'function isFinalized() view returns (bool)',
 ]);
@@ -44,12 +45,13 @@ async function fetchMarketsOnChain(instance: SoothInstance): Promise<LaunchpadMa
       });
 
       // Destructure tuple by position: [creator, lpToken, bBase, bCurrent, creatorDeposit, feesAccrued, totalLPSupply, lpYieldPool, isGraduated, createdAt, graduatedAt]
-      const [creator, , , , creatorDeposit, , , , isGraduated] = state;
+      const [creator, , , , creatorDeposit, , , , isGraduated, createdAt] = state;
 
       if (!isGraduated) return null;
 
-      const [question, isSettled, isFinalized] = await Promise.all([
+      const [question, deadline, isSettled, isFinalized] = await Promise.all([
         client.readContract({ address: addr, abi: TRUTH_MARKET_ABI, functionName: 'question' }).catch(() => addr.slice(2, 10).toUpperCase()),
+        client.readContract({ address: addr, abi: TRUTH_MARKET_ABI, functionName: 'deadline' }).catch(() => 0n),
         client.readContract({ address: addr, abi: TRUTH_MARKET_ABI, functionName: 'isSettled' }).catch(() => false),
         client.readContract({ address: addr, abi: TRUTH_MARKET_ABI, functionName: 'isFinalized' }).catch(() => false),
       ]);
@@ -65,6 +67,8 @@ async function fetchMarketsOnChain(instance: SoothInstance): Promise<LaunchpadMa
         isSettled: isSettled as boolean,
         isFinalized: isFinalized as boolean,
         question: question as string,
+        createdAt: createdAt.toString(),
+        deadline: (deadline as bigint).toString(),
         soothBookAddress: instance.soothBook,
       } as LaunchpadMarket;
     })

@@ -39,6 +39,23 @@ function timeAgo(ts: number): string {
   return `${diffDay}d ago`;
 }
 
+function formatDeadline(deadline?: string | number): string {
+  if (!deadline) return '-';
+  const ts = typeof deadline === 'string' ? parseFloat(deadline) : deadline;
+  if (!ts || isNaN(ts)) return '-';
+  if (ts > 4102444800) return 'No expiry';
+  const now = Date.now() / 1000;
+  if (ts < now) return 'Expired';
+  const diffSec = ts - now;
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 30) return `${diffDay}d`;
+  return new Date(ts * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 function shortAddr(addr: string): string {
   if (!addr) return '';
   return addr.slice(0, 6) + '...' + addr.slice(-4);
@@ -263,6 +280,7 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
                     Created <span className={`opacity-50 transition-opacity ${sortCol === 'created' ? 'opacity-100' : 'group-hover:opacity-100 group-hover:text-zinc-400'}`}>{getSortIcon('created')}</span>
                   </div>
                 </th>
+                <th className="px-4 py-4 font-normal text-zinc-500 whitespace-nowrap text-right">Expires</th>
                 <th className="px-6 py-4"></th>
               </tr>
             </thead>
@@ -277,12 +295,13 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
                     <td className="px-4 py-4"><div className="skeleton h-5 w-16 rounded-full" /></td>
                     <td className="px-4 py-4 flex justify-end"><div className="skeleton h-4 w-16 rounded" /></td>
                     <td className="px-4 py-4 flex justify-end"><div className="skeleton h-4 w-16 rounded" /></td>
+                    <td className="px-4 py-4 flex justify-end"><div className="skeleton h-4 w-16 rounded" /></td>
                     <td className="px-6 py-4"></td>
                   </tr>
                 ))
               ) : filteredAndSorted.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-24 text-center">
+                  <td colSpan={9} className="py-24 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <div className="w-12 h-12 rounded-full border border-white/[0.06] bg-zinc-900/40 flex items-center justify-center">
                         <EmptyIcon />
@@ -356,6 +375,9 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
                         <td className="px-4 py-4 text-right text-zinc-500 whitespace-nowrap font-mono text-[13px]">
                           {m.createdAt ? timeAgo(parseFloat(m.createdAt as string)) : '-'}
                         </td>
+                        <td className="px-4 py-4 text-right text-zinc-500 whitespace-nowrap font-mono text-[13px]">
+                          {formatDeadline(m.deadline)}
+                        </td>
                         <td className="px-6 py-4 text-right whitespace-nowrap w-24">
                           {status === 'live' ? (
                             <span className="text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity font-medium text-[11px] uppercase tracking-wider inline-flex items-center justify-end gap-1">
@@ -371,7 +393,7 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
                       <AnimatePresence>
                         {isExpanded && (
                           <tr className="bg-zinc-900/40 border-l-2 border-l-amber-400/40">
-                            <td colSpan={8} className="p-0">
+                            <td colSpan={9} className="p-0">
                               <motion.div
                                 initial={{ opacity: 0, height: 0 }}
                                 animate={{ opacity: 1, height: 'auto' }}
@@ -501,6 +523,8 @@ export function MarketRegistry({ onTrade }: MarketRegistryProps) {
                       </div>
                       <div className="text-zinc-500 font-mono text-xs">
                         {m.createdAt ? timeAgo(parseFloat(m.createdAt as string)) : '-'}
+                        {' · '}
+                        <span className="text-zinc-600">{formatDeadline(m.deadline)}</span>
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1">
