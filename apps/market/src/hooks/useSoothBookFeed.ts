@@ -7,10 +7,12 @@ import { getInstanceBySoothBook } from '../config/deployments';
 const CHAIN_LOOKBACK_BLOCKS: Record<number, bigint> = {
   84532: 10_000n,  // Base Sepolia
   10143: 500n,     // Monad Testnet (strict public RPC limit)
+  37111: 5_000n,   // Lens Testnet
 };
 const CHAIN_CHUNK_SIZES: Record<number, bigint> = {
   84532: 2_000n,
   10143: 200n,     // Monad Testnet
+  37111: 1_000n,   // Lens Testnet
 };
 
 const CHAIN_START_BLOCKS: Record<number, bigint> = {
@@ -18,6 +20,7 @@ const CHAIN_START_BLOCKS: Record<number, bigint> = {
   10143: 6_558_931n,
   5042002: 21_983_342n,
   6343: 8_855_921n,
+  37111: 4_291_440n,   // Lens Testnet
 };
 
 const ORDER_PLACED = parseAbiItem(

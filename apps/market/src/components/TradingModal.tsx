@@ -148,8 +148,10 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
   const amountNum = Number(tradeAmount);
   const estimatedCost = useMemo(() => {
     if (!Number.isFinite(priceNum) || !Number.isFinite(amountNum) || amountNum <= 0) return null;
-    return priceNum * amountNum;
-  }, [priceNum, amountNum]);
+    // Buy: cost = price * amount
+    // Sell (escrow): collateral = (1 - price) * amount
+    return isBuying ? priceNum * amountNum : (1 - priceNum) * amountNum;
+  }, [priceNum, amountNum, isBuying]);
 
   // Spread calculation
   const spread = useMemo(() => {
@@ -195,20 +197,17 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
     setIsPriceTouched(true);
   }, [isYes]);
 
-  // MAX button
+  // MAX button — both buy and sell use USDC (sell = escrow collateral)
   const handleMax = useCallback(() => {
     const bal = Number(availableBalance) / 1e18;
-    if (isBuying && priceNum > 0) {
-      const maxShares = Math.floor(bal / priceNum);
+    // For buy: cost = price * shares → max shares = bal / price
+    // For sell (escrow): collateral = (1 - price) * shares → max shares = bal / (1 - price)
+    const effectivePrice = isBuying ? priceNum : (1 - priceNum);
+    if (effectivePrice > 0) {
+      const maxShares = Math.floor(bal / effectivePrice);
       if (maxShares > 0) setTradeAmount(maxShares.toString());
-    } else {
-      const shares = isYes ? yesShares : noShares;
-      if (shares !== undefined && shares > 0n) {
-        const formatted = Math.floor(Number(shares) / 1e18);
-        if (formatted > 0) setTradeAmount(formatted.toString());
-      }
     }
-  }, [availableBalance, priceNum, isBuying, isYes, yesShares, noShares]);
+  }, [availableBalance, priceNum, isBuying]);
 
   const handleCancel = async () => {
     const tickNum = parseInt(cancelTick, 10);
@@ -598,10 +597,7 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                       <div className="flex justify-between items-center px-1">
                         <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">Amount (shares)</label>
                         <span className="text-[11px] font-mono text-zinc-500 tabular-nums">
-                          {isBuying
-                            ? `Bal: ${(Number(availableBalance) / 1e18).toFixed(2)} USDC`
-                            : `${isYes ? 'YES' : 'NO'}: ${isYes ? yesFormatted : noFormatted}`
-                          }
+                          Bal: {(Number(availableBalance) / 1e18).toFixed(2)} USDC
                         </span>
                       </div>
                       <div className="relative">
@@ -631,7 +627,7 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                     {/* Cost estimate */}
                     {estimatedCost !== null && amountNum > 0 && (
                       <div className="flex justify-between items-center px-1 py-1.5 bg-zinc-950/60 rounded-lg border border-white/[0.03]">
-                        <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">{isBuying ? 'Est. Cost' : 'Est. Proceeds'}</span>
+                        <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">{isBuying ? 'Est. Cost' : 'Est. Collateral'}</span>
                         <span className="text-sm font-mono text-zinc-200 tabular-nums">
                           {estimatedCost.toFixed(2)} USDC
                         </span>
@@ -641,7 +637,7 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                     {/* Sell info */}
                     {!isBuying && (
                       <div className="text-[11px] font-mono text-zinc-500 px-1">
-                        Selling burns your {isYes ? 'YES' : 'NO'} tokens via escrow
+                        Escrow sell — locks USDC collateral. Matched orders auto-merge to payout.
                       </div>
                     )}
 
