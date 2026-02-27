@@ -1,1 +1,0 @@
-/Users/danieltang/.claude/skills/coordinator/SKILL.md
