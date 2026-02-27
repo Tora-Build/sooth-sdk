@@ -1,1 +1,0 @@
-/Users/danieltang/.claude/skills/ui-rules/SKILL.md
