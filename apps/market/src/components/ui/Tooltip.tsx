@@ -111,7 +111,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
         <div
           ref={tooltipRef}
           className={cn(
-            'absolute z-50 bg-zinc-800 border border-white/10 rounded-lg px-3 py-2 max-w-xs shadow-xl animate-fade-in',
+            'absolute z-50 w-max bg-zinc-800 border border-white/10 rounded-lg px-3 py-1.5 max-w-[280px] shadow-xl animate-fade-in',
             positionClasses[actualPosition]
           )}
           role="tooltip"

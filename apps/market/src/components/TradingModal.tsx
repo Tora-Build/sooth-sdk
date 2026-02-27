@@ -4,7 +4,7 @@ import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 import { useAccount, useSwitchChain } from 'wagmi';
 import { keccak256, encodePacked, Address } from 'viem';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LaunchpadMarket, getMarketStatus, MarketStatus } from '../types';
+import { LaunchpadMarket, getMarketStatus } from '../types';
 import { useOrderbook, OrderLevel } from '../hooks/useOrderbook';
 import { useSoothBookBalance } from '../hooks/useSoothBook';
 import { useOrderbookTrade } from '../hooks/useOrderbookTrade';
@@ -30,29 +30,13 @@ function shortAddr(addr: string): string {
   return addr.slice(0, 6) + '...' + addr.slice(-4);
 }
 
-function renderBadge(status: MarketStatus) {
-  if (status === 'live') {
-    return (
-      <span className="text-[11px] font-mono uppercase tracking-wider text-emerald-400">
-        Live
-      </span>
-    );
-  }
-  if (status === 'settled' || status === 'dismissed') {
-    return (
-      <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">
-        {status}
-      </span>
-    );
-  }
-  return (
-    <span className="text-[11px] font-mono uppercase tracking-wider text-blue-400">
-      Finalized
-    </span>
-  );
-}
+const STATUS_COLORS: Record<string, string> = {
+  live: 'text-emerald-400',
+  settled: 'text-zinc-400',
+  dismissed: 'text-zinc-400',
+  finalized: 'text-blue-400',
+};
 
-/** Format a 0-1 price as cents string, e.g. 0.509 -> "50.9¢" */
 function formatCents(price: number): string {
   return `${(price * 100).toFixed(1)}¢`;
 }
@@ -60,7 +44,7 @@ function formatCents(price: number): string {
 // ── Component ──────────────────────────────────────────────────────────
 
 export function TradingModal({ market, onClose }: TradingModalProps) {
-  const [activeTab, setActiveTab] = useState<'trade' | 'mint' | 'manage'>('trade');
+  const [activeTab, setActiveTab] = useState<'trade' | 'mint' | 'wallet'>('trade');
   const marketStatus = getMarketStatus(market);
 
   const marketKey = useMemo(() => {
@@ -75,7 +59,7 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
   const { chainId: walletChainId } = useAccount();
   const { switchChain } = useSwitchChain();
 
-  const { placeOrder, cancelOrder, redeem, isPending, availableBalance, refetchBalance } = useOrderbookTrade(
+  const { placeOrder, cancelOrder, isPending, availableBalance, refetchBalance } = useOrderbookTrade(
     market.address,
     market.soothBookAddress,
   );
@@ -95,11 +79,9 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
   const tradeOutcome: 0 | 1 = isYes ? 0 : 1;
 
   const [tradePrice, setTradePrice] = useState('0.50');
-  const [tradeAmount, setTradeAmount] = useState('1');
+  const [tradeAmount, setTradeAmount] = useState('10');
   const [isPriceTouched, setIsPriceTouched] = useState(false);
 
-  const [cancelSide, setCancelSide] = useState<'yes' | 'no'>('yes');
-  const [cancelTick, setCancelTick] = useState<string>('');
 
   // ── Best prices from orderbook ───────────────────────────────────────
   const bestBidYes = useMemo(() => {
@@ -197,31 +179,31 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
     setIsPriceTouched(true);
   }, [isYes]);
 
-  // MAX button — both buy and sell use USDC (sell = escrow collateral)
-  const handleMax = useCallback(() => {
-    const bal = Number(availableBalance) / 1e18;
-    // For buy: cost = price * shares → max shares = bal / price
-    // For sell (escrow): collateral = (1 - price) * shares → max shares = bal / (1 - price)
-    const effectivePrice = isBuying ? priceNum : (1 - priceNum);
-    if (effectivePrice > 0) {
-      const maxShares = Math.floor(bal / effectivePrice);
-      if (maxShares > 0) setTradeAmount(maxShares.toString());
-    }
-  }, [availableBalance, priceNum, isBuying]);
+  // Determine sell mode: escrow (burn tokens) vs short (USDC collateral)
+  const relevantTokenBalance = isYes ? (yesShares ?? 0n) : (noShares ?? 0n);
+  const relevantTokenBalanceNum = Number(relevantTokenBalance) / 1e18;
+  const isEscrowSell = !isBuying && relevantTokenBalance > 0n;
 
-  const handleCancel = async () => {
-    const tickNum = parseInt(cancelTick, 10);
-    if (isNaN(tickNum) || tickNum < 1 || tickNum > 999) return;
-    const side = cancelSide === 'yes' ? 1 : 0;
-    const orderId = `${side}:${tickNum}`;
-    await cancelOrder(orderId);
-    setCancelTick('');
-  };
+  // MAX button
+  const handleMax = useCallback(() => {
+    if (!isBuying && relevantTokenBalance > 0n) {
+      // Escrow sell: max shares = token balance
+      const maxShares = Math.floor(relevantTokenBalanceNum);
+      if (maxShares > 0) setTradeAmount(maxShares.toString());
+    } else {
+      // Buy or short sell: max shares = USDC balance / effective price
+      const bal = Number(availableBalance) / 1e18;
+      const effectivePrice = isBuying ? priceNum : (1 - priceNum);
+      if (effectivePrice > 0) {
+        const maxShares = Math.floor(bal / effectivePrice);
+        if (maxShares > 0) setTradeAmount(maxShares.toString());
+      }
+    }
+  }, [availableBalance, priceNum, isBuying, relevantTokenBalance, relevantTokenBalanceNum]);
 
   const yesFormatted = yesShares !== undefined ? (Number(yesShares) / 1e18).toFixed(2) : '0.00';
   const noFormatted = noShares !== undefined ? (Number(noShares) / 1e18).toFixed(2) : '0.00';
   const hasShares = (yesShares !== undefined && yesShares > 0n) || (noShares !== undefined && noShares > 0n);
-  const canRedeem = marketStatus === 'finalized' && hasShares;
 
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) onClose();
@@ -243,81 +225,74 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
   const obAskMax = isYes ? maxAskSize : maxBidSize;
   const visibleBids = obBids.slice(0, 12);
   const visibleAsks = obAsks.slice(0, 12);
-  const obLabel = isYes ? 'YES' : 'NO';
-  const obLabelOpp = isYes ? 'NO' : 'YES';
   /** Convert a YES-price to display price for the active outcome */
   const obPrice = (yesPrice: number) => isYes ? yesPrice : 1 - yesPrice;
 
   return (
     <AnimatePresence>
       <div
-        className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6"
+        className="fixed inset-0 z-50 bg-zinc-950/70 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6"
         onClick={handleBackdropClick}
       >
         <motion.div
-          initial={{ opacity: 0, scale: 0.98, y: 10 }}
+          initial={{ opacity: 0, scale: 0.97, y: 12 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.98, y: 10 }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="w-full max-w-5xl surface-card rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+          exit={{ opacity: 0, scale: 0.97, y: 12 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+          className="w-full max-w-5xl bg-zinc-900/80 border border-white/[0.06] rounded-2xl overflow-hidden flex flex-col max-h-[90vh]"
+          style={{ backdropFilter: 'blur(16px)', boxShadow: '0 24px 64px -16px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)' }}
         >
           {/* Header */}
           <div className="relative border-b border-white/[0.04] px-6 py-4 flex-shrink-0">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
-                <h2 className="text-lg font-semibold text-zinc-50 leading-snug line-clamp-2">
+                <h2 className="text-base font-semibold text-zinc-50 leading-snug line-clamp-2 tracking-tight">
                   {market.question || market.name || 'Unnamed Market'}
                 </h2>
-                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-mono text-zinc-500">
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-mono text-zinc-500">
                   <span>{marketChainName}</span>
-                  <span className="text-zinc-700">·</span>
-                  {renderBadge(marketStatus)}
-                  <span className="text-zinc-700">·</span>
-                  <span title={market.address}>{shortAddr(market.address)}</span>
+                  <span className={cn('uppercase tracking-wider', STATUS_COLORS[marketStatus] || 'text-zinc-400')}>
+                    {marketStatus}
+                  </span>
+                  <span title={market.address} className="text-zinc-600">{shortAddr(market.address)}</span>
                   {instance && (
-                    <>
-                      <span className="text-zinc-700">·</span>
-                      <span className="px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded text-[10px]">
-                        {instance.id}
-                      </span>
-                    </>
+                    <span className="text-zinc-600">{instance.id}</span>
                   )}
                 </div>
               </div>
 
-              {/* Wallet + Chain area */}
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center gap-1.5 flex-shrink-0">
                 {isConnected && isWrongChain && marketChainId && (
                   <button
                     onClick={() => switchChain({ chainId: marketChainId })}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-500/15 border border-amber-500/25 text-amber-400 hover:bg-amber-500/25 transition-colors"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-colors"
                   >
                     <ChevronDown className="w-3 h-3" />
-                    Switch to {marketChainName}
+                    {marketChainName}
                   </button>
                 )}
                 <button
                   onClick={() => isConnected ? open({ view: 'Account' }) : open()}
-                  className="flex items-center gap-2 bg-zinc-900 border border-white/[0.06] text-zinc-300 hover:border-white/[0.12] hover:text-zinc-100 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                  className="flex items-center gap-1.5 bg-zinc-800/60 border border-white/[0.06] text-zinc-400 hover:text-zinc-200 hover:border-white/[0.1] px-2.5 py-1.5 rounded-lg text-[11px] font-mono transition-all"
                 >
                   {isConnected ? (
                     <>
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                      <span className="font-mono">{shortAddr(address!)}</span>
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                      {shortAddr(address!)}
                     </>
                   ) : (
                     <>
-                      <Wallet className="w-3.5 h-3.5" />
-                      <span>Connect</span>
+                      <Wallet className="w-3 h-3" />
+                      <span className="font-sans font-medium">Connect</span>
                     </>
                   )}
                 </button>
                 <button
                   onClick={onClose}
-                  className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-zinc-50 hover:bg-white/[0.04] rounded-full transition-colors text-lg leading-none"
+                  className="w-7 h-7 flex items-center justify-center text-zinc-500 hover:text-zinc-200 rounded-lg hover:bg-white/[0.04] transition-colors"
                   aria-label="Close"
                 >
-                  &times;
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
                 </button>
               </div>
             </div>
@@ -325,38 +300,22 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
 
           <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
             {/* Left Column: Orderbook + Chart + Orders */}
-            <div className="w-full md:w-[60%] border-r border-white/[0.04] p-5 flex flex-col gap-3 overflow-y-auto no-scrollbar">
-              {/* Orderbook header with spread */}
-              <div className="flex items-center justify-between">
-                <h3 className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">Orderbook</h3>
-                <div className="flex items-center gap-3 text-[11px] font-mono">
-                  {midPrice !== null && (
-                    <span className="text-zinc-400">
-                      Mid <span className="text-zinc-200">{formatCents(isYes ? midPrice : 1 - midPrice)}</span>
-                    </span>
-                  )}
-                  {spread !== null && (
-                    <span className="text-zinc-500">
-                      Spread <span className="text-zinc-400">{formatCents(spread)}</span>
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                {/* Bids side (outcome-relative) */}
-                <div className="bg-zinc-950/40 rounded-xl border border-white/[0.04] flex flex-col overflow-hidden">
-                  <div className="flex justify-between items-center px-3 py-2 border-b border-white/[0.04]">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Size ({obLabel})</span>
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Price</span>
+            <div className="w-full md:w-[60%] border-r border-white/[0.04] p-4 flex flex-col gap-6 overflow-y-auto no-scrollbar">
+              {/* Orderbook */}
+              <div className="grid grid-cols-[1fr_auto_1fr] gap-0">
+                {/* Bids column */}
+                <div className="flex flex-col">
+                  <div className="flex justify-between items-center px-2.5 pb-1.5">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-600">Size</span>
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-600">Bid</span>
                   </div>
-                  <div className="overflow-y-auto no-scrollbar h-[280px]">
+                  <div className="overflow-y-auto no-scrollbar h-[260px]">
                     {isLoading ? (
-                      <div className="space-y-1.5 p-2">
-                        {[...Array(5)].map((_, i) => <div key={i} className="h-5 skeleton rounded w-full" />)}
+                      <div className="space-y-1 p-2">
+                        {[...Array(6)].map((_, i) => <div key={i} className="h-[22px] skeleton rounded w-full" />)}
                       </div>
                     ) : visibleBids.length === 0 ? (
-                      <div className="flex items-center justify-center h-full text-zinc-600 text-xs">No bids</div>
+                      <div className="flex items-center justify-center h-full text-zinc-700 text-[11px] font-mono">Empty</div>
                     ) : (
                       <div className="flex flex-col">
                         {visibleBids.map((bid, i) => {
@@ -366,20 +325,20 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                             <button
                               key={`bid-${bid.tick}-${i}`}
                               onClick={() => handleOrderbookClick(bid)}
-                              className="relative flex justify-between items-center px-3 py-1 hover:bg-white/[0.03] transition-colors text-left group"
+                              className="relative flex justify-between items-center px-2.5 py-[3px] hover:bg-emerald-500/[0.06] transition-colors group"
                             >
                               <div
-                                className="absolute inset-y-0 right-0 bg-emerald-500/[0.07] transition-all"
+                                className="absolute inset-y-0 right-0 bg-emerald-500/[0.08]"
                                 style={{ width: `${depthPct}%` }}
                               />
-                              <span className="relative text-xs font-mono text-emerald-400 tabular-nums">{size.toFixed(1)}</span>
-                              <span className="relative text-xs font-mono text-zinc-300 tabular-nums group-hover:text-white">{formatCents(obPrice(bid.yesPrice))}</span>
+                              <span className="relative text-[11px] font-mono text-zinc-400 tabular-nums">{size.toFixed(1)}</span>
+                              <span className="relative text-[11px] font-mono text-emerald-400/90 tabular-nums group-hover:text-emerald-300">{formatCents(obPrice(bid.yesPrice))}</span>
                             </button>
                           );
                         })}
                         {obBids.length > 12 && (
-                          <div className="px-3 py-1 text-[10px] text-zinc-600 font-mono text-center">
-                            +{obBids.length - 12} more levels
+                          <div className="px-2.5 py-1 text-[10px] text-zinc-700 font-mono text-center">
+                            +{obBids.length - 12} more
                           </div>
                         )}
                       </div>
@@ -387,19 +346,35 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                   </div>
                 </div>
 
-                {/* Asks side (outcome-relative) */}
-                <div className="bg-zinc-950/40 rounded-xl border border-white/[0.04] flex flex-col overflow-hidden">
-                  <div className="flex justify-between items-center px-3 py-2 border-b border-white/[0.04]">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Price</span>
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Size ({obLabelOpp})</span>
+                {/* Center divider — Mid / Spread */}
+                <div className="flex flex-col items-center justify-start pt-6 px-2 gap-3 border-x border-white/[0.03] min-w-[72px]">
+                  {midPrice !== null && (
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span className="text-[9px] font-mono uppercase tracking-widest text-zinc-600">Mid</span>
+                      <span className="text-xs font-mono text-zinc-200 tabular-nums">{formatCents(isYes ? midPrice : 1 - midPrice)}</span>
+                    </div>
+                  )}
+                  {spread !== null && (
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span className="text-[9px] font-mono uppercase tracking-widest text-zinc-600">Spread</span>
+                      <span className="text-[11px] font-mono text-zinc-500 tabular-nums">{formatCents(spread)}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Asks column */}
+                <div className="flex flex-col">
+                  <div className="flex justify-between items-center px-2.5 pb-1.5">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-600">Ask</span>
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-600">Size</span>
                   </div>
-                  <div className="overflow-y-auto no-scrollbar h-[280px]">
+                  <div className="overflow-y-auto no-scrollbar h-[260px]">
                     {isLoading ? (
-                      <div className="space-y-1.5 p-2">
-                        {[...Array(5)].map((_, i) => <div key={i} className="h-5 skeleton rounded w-full" />)}
+                      <div className="space-y-1 p-2">
+                        {[...Array(6)].map((_, i) => <div key={i} className="h-[22px] skeleton rounded w-full" />)}
                       </div>
                     ) : visibleAsks.length === 0 ? (
-                      <div className="flex items-center justify-center h-full text-zinc-600 text-xs">No asks</div>
+                      <div className="flex items-center justify-center h-full text-zinc-700 text-[11px] font-mono">Empty</div>
                     ) : (
                       <div className="flex flex-col">
                         {visibleAsks.map((ask, i) => {
@@ -409,20 +384,20 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                             <button
                               key={`ask-${ask.tick}-${i}`}
                               onClick={() => handleOrderbookClick(ask)}
-                              className="relative flex justify-between items-center px-3 py-1 hover:bg-white/[0.03] transition-colors text-left group"
+                              className="relative flex justify-between items-center px-2.5 py-[3px] hover:bg-rose-500/[0.06] transition-colors group"
                             >
                               <div
-                                className="absolute inset-y-0 left-0 bg-rose-500/[0.07] transition-all"
+                                className="absolute inset-y-0 left-0 bg-rose-500/[0.08]"
                                 style={{ width: `${depthPct}%` }}
                               />
-                              <span className="relative text-xs font-mono text-zinc-300 tabular-nums group-hover:text-white">{formatCents(obPrice(ask.yesPrice))}</span>
-                              <span className="relative text-xs font-mono text-rose-400 tabular-nums">{size.toFixed(1)}</span>
+                              <span className="relative text-[11px] font-mono text-rose-400/90 tabular-nums group-hover:text-rose-300">{formatCents(obPrice(ask.yesPrice))}</span>
+                              <span className="relative text-[11px] font-mono text-zinc-400 tabular-nums">{size.toFixed(1)}</span>
                             </button>
                           );
                         })}
                         {obAsks.length > 12 && (
-                          <div className="px-3 py-1 text-[10px] text-zinc-600 font-mono text-center">
-                            +{obAsks.length - 12} more levels
+                          <div className="px-2.5 py-1 text-[10px] text-zinc-700 font-mono text-center">
+                            +{obAsks.length - 12} more
                           </div>
                         )}
                       </div>
@@ -433,10 +408,10 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
 
               {/* Position summary */}
               {hasShares && (
-                <div className="flex items-center gap-4 px-1 py-1.5 text-[11px] font-mono">
-                  <span className="text-zinc-500 uppercase tracking-wider">Position</span>
-                  <span className="text-emerald-400">{yesFormatted} YES</span>
-                  <span className="text-rose-400">{noFormatted} NO</span>
+                <div className="flex items-center gap-4 px-1 text-[11px] font-mono">
+                  <span className="text-zinc-600 uppercase tracking-wider">Position</span>
+                  <span className="text-emerald-400/80">{yesFormatted} YES</span>
+                  <span className="text-rose-400/80">{noFormatted} NO</span>
                 </div>
               )}
 
@@ -461,99 +436,60 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
             </div>
 
             {/* Right Column: Trading Panels */}
-            <div className="w-full md:w-[40%] flex flex-col bg-black/20">
-              <div className="flex px-4 pt-2 border-b border-white/[0.04]">
-                <button
-                  className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                    activeTab === 'trade'
-                      ? 'border-amber-500 text-zinc-50'
-                      : 'border-transparent text-zinc-500 hover:text-zinc-300'
-                  }`}
-                  onClick={() => setActiveTab('trade')}
-                >
-                  Trade
-                </button>
-                <button
-                  className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                    activeTab === 'mint'
-                      ? 'border-amber-500 text-zinc-50'
-                      : 'border-transparent text-zinc-500 hover:text-zinc-300'
-                  }`}
-                  onClick={() => setActiveTab('mint')}
-                >
-                  Mint / Merge
-                </button>
-                <button
-                  className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                    activeTab === 'manage'
-                      ? 'border-amber-500 text-zinc-50'
-                      : 'border-transparent text-zinc-500 hover:text-zinc-300'
-                  }`}
-                  onClick={() => setActiveTab('manage')}
-                >
-                  Manage
-                </button>
+            <div className="w-full md:w-[40%] flex flex-col">
+              <div className="flex px-4 pt-1 border-b border-white/[0.04]">
+                {(['trade', 'mint', 'wallet'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    className={cn(
+                      'px-4 py-2.5 text-[12px] font-medium uppercase tracking-wider border-b-2 transition-colors',
+                      activeTab === tab
+                        ? 'border-amber-500/80 text-zinc-100'
+                        : 'border-transparent text-zinc-600 hover:text-zinc-400',
+                    )}
+                    onClick={() => setActiveTab(tab)}
+                  >
+                    {tab === 'mint' ? 'Mint / Merge' : tab === 'wallet' ? 'Wallet' : tab}
+                  </button>
+                ))}
               </div>
 
-              <div className="p-5 flex-1 overflow-y-auto no-scrollbar">
+              <div className="p-4 flex-1 overflow-y-auto no-scrollbar">
                 {activeTab === 'trade' && (
-                  <div className="flex flex-col gap-4">
-                    {/* YES / NO toggle (ABOVE buy/sell — controls everything) */}
-                    <div className="flex border-b border-white/[0.04]">
-                      <button
-                        className={cn(
-                          'flex-1 py-2.5 text-sm font-semibold transition-all border-b-2',
-                          isYes
-                            ? 'border-emerald-500 text-emerald-400 bg-emerald-500/[0.05]'
-                            : 'border-transparent text-zinc-500 hover:text-zinc-300',
-                        )}
-                        onClick={() => setAction(isBuying ? 'buy_yes' : 'sell_yes')}
-                      >
-                        YES
-                      </button>
-                      <button
-                        className={cn(
-                          'flex-1 py-2.5 text-sm font-semibold transition-all border-b-2',
-                          !isYes
-                            ? 'border-rose-500 text-rose-400 bg-rose-500/[0.05]'
-                            : 'border-transparent text-zinc-500 hover:text-zinc-300',
-                        )}
-                        onClick={() => setAction(isBuying ? 'buy_no' : 'sell_no')}
-                      >
-                        NO
-                      </button>
-                    </div>
-
-                    {/* Buy / Sell toggle */}
-                    <div className="flex p-1 bg-zinc-950 rounded-xl border border-white/[0.06]">
-                      <button
-                        className={cn(
-                          'flex-1 py-2 text-sm font-semibold rounded-lg transition-all',
-                          isBuying ? 'bg-emerald-500/20 text-emerald-400' : 'text-zinc-500 hover:text-zinc-300',
-                        )}
-                        onClick={() => setAction(isYes ? 'buy_yes' : 'buy_no')}
-                      >
-                        Buy
-                      </button>
-                      <button
-                        className={cn(
-                          'flex-1 py-2 text-sm font-semibold rounded-lg transition-all',
-                          !isBuying ? 'bg-rose-500/20 text-rose-400' : 'text-zinc-500 hover:text-zinc-300',
-                        )}
-                        onClick={() => setAction(isYes ? 'sell_yes' : 'sell_no')}
-                      >
-                        Sell
-                      </button>
+                  <div className="flex flex-col gap-3">
+                    {/* Unified outcome + direction selector */}
+                    <div className="grid grid-cols-4 gap-1 p-1 bg-zinc-950/80 rounded-xl border border-white/[0.04]">
+                      {([
+                        { key: 'buy_yes' as const, label: 'Buy YES', color: 'emerald' },
+                        { key: 'sell_yes' as const, label: 'Sell YES', color: 'emerald' },
+                        { key: 'buy_no' as const, label: 'Buy NO', color: 'rose' },
+                        { key: 'sell_no' as const, label: 'Sell NO', color: 'rose' },
+                      ]).map(({ key, label, color }) => (
+                        <button
+                          key={key}
+                          onClick={() => setAction(key)}
+                          className={cn(
+                            'py-2 text-[11px] font-semibold rounded-lg transition-all tracking-wide',
+                            action === key
+                              ? color === 'emerald'
+                                ? 'bg-emerald-500/15 text-emerald-400 shadow-sm'
+                                : 'bg-rose-500/15 text-rose-400 shadow-sm'
+                              : 'text-zinc-600 hover:text-zinc-400',
+                          )}
+                        >
+                          {label}
+                        </button>
+                      ))}
                     </div>
 
                     {/* Price */}
                     <div className="flex flex-col gap-1.5">
-                      <div className="flex justify-between items-center px-1">
-                        <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">
-                          {isYes ? 'YES' : 'NO'} Price
+                      <div className="flex justify-between items-center">
+                        <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-600">
+                          Limit Price
                         </label>
                         <span className={cn(
-                          'text-sm font-mono tabular-nums',
+                          'text-sm font-mono tabular-nums font-medium',
                           isYes ? 'text-emerald-400' : 'text-rose-400',
                         )}>
                           {formatCents(Number(tradePrice))}
@@ -570,12 +506,15 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                           setIsPriceTouched(true);
                         }}
                         className={cn(
-                          'w-full',
-                          isYes ? 'accent-emerald-500' : 'accent-rose-500',
+                          'w-full h-1 rounded-full appearance-none cursor-pointer',
+                          '[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-zinc-900 [&::-webkit-slider-thumb]:shadow-sm',
+                          isYes
+                            ? 'bg-zinc-800 [&::-webkit-slider-thumb]:bg-emerald-400'
+                            : 'bg-zinc-800 [&::-webkit-slider-thumb]:bg-rose-400',
                         )}
                       />
-                      <div className="flex justify-between text-[10px] font-mono text-zinc-600">
-                        <span>0¢</span><span>50¢</span><span>100¢</span>
+                      <div className="flex justify-between text-[9px] font-mono text-zinc-700">
+                        <span>1¢</span><span>50¢</span><span>99.9¢</span>
                       </div>
                       {bestPriceDisplay !== null && (
                         <button
@@ -583,77 +522,96 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                             setTradePrice(bestPriceDisplay.toFixed(3));
                             setIsPriceTouched(true);
                           }}
-                          className="flex items-center gap-1.5 px-1 text-[11px] font-mono text-zinc-500 hover:text-amber-400 transition-colors"
+                          className="flex items-center gap-1.5 text-[11px] font-mono text-zinc-600 hover:text-zinc-300 transition-colors"
                         >
                           Best {isBuying ? 'ask' : 'bid'}:
-                          <span className="text-zinc-300">{formatCents(bestPriceDisplay)}</span>
-                          <span className="text-zinc-600 text-[10px]">click to use</span>
+                          <span className="text-zinc-400">{formatCents(bestPriceDisplay)}</span>
                         </button>
                       )}
                     </div>
 
                     {/* Amount */}
                     <div className="flex flex-col gap-1.5">
-                      <div className="flex justify-between items-center px-1">
-                        <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">Amount (shares)</label>
-                        <span className="text-[11px] font-mono text-zinc-500 tabular-nums">
-                          Bal: {(Number(availableBalance) / 1e18).toFixed(2)} USDC
-                        </span>
-                      </div>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          min="0"
-                          step="1"
-                          value={tradeAmount}
-                          onChange={(e) => setTradeAmount(e.target.value)}
-                          placeholder="0"
-                          className={cn(
-                            'w-full bg-zinc-950 border border-white/[0.06] rounded-xl px-4 py-2.5 text-zinc-100 font-mono text-lg focus:outline-none transition-colors placeholder:text-zinc-600 pr-16',
-                            isYes ? 'focus:border-emerald-500/50' : 'focus:border-rose-500/50',
-                          )}
-                          disabled={isPending}
-                        />
+                      <div className="flex justify-between items-center">
+                        <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-600">Shares</label>
                         <button
                           onClick={handleMax}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] bg-zinc-800 hover:bg-zinc-700 text-zinc-400 px-2 py-1 rounded-lg transition-colors"
                           disabled={isPending}
+                          className="text-[10px] font-mono text-zinc-600 hover:text-zinc-300 transition-colors tabular-nums"
                         >
-                          MAX
+                          {!isBuying && relevantTokenBalance > 0n
+                            ? `${relevantTokenBalanceNum.toFixed(0)} ${isYes ? 'YES' : 'NO'}`
+                            : `${(Number(availableBalance) / 1e18).toFixed(2)} USDC`
+                          }
+                          <span className="ml-1 text-amber-500/70">MAX</span>
                         </button>
                       </div>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={tradeAmount}
+                        onChange={(e) => setTradeAmount(e.target.value)}
+                        placeholder="0"
+                        className={cn(
+                          'w-full bg-zinc-950/80 border border-white/[0.05] rounded-lg px-3 py-2.5 text-zinc-100 font-mono text-base focus:outline-none transition-colors placeholder:text-zinc-700',
+                          isYes ? 'focus:border-emerald-500/40' : 'focus:border-rose-500/40',
+                        )}
+                        disabled={isPending}
+                      />
                     </div>
 
-                    {/* Cost estimate */}
+                    {/* Order summary */}
                     {estimatedCost !== null && amountNum > 0 && (
-                      <div className="flex justify-between items-center px-1 py-1.5 bg-zinc-950/60 rounded-lg border border-white/[0.03]">
-                        <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">{isBuying ? 'Est. Cost' : 'Est. Collateral'}</span>
-                        <span className="text-sm font-mono text-zinc-200 tabular-nums">
-                          {estimatedCost.toFixed(2)} USDC
-                        </span>
+                      <div className="flex flex-col gap-1 py-2 border-t border-white/[0.03]">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-600">
+                            {isBuying ? 'Total Cost' : isEscrowSell ? 'Tokens Burned' : 'Collateral'}
+                          </span>
+                          <span className="text-[13px] font-mono text-zinc-200 tabular-nums">
+                            {isEscrowSell
+                              ? `${amountNum} ${isYes ? 'YES' : 'NO'}`
+                              : `$${estimatedCost.toFixed(2)}`
+                            }
+                          </span>
+                        </div>
+                        {isBuying && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-700">Payout if correct</span>
+                            <span className="text-[11px] font-mono text-zinc-500 tabular-nums">${amountNum.toFixed(2)}</span>
+                          </div>
+                        )}
                       </div>
                     )}
 
-                    {/* Sell info */}
+                    {/* Sell mode indicator */}
                     {!isBuying && (
-                      <div className="text-[11px] font-mono text-zinc-500 px-1">
-                        Escrow sell — locks USDC collateral. Matched orders auto-merge to payout.
+                      <div className={cn(
+                        'text-[10px] font-mono px-2.5 py-1.5 rounded-lg border leading-relaxed',
+                        isEscrowSell
+                          ? 'text-cyan-400/80 bg-cyan-950/20 border-cyan-900/20'
+                          : 'text-amber-400/80 bg-amber-950/20 border-amber-900/20',
+                      )}>
+                        {isEscrowSell
+                          ? `Burns ${isYes ? 'YES' : 'NO'} tokens as collateral. Fills auto-merge to USDC.`
+                          : `Short sell with USDC collateral. No tokens required.`
+                        }
                       </div>
                     )}
 
-                    {/* Place order button */}
+                    {/* CTA */}
                     {!isConnected ? (
                       <button
                         onClick={() => open()}
-                        className="w-full py-3 rounded-xl bg-zinc-200 hover:bg-white text-zinc-900 font-semibold transition-transform active:scale-[0.98] flex items-center justify-center gap-2"
+                        className="w-full py-2.5 rounded-lg bg-zinc-100 hover:bg-white text-zinc-900 text-sm font-semibold transition-all active:scale-[0.98] flex items-center justify-center gap-2"
                       >
-                        <Wallet className="w-4 h-4" />
+                        <Wallet className="w-3.5 h-3.5" />
                         Connect Wallet
                       </button>
                     ) : isWrongChain ? (
                       <button
                         onClick={() => marketChainId && switchChain({ chainId: marketChainId })}
-                        className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold transition-transform active:scale-[0.98] flex items-center justify-center gap-2"
+                        className="w-full py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 text-sm font-semibold transition-all active:scale-[0.98]"
                       >
                         Switch to {marketChainName}
                       </button>
@@ -661,24 +619,30 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
                       <button
                         onClick={async () => {
                           if (!tradeAmount || Number(tradeAmount) <= 0) return;
-                          // priceForHook is always YES-equivalent for the hook
                           const ok = await placeOrder(tradeOutcome, priceForHook.toFixed(3), tradeAmount, isBuying);
                           if (ok) {
-                            setTradeAmount('1');
+                            setTradeAmount('10');
                             refetchBalance();
                           }
                         }}
                         disabled={!tradeAmount || Number(tradeAmount) <= 0 || isPending}
                         className={cn(
-                          'w-full py-3 rounded-xl font-semibold transition-transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed',
-                          isYes
-                            ? 'bg-emerald-600 hover:bg-emerald-500 text-zinc-950'
-                            : 'bg-rose-600 hover:bg-rose-500 text-zinc-50',
+                          'w-full py-2.5 rounded-lg text-sm font-semibold transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed',
+                          isBuying
+                            ? isYes
+                              ? 'bg-emerald-500/90 hover:bg-emerald-500 text-zinc-950'
+                              : 'bg-rose-500/90 hover:bg-rose-500 text-white'
+                            : 'bg-zinc-200 hover:bg-white text-zinc-900',
                         )}
                       >
                         {isPending
-                          ? <Loader2 className="w-5 h-5 animate-spin" />
-                          : `${isBuying ? 'Buy' : 'Sell'} ${isYes ? 'YES' : 'NO'}${estimatedCost !== null ? ` · $${estimatedCost.toFixed(2)}` : ''}`
+                          ? <Loader2 className="w-4 h-4 animate-spin" />
+                          : <>
+                              {isBuying ? 'Buy' : 'Sell'} {isYes ? 'YES' : 'NO'}
+                              {estimatedCost !== null && !isEscrowSell && (
+                                <span className="opacity-60 font-mono text-[11px] ml-1">${estimatedCost.toFixed(2)}</span>
+                              )}
+                            </>
                         }
                       </button>
                     )}
@@ -687,98 +651,36 @@ export function TradingModal({ market, onClose }: TradingModalProps) {
 
                 {activeTab === 'mint' && <MintMergePanel market={market} />}
 
-                {activeTab === 'manage' && (
-                  <div className="flex flex-col gap-8">
+                {activeTab === 'wallet' && (
+                  <div className="flex flex-col gap-4">
                     {!isConnected ? (
-                      <div className="flex flex-col items-center justify-center py-12 gap-3">
-                        <p className="text-zinc-500 text-sm">Connect wallet to manage</p>
+                      <div className="flex flex-col items-center justify-center py-10 gap-3">
+                        <p className="text-zinc-500 text-sm">Connect wallet to view balances</p>
                         <button
                           onClick={() => open()}
-                          className="flex items-center gap-2 bg-zinc-200 hover:bg-white text-zinc-900 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                          className="flex items-center gap-2 bg-zinc-100 hover:bg-white text-zinc-900 px-4 py-2 rounded-lg text-sm font-semibold transition-all"
                         >
-                          <Wallet className="w-4 h-4" />
-                          Connect Wallet
+                          <Wallet className="w-3.5 h-3.5" />
+                          Connect
                         </button>
                       </div>
                     ) : (
-                      <>
-                        <div className="flex flex-col gap-5">
-                          <h3 className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">Cancel Order</h3>
-
-                          <div className="flex p-1 bg-zinc-950 rounded-xl border border-white/[0.06]">
-                            <button
-                              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
-                                cancelSide === 'yes'
-                                  ? 'bg-zinc-800 text-zinc-100 shadow-sm'
-                                  : 'text-zinc-500 hover:text-zinc-300'
-                              }`}
-                              onClick={() => setCancelSide('yes')}
-                            >
-                              YES
-                            </button>
-                            <button
-                              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
-                                cancelSide === 'no'
-                                  ? 'bg-zinc-800 text-zinc-100 shadow-sm'
-                                  : 'text-zinc-500 hover:text-zinc-300'
-                              }`}
-                              onClick={() => setCancelSide('no')}
-                            >
-                              NO
-                            </button>
-                          </div>
-
-                          <div className="flex flex-col gap-2">
-                            <label className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 px-1">
-                              Tick (1-999)
-                            </label>
-                            <input
-                              type="number"
-                              min="1"
-                              max="999"
-                              step="1"
-                              value={cancelTick}
-                              onChange={(e) => setCancelTick(e.target.value)}
-                              placeholder="500"
-                              className="w-full bg-zinc-950 border border-white/[0.06] rounded-xl px-4 py-2.5 text-zinc-100 font-mono text-lg focus:outline-none focus:border-white/[0.12] transition-colors placeholder:text-zinc-600"
-                              disabled={isPending}
-                            />
-                          </div>
-
-                          <button
-                            onClick={handleCancel}
-                            disabled={!cancelTick || isPending}
-                            className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold transition-transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-                          >
-                            {isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Cancel Order'}
-                          </button>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="flex flex-col gap-1 py-3 border-b border-white/[0.04]">
+                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">USDC</span>
+                          <span className="text-sm font-mono text-zinc-300">
+                            ${(Number(availableBalance) / 1e18).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                          </span>
                         </div>
-
-                        {['settled', 'finalized'].includes(marketStatus) && (
-                          <div className="flex flex-col gap-5 pt-5 border-t border-white/[0.04]">
-                            <h3 className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">Redeem Shares</h3>
-
-                            <div className="flex justify-between items-center px-1">
-                              <div className="flex items-baseline gap-2">
-                                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">YES</span>
-                                <span className="text-sm font-medium text-zinc-300 tabular-nums">{yesFormatted}</span>
-                              </div>
-                              <div className="flex items-baseline gap-2">
-                                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">NO</span>
-                                <span className="text-sm font-medium text-zinc-300 tabular-nums">{noFormatted}</span>
-                              </div>
-                            </div>
-
-                            <button
-                              onClick={() => redeem()}
-                              disabled={!canRedeem || isPending}
-                              className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold transition-transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                              {isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : marketStatus === 'finalized' ? 'Redeem Winnings' : 'Waiting for Finalization...'}
-                            </button>
-                          </div>
-                        )}
-                      </>
+                        <div className="flex flex-col gap-1 py-3 border-b border-white/[0.04]">
+                          <span className="text-[10px] font-bold text-emerald-400/70 uppercase tracking-wider">YES</span>
+                          <span className="text-sm font-mono text-zinc-300">{yesFormatted}</span>
+                        </div>
+                        <div className="flex flex-col gap-1 py-3 border-b border-white/[0.04]">
+                          <span className="text-[10px] font-bold text-rose-400/70 uppercase tracking-wider">NO</span>
+                          <span className="text-sm font-mono text-zinc-300">{noFormatted}</span>
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
