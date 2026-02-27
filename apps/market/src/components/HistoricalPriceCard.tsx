@@ -20,6 +20,7 @@ const CHART_X_MAX = 99.2;
 const DEFAULT_VISIBLE_CANDLES = 120;
 const MIN_VISIBLE_CANDLES = 2;
 const ZOOM_FACTOR = 0.8;
+const Y_AXIS_LEVELS = [100, 75, 50, 25, 0] as const;
 
 export type HistoricalPriceCardProps = {
   chainId: number | undefined;
@@ -45,7 +46,7 @@ function formatCents(value: number): string {
 
 export function HistoricalPriceCard({ chainId, marketKey, viewOutcome }: HistoricalPriceCardProps) {
   const clipId = useId().replace(/:/g, '');
-  const [interval, setInterval] = useState<CandleInterval>('1h');
+  const [interval, setSelectedInterval] = useState<CandleInterval>('1m');
   const [visibleCount, setVisibleCount] = useState(DEFAULT_VISIBLE_CANDLES);
   const [panOffset, setPanOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -84,7 +85,6 @@ export function HistoricalPriceCard({ chainId, marketKey, viewOutcome }: Histori
   }, [displayCandles, totalCandles, effectivePanOffset, boundedVisibleCount]);
 
   const series = visibleCandles.map((candle) => clamp(candle.close * 100, 0, 100));
-  const yAxisLevels = [100, 75, 50, 25, 0];
 
   const scaleY = useMemo(
     () => (value: number) => clamp(CHART_BOTTOM - (value / 100) * CHART_HEIGHT, CHART_TOP, CHART_BOTTOM),
@@ -122,8 +122,8 @@ export function HistoricalPriceCard({ chainId, marketKey, viewOutcome }: Histori
   }, [points]);
 
   const yTicks = useMemo(
-    () => yAxisLevels.map((value, index) => ({ value, y: CHART_TOP + (index / 4) * CHART_HEIGHT })),
-    [yAxisLevels],
+    () => Y_AXIS_LEVELS.map((value: number, index: number) => ({ value, y: CHART_TOP + (index / 4) * CHART_HEIGHT })),
+    [],
   );
 
   const xTicks = useMemo(() => {
@@ -237,18 +237,18 @@ export function HistoricalPriceCard({ chainId, marketKey, viewOutcome }: Histori
   };
 
   return (
-    <div className="rounded-2xl bg-zinc-900/60 border border-zinc-800/50 overflow-hidden">
-      <div className="px-4 py-3 border-b border-zinc-800/50 flex items-center justify-between gap-2">
+    <div className="shrink-0">
+      <div className="pt-2 pb-2 border-t border-white/[0.06] flex items-center justify-between gap-2">
         <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Historical Price</span>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 bg-zinc-900/70 rounded-lg p-0.5">
+          <div className="flex items-center gap-2">
             {INTERVALS.map((item) => (
               <button
                 key={item.value}
-                onClick={() => setInterval(item.value)}
+                onClick={() => setSelectedInterval(item.value)}
                 className={cn(
-                  'px-2 py-1 text-[10px] font-bold rounded-md transition-colors',
-                  interval === item.value ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300',
+                  'text-[10px] font-bold transition-colors border-b border-transparent pb-0.5',
+                  interval === item.value ? 'border-zinc-400 text-white' : 'text-zinc-500 hover:text-zinc-300',
                 )}
               >
                 {item.label}
@@ -256,54 +256,54 @@ export function HistoricalPriceCard({ chainId, marketKey, viewOutcome }: Histori
             ))}
           </div>
 
-          <div className="flex items-center gap-1 bg-zinc-900/70 rounded-lg p-0.5">
+          <div className="flex items-center gap-1">
             <button
               onClick={handleZoomOut}
               disabled={!canZoomOut}
               className={cn(
-                'w-6 h-6 rounded-md inline-flex items-center justify-center transition-colors',
-                canZoomOut ? 'text-zinc-300 hover:bg-zinc-800' : 'text-zinc-600 cursor-not-allowed',
+                'w-5 h-5 inline-flex items-center justify-center transition-colors',
+                canZoomOut ? 'text-zinc-400 hover:text-zinc-200' : 'text-zinc-700 cursor-not-allowed',
               )}
               title="Zoom out"
             >
-              <Minus className="w-3.5 h-3.5" />
+              <Minus className="w-3 h-3" />
             </button>
             <button
               onClick={handleZoomIn}
               disabled={!canZoomIn}
               className={cn(
-                'w-6 h-6 rounded-md inline-flex items-center justify-center transition-colors',
-                canZoomIn ? 'text-zinc-300 hover:bg-zinc-800' : 'text-zinc-600 cursor-not-allowed',
+                'w-5 h-5 inline-flex items-center justify-center transition-colors',
+                canZoomIn ? 'text-zinc-400 hover:text-zinc-200' : 'text-zinc-700 cursor-not-allowed',
               )}
               title="Zoom in"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-3 h-3" />
             </button>
             <button
               onClick={handleResetView}
               disabled={totalCandles === 0 || (effectivePanOffset === 0 && boundedVisibleCount === Math.min(DEFAULT_VISIBLE_CANDLES, totalCandles || DEFAULT_VISIBLE_CANDLES))}
               className={cn(
-                'w-6 h-6 rounded-md inline-flex items-center justify-center transition-colors',
-                totalCandles > 0 ? 'text-zinc-300 hover:bg-zinc-800' : 'text-zinc-600 cursor-not-allowed',
+                'w-5 h-5 inline-flex items-center justify-center transition-colors',
+                totalCandles > 0 ? 'text-zinc-400 hover:text-zinc-200' : 'text-zinc-700 cursor-not-allowed',
               )}
               title="Reset view"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
+              <RotateCcw className="w-3 h-3" />
             </button>
           </div>
         </div>
       </div>
 
-      <div className="p-4 space-y-3">
+      <div className="space-y-3">
         {isLoading ? (
-          <div className="h-36 rounded-xl bg-zinc-900/60 animate-pulse" />
+          <div className="h-36 bg-zinc-900/40 animate-pulse" />
         ) : series.length < 2 ? (
-          <div className="h-36 rounded-xl border border-zinc-800 bg-zinc-900/40 flex items-center justify-center text-xs text-zinc-500">
+          <div className="h-36 flex items-center justify-center text-xs text-zinc-500">
             Not enough fills yet for historical chart
           </div>
         ) : (
           <>
-            <div className="h-44 rounded-xl border border-zinc-800 bg-zinc-950/80 p-3 overflow-hidden">
+            <div className="h-44 p-3 overflow-hidden">
               <div className="grid grid-cols-[44px_1fr] gap-2 h-full">
                 <div className="flex flex-col justify-between text-[10px] text-zinc-500 py-1">
                   {yTicks.map((tick, i) => (
