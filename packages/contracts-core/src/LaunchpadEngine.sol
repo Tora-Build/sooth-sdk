@@ -66,6 +66,8 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
     uint16 public protocolShareBps;
     uint16 public graduationMultiplier;
 
+    /// @notice Authorized adapter that can call *For() functions
+    address public authorizedAdapter;
 
     // ============================================
     // V11: Trial Period State
@@ -149,9 +151,19 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         _;
     }
 
+    modifier onlyAdapter() {
+        require(msg.sender == authorizedAdapter, "LaunchpadEngine: not adapter");
+        _;
+    }
+
     // ============================================
     // Owner Functions
     // ============================================
+
+    function setAuthorizedAdapter(address adapter) external onlyOwner {
+        authorizedAdapter = adapter;
+        emit AuthorizedAdapterUpdated(adapter);
+    }
 
     function setPreGradFee(uint16 feeBps) external onlyOwner {
         require(feeBps <= 1000, "LaunchpadEngine: fee too high");
@@ -202,6 +214,37 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         uint256 adjudicatorMinValidators
     ) external override nonReentrant whenNotPaused returns (address market, uint256 lpTokens) {
         return _createMarketInternal(
+            msg.sender,
+            msg.sender,
+            question,
+            startTime,
+            deadline,
+            adjudicator,
+            guardian,
+            initialLiquidity,
+            DEFAULT_TRIAL_PERIOD,
+            adjudicatorAgentId,
+            adjudicatorMinValidators
+        );
+    }
+
+    /**
+     * @inheritdoc ILaunchpadEngine
+     */
+    function createMarketFor(
+        address onBehalfOf,
+        string calldata question,
+        uint64 startTime,
+        uint64 deadline,
+        address adjudicator,
+        address guardian,
+        uint256 initialLiquidity,
+        uint256 adjudicatorAgentId,
+        uint256 adjudicatorMinValidators
+    ) external override nonReentrant whenNotPaused onlyAdapter returns (address market, uint256 lpTokens) {
+        return _createMarketInternal(
+            onBehalfOf,
+            msg.sender,
             question,
             startTime,
             deadline,
@@ -215,6 +258,8 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
     }
 
     function _createMarketInternal(
+        address creator,
+        address payer,
         string calldata question,
         uint64 startTime,
         uint64 deadline,
@@ -236,7 +281,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         require(depositWad >= MIN_DEPOSIT_WAD, "LaunchpadEngine: deposit too small");
         uint256 deposit = _wadToUsdcCeil(depositWad);
 
-        usdc.safeTransferFrom(msg.sender, address(this), deposit);
+        usdc.safeTransferFrom(payer, address(this), deposit);
 
         market = address(new TruthMarket(
             question,
@@ -244,7 +289,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
             deadline,
             adjudicator,
             address(protocolConfig),
-            msg.sender
+            creator
         ));
 
         _registerAdjudicatorMarket(market, adjudicator, adjudicatorAgentId, adjudicatorMinValidators);
@@ -258,7 +303,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         address lpToken = address(new LaunchpadLPToken(market, address(this), lpName, lpSymbol));
 
         markets[market] = MarketState({
-            creator: msg.sender,
+            creator: creator,
             lpToken: lpToken,
             bBase: initialLiquidity,
             bCurrent: initialLiquidity,
@@ -279,13 +324,13 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         });
 
         // Mint LP tokens to creator
-        LaunchpadLPToken(lpToken).mint(msg.sender, lpTokens);
+        LaunchpadLPToken(lpToken).mint(creator, lpTokens);
 
         allMarkets.push(market);
 
         emit LPTokenCreated(market, lpToken);
-        emit LPBalanceUpdated(market, msg.sender, int256(lpTokens), lpTokens, lpTokens);
-        emit MarketCreated(market, msg.sender, initialLiquidity, deposit, lpTokens);
+        emit LPBalanceUpdated(market, creator, int256(lpTokens), lpTokens, lpTokens);
+        emit MarketCreated(market, creator, initialLiquidity, deposit, lpTokens);
     }
 
     function _registerAdjudicatorMarket(
@@ -314,7 +359,20 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         int256 deltaShares,
         uint256 maxCostOrMinProceeds
     ) external override nonReentrant whenNotPaused returns (uint256 actualCost) {
-        return _tradeInternal(market, outcome, deltaShares, maxCostOrMinProceeds, msg.sender);
+        return _tradeInternal(market, outcome, deltaShares, maxCostOrMinProceeds, msg.sender, msg.sender);
+    }
+
+    /**
+     * @inheritdoc ILaunchpadEngine
+     */
+    function tradePositionsFor(
+        address onBehalfOf,
+        address market,
+        uint8 outcome,
+        int256 deltaShares,
+        uint256 maxCostOrMinProceeds
+    ) external override nonReentrant whenNotPaused onlyAdapter returns (uint256 actualCost) {
+        return _tradeInternal(market, outcome, deltaShares, maxCostOrMinProceeds, onBehalfOf, msg.sender);
     }
 
     function _tradeInternal(
@@ -322,7 +380,8 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
         uint8 outcome,
         int256 deltaShares,
         uint256 maxCostOrMinProceeds,
-        address trader
+        address trader,
+        address payer
     ) internal returns (uint256 actualCost) {
         MarketState storage state = markets[market];
         TrialState storage trial = trialStates[market];
@@ -374,7 +433,7 @@ contract LaunchpadEngine is ILaunchpadEngine, Ownable, ReentrancyGuard {
             uint256 baseCostFromWalletUsdc = _wadToUsdcCeil(baseCostFromWallet);
 
             if (fromWalletUsdc > 0) {
-                usdc.safeTransferFrom(trader, address(this), fromWalletUsdc);
+                usdc.safeTransferFrom(payer, address(this), fromWalletUsdc);
             }
 
             if (baseCostFromWalletUsdc > 0) {
