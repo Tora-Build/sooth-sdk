@@ -21,6 +21,22 @@ arcTestnet = "https://rpc.testnet.arc.network"
 lensTestnet = "https://rpc.testnet.lens.xyz"
 lensMainnet = "https://rpc.lens.xyz"
 
+[profile.zksync]
+src = "src"
+out = "zkout"
+libs = ["lib"]
+solc_version = "0.8.30"
+optimizer = true
+optimizer_runs = 1
+via_ir = false
+evm_version = "paris"
+remappings = ["prb-math/=lib/prb-math/src/"]
+
+[profile.zksync.zksync]
+bytecode_hash = "none"
+optimizer = true
+optimizer_mode = '1'
+
 [profile.megaeth]
 gas_price = 100000000
 

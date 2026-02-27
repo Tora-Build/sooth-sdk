@@ -107,6 +107,9 @@ interface ILaunchpadEngine {
     event RefundClaimed(address indexed market, address indexed user, uint256 amount);
     event LPTokenCreated(address indexed market, address indexed lpToken);
 
+    // Adapter Events
+    event AuthorizedAdapterUpdated(address indexed adapter);
+
     // ============================================
     // Market Creation
     // ============================================
@@ -253,5 +256,62 @@ interface ILaunchpadEngine {
      * @return refundAmount Amount refunded
      */
     function claimRefund(address market) external returns (uint256 refundAmount);
+
+    // ============================================
+    // Adapter Functions
+    // ============================================
+
+    /**
+     * @notice Create a market on behalf of another address (adapter only)
+     * @dev The adapter (msg.sender) pays the deposit, but the creator role
+     *      and LP tokens are assigned to onBehalfOf.
+     * @param onBehalfOf Address to receive creator role and LP tokens
+     * @param question Market question
+     * @param startTime Trading start timestamp (0 = now)
+     * @param deadline Market deadline
+     * @param adjudicator Address that can settle the market
+     * @param guardian Address that can veto settlement
+     * @param initialLiquidity Liquidity parameter b (WAD)
+     * @param adjudicatorAgentId ERC-8004 agent ID for validated adjudicator (0 to skip)
+     * @param adjudicatorMinValidators Min validators for validated adjudicator (0 to skip)
+     * @return market Address of deployed TruthMarket
+     * @return lpTokens Initial LP tokens minted to onBehalfOf
+     */
+    function createMarketFor(
+        address onBehalfOf,
+        string calldata question,
+        uint64 startTime,
+        uint64 deadline,
+        address adjudicator,
+        address guardian,
+        uint256 initialLiquidity,
+        uint256 adjudicatorAgentId,
+        uint256 adjudicatorMinValidators
+    ) external returns (address market, uint256 lpTokens);
+
+    /**
+     * @notice Trade positions on behalf of another address (adapter only)
+     * @dev The adapter (msg.sender) pays USDC for buys, but the position
+     *      is credited to onBehalfOf.
+     * @param onBehalfOf Address to receive the position
+     * @param market Market address
+     * @param outcome 0 = YES, 1 = NO
+     * @param deltaShares Position change (positive = buy, negative = sell)
+     * @param maxCostOrMinProceeds For buys: max cost; for sells: min proceeds
+     * @return actualCost Actual cost paid (buys) or proceeds received (sells)
+     */
+    function tradePositionsFor(
+        address onBehalfOf,
+        address market,
+        uint8 outcome,
+        int256 deltaShares,
+        uint256 maxCostOrMinProceeds
+    ) external returns (uint256 actualCost);
+
+    /**
+     * @notice Set the authorized adapter address (owner only)
+     * @param adapter Address of the adapter contract
+     */
+    function setAuthorizedAdapter(address adapter) external;
 
 }
