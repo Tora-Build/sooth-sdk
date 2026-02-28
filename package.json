@@ -56,10 +56,7 @@
     "build": "tsc && chmod +x bin/soothcli.js",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
-    "interactive": "bun run src/cli/interactive.ts",
-    "interactive:base": "bun run src/cli/interactive.ts --chain=baseSepolia",
-    "interactive:monad": "bun run src/cli/interactive.ts --chain=monadTestnet",
-    "interactive:lens": "bun run src/cli/interactive.ts --chain=lensTestnet"
+    "interactive": "bun run src/cli/interactive.ts"
   },
   "dependencies": {
     "viem": "^2.21.0",

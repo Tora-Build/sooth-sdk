@@ -50,33 +50,20 @@ export const megaethTestnet: Chain = {
   testnet: true,
 };
 
-const LEGACY_ALIASES: Record<string, string> = {
-  basesepolia: '03d4f3f7',
-  'base-sepolia': '03d4f3f7',
-  base: '03d4f3f7',
-  baseSepolia: '03d4f3f7',
-  monad: 'c5059e71',
-  monadtestnet: 'c5059e71',
-  'monad-testnet': 'c5059e71',
-  monadTestnet: 'c5059e71',
-  lens: 'a7f3b2e1',
-  lenstestnet: 'a7f3b2e1',
-  'lens-testnet': 'a7f3b2e1',
-  lensTestnet: 'a7f3b2e1',
-};
-
 function resolveNodeId(input: string): string {
   const trimmed = input.trim();
-  if (/^[0-9a-f]{8}$/.test(trimmed)) return trimmed;
-  const lower = trimmed.toLowerCase();
-  const fromAlias = LEGACY_ALIASES[trimmed] || LEGACY_ALIASES[lower];
-  if (fromAlias) return fromAlias;
-  const node = getAllNodes().find(n => {
-    const chain = getChain(n.chainId);
-    return chain?.name.toLowerCase().replace(/\s/g, '') === lower;
-  });
-  if (node) return node.id;
-  throw new Error(`Unknown node or alias: "${input}". Available: ${getAllNodes().map(n => n.id).join(', ')}`);
+  if (!/^[0-9a-f]{8}$/i.test(trimmed)) {
+    throw new Error(
+      `Invalid node ID: "${input}". Node IDs must be 8 hex characters. Run \`soothcli --list\` for valid IDs.`,
+    );
+  }
+
+  const nodeId = trimmed.toLowerCase();
+  const node = getNodeById(nodeId);
+
+  if (node) return nodeId;
+
+  throw new Error(`Unknown node ID: "${input}". Available: ${getAllNodes().map(n => n.id).join(', ')}`);
 }
 
 export interface Deployment {
@@ -139,8 +126,8 @@ export interface InteractiveConfig {
   defaultMarketIndex: number;
 }
 
-export function createConfig(nodeIdOrAlias: string): InteractiveConfig {
-  const nodeId = resolveNodeId(nodeIdOrAlias);
+export function createConfig(nodeIdInput: string): InteractiveConfig {
+  const nodeId = resolveNodeId(nodeIdInput);
   const node = getNodeById(nodeId);
   if (!node) {
     throw new Error(`Node not found: "${nodeId}". Is it registered in nodes.json?`);

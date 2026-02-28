@@ -1,12 +1,4 @@
 #!/usr/bin/env bun
-/**
- * Interactive On-Chain Testing REPL
- * Sooth Protocol
- *
- * Usage:
- *   bun run script/interactive/interactive-test.ts --chain=baseSepolia
- */
-
 import * as readline from 'readline';
 import { keccak256, encodePacked } from 'viem';
 import { createConfig, SDK_VERSION, type InteractiveConfig } from './config';
@@ -53,17 +45,19 @@ if (args.includes('--list')) {
 
 // No args: show usage
 const positionalArg = args.find(a => !a.startsWith('--'));
-if (!positionalArg && !args.find(a => a.startsWith('--chain='))) {
+if (!positionalArg) {
   console.log(`\n  ${bold(`soothcli v${SDK_VERSION}`)}`);
-  console.log(`\n  Usage: soothcli <nodeId|chain> [--rpc=<url>] [--market=<addr>]`);
+  console.log(`\n  Usage: soothcli <nodeId> [--rpc=<url>] [--market=<addr>]`);
   console.log(`         soothcli --list\n`);
   process.exit(0);
 }
 
-// Support both --chain=monad and positional: soothcli monad
-const chainArg = args.find(a => a.startsWith('--chain='))?.split('=')[1]
-  || positionalArg
-  || 'baseSepolia';
+if (args.find(a => a.startsWith('--chain='))) {
+  console.log(error('  --chain is no longer supported. Use an 8-char node ID (run soothcli --list).'));
+  process.exit(1);
+}
+
+const nodeIdArg = positionalArg;
 const marketArg = args.find(a => a.startsWith('--market='))?.split('=')[1];
 const rpcArg = args.find(a => a.startsWith('--rpc='))?.split('=')[1];
 const scenarioArg = args.find(a => a.startsWith('--scenario='))?.split('=')[1];
@@ -927,7 +921,7 @@ async function main(): Promise<void> {
 
   // Initialize
   try {
-    config = createConfig(chainArg);
+    config = createConfig(nodeIdArg);
     if (rpcArg) config.rpc = rpcArg;
     actorManager = createActorManager(config.chain, config.rpc, undefined, {
       confirmations: config.confirmations,
