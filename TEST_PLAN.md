@@ -52,33 +52,33 @@ Each should show contracts + market count.
 cd /Users/danieltang/GitHub/sooth-alpha/packages/sdk && bun run bin/soothcli.js -- deadbeef 2>&1
 cd /Users/danieltang/GitHub/sooth-alpha/packages/sdk && bun run bin/soothcli.js 2>&1
 ```
-First: "Node not found". Second: usage message.
+First: "Unknown node ID". Second: usage message.
 
 ### 6. REPL — Base Sepolia full sweep
 ```
-cd /Users/danieltang/GitHub/sooth-alpha/packages/sdk && printf 'rpc\nactors\nmarkets\nsetmarket 0\nmarketstatus\nbalance\nallowance\npositions\npnl\nstate\nbook 500 5\ninvariants\nsnapshot\nscenarios\nsetmarket latest\ntrialstatus\nactor bob\nactor\nactor alice\n' | bun run src/cli/interactive.ts -- --chain=baseSepolia 2>&1
+cd /Users/danieltang/GitHub/sooth-alpha/packages/sdk && printf 'rpc\nactors\nmarkets\nsetmarket 0\nmarketstatus\nbalance\nallowance\npositions\npnl\nstate\nbook 500 5\ninvariants\nsnapshot\nscenarios\nsetmarket latest\ntrialstatus\nactor bob\nactor\nactor alice\n' | bun run src/cli/interactive.ts -- 03d4f3f7 2>&1
 ```
 Every command should produce output without errors (red text starting with "Error:").
 
 ### 7. REPL — Monad Testnet
 ```
-cd /Users/danieltang/GitHub/sooth-alpha/packages/sdk && printf 'rpc\nmarkets\nsetmarket 0\nmarketstatus\npositions\nstate\nbook 500 5\n' | bun run src/cli/interactive.ts -- --chain=monadTestnet 2>&1
+cd /Users/danieltang/GitHub/sooth-alpha/packages/sdk && printf 'rpc\nmarkets\nsetmarket 0\nmarketstatus\npositions\nstate\nbook 500 5\n' | bun run src/cli/interactive.ts -- c5059e71 2>&1
 ```
 
 ### 8. REPL — Lens Testnet
 ```
-cd /Users/danieltang/GitHub/sooth-alpha/packages/sdk && printf 'rpc\nmarkets\nsetmarket latest\nmarketstatus\nstate\nbook 500 5\n' | bun run src/cli/interactive.ts -- --chain=lensTestnet 2>&1
+cd /Users/danieltang/GitHub/sooth-alpha/packages/sdk && printf 'rpc\nmarkets\nsetmarket latest\nmarketstatus\nstate\nbook 500 5\n' | bun run src/cli/interactive.ts -- a7f3b2e1 2>&1
 ```
 
 ### 9. History command (uses eth_getLogs — chain-specific chunk sizes)
 ```
-cd /Users/danieltang/GitHub/sooth-alpha/packages/sdk && printf 'setmarket 0\nhistory 1 3\n' | bun run src/cli/interactive.ts -- --chain=baseSepolia 2>&1
+cd /Users/danieltang/GitHub/sooth-alpha/packages/sdk && printf 'setmarket 0\nhistory 1 3\n' | bun run src/cli/interactive.ts -- 03d4f3f7 2>&1
 ```
 If it fails with "eth_getLogs is limited" error, fix `CHAIN_SCAN_CHUNKS` in `src/cli/commands/soothbook.ts`.
 
 ### 10. contracts-testing redirect
 ```
-cd /Users/danieltang/GitHub/sooth-alpha/packages/contracts-testing && printf 'rpc\n' | bun run interactive -- --chain=baseSepolia 2>&1
+cd /Users/danieltang/GitHub/sooth-alpha/packages/contracts-testing && printf 'rpc\n' | bun run interactive -- 03d4f3f7 2>&1
 ```
 
 ### 11. sdk-core backward compat
@@ -106,7 +106,7 @@ cd /Users/danieltang/GitHub/sooth-alpha && bun install 2>&1
 
 ### 13. RPC resolution + header
 ```
-cd /Users/danieltang/GitHub/sooth-alpha/packages/sdk && printf 'rpc\nrpc set https://example.com/bad\nrpc\nrpc reset\nrpc\n' | bun run src/cli/interactive.ts -- --chain=baseSepolia 2>&1
+cd /Users/danieltang/GitHub/sooth-alpha/packages/sdk && printf 'rpc\nrpc set https://example.com/bad\nrpc\nrpc reset\nrpc\n' | bun run src/cli/interactive.ts -- 03d4f3f7 2>&1
 ```
 Verify:
 - Header shows `SOOTH SDK v12.1.0`, node ID `03d4f3f7`, chain `Base Sepolia`, core version, and **public** RPC (`https://sepolia.base.org`) — no Alchemy/QuickNode URLs.
@@ -115,12 +115,12 @@ Verify:
 - `rpc reset` reverts to registry default.
 
 ```
-cd /Users/danieltang/GitHub/sooth-alpha/packages/sdk && printf 'rpc\n' | bun run src/cli/interactive.ts -- --rpc=https://custom.rpc.example --chain=baseSepolia 2>&1 | head -8
+cd /Users/danieltang/GitHub/sooth-alpha/packages/sdk && printf 'rpc\n' | bun run src/cli/interactive.ts -- 03d4f3f7 --rpc=https://custom.rpc.example 2>&1 | head -8
 ```
 Verify: Header RPC line shows `https://custom.rpc.example` (flag overrides registry default).
 
 ```
-cd /Users/danieltang/GitHub/sooth-alpha/packages/sdk && printf 'help\n' | bun run src/cli/interactive.ts -- --chain=baseSepolia 2>&1 | grep -A2 'rpc'
+cd /Users/danieltang/GitHub/sooth-alpha/packages/sdk && printf 'help\n' | bun run src/cli/interactive.ts -- 03d4f3f7 2>&1 | grep -A2 'rpc'
 ```
 Verify: Help lists `rpc`, `rpc set <url>`, `rpc reset`.
 
