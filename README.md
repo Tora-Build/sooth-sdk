@@ -264,3 +264,12 @@ Validated locally:
 - `pnpm --filter @sooth/telegram build:webapp`
 
 Both pass; frontend bundle warnings are third-party rollup warnings, not protocol-logic failures.
+
+## SDK Feedback & Improvement Roadmap
+
+See [SDK-FEEDBACK.md](./SDK-FEEDBACK.md) for detailed feedback from the Telegram dApp build, including:
+
+- 9 prioritized SDK improvements (claim builder, client factory, SoothBook quotes, etc.)
+- Infrastructure considerations (RPC shielding, indexer integration)
+- Library vs backend model analysis with cost projections
+- Decision: stay on library model for now, revisit at ~500 DAU or ~4+ app surfaces
