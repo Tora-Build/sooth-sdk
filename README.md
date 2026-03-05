@@ -1,98 +1,266 @@
-# @sooth/sdk
+# Sooth Core Unified Engine
 
-Unified Sooth Protocol SDK for programmatic market access plus the `soothcli` interactive terminal.
+Single reference for protocol interaction logic across all app surfaces (Demo, Lens, Telegram, and future apps).
 
-## What is included
+## Purpose
 
-- Programmatic client: `SoothClient`
-- Runtime registry client: `Registry` (defaults to `https://registry.sooth.market`)
-- Trading modules: `Markets`, `Orderbook`, `Wallet`
-- Core exports: ABIs, math, types, utils (`@sooth/sdk/core`)
-- Unified CLI entry point: `soothcli`
+The protocol is intentionally flexible, but frontend logic must not drift.
 
-This package is the merged successor of the previous split packages (`sdk-core`, interactive CLI, and SDK surface).
+This layer exists to guarantee:
 
-## Install
+1. No missing features.
+2. No missing calculations.
+3. No missing protocol know-how.
 
-```bash
-pnpm add @sooth/sdk
-```
+## Scope
 
-Or in this monorepo:
+The unified engine covers all core contracts:
 
-```bash
-pnpm --filter @sooth/sdk build
-```
+- `LaunchpadEngine`
+- `AMMEngine`
+- `TruthMarket`
+- `Collateralizer`
+- `SoothBook`
 
-## Quick start (TypeScript)
+Current rollout:
 
-```ts
-import { SoothClient } from '@sooth/sdk';
+- Telegram is the live integration testbed ("white rat").
+- Demo and Lens are reference inputs for parity audit and future migration.
 
-const client = await SoothClient.create('03d4f3f7', {
-  privateKey: process.env.PRIVATE_KEY as `0x${string}`,
-});
+## Canonical Source Files
 
-const marketAddresses = await client.markets.list();
-console.log(marketAddresses);
+Protocol logic in SDK:
 
-if (marketAddresses.length > 0) {
-  const info = await client.markets.getInfo(marketAddresses[0]);
-  console.log(info);
-}
-```
+- `packages/sdk/src/core/contracts/launchpadAmm.ts`
+- `packages/sdk/src/core/contracts/soothCore.ts`
+- `packages/sdk/src/core/contracts/index.ts`
+- `packages/sdk/src/core/abis/index.ts`
 
-## CLI
+Contract truth:
 
-```bash
-# list nodes from registry
-soothcli --list
+- `packages/contracts-core/src/LaunchpadEngine.sol`
+- `packages/contracts-core/src/AMMEngine.sol`
+- `packages/contracts-core/src/Collateralizer.sol`
+- `packages/contracts-core/src/SoothBook.sol`
+- `packages/contracts-core/src/libraries/DecimalMath.sol`
 
-# connect by node id
-soothcli 03d4f3f7
+## Non-Negotiable Invariants
 
-# custom rpc
-soothcli 03d4f3f7 --rpc=https://your-rpc.example
-```
+### 1) Outcome Encoding
 
-## Public API surface
+- `0 = NO`
+- `1 = YES`
+- `2 = INVALID`
 
-- `SoothClient`
-- `Registry`
-- `Markets`
-- `Orderbook`
-- `Wallet`
-- Registry types: `SoothNode`, `SoothContracts`, `ChainMeta`, `NodesManifest`
+This encoding is protocol-wide and must never be remapped in app code.
 
-Core subpath exports:
+### 2) Signed Shares and Trade Guards
 
-- `@sooth/sdk/core`
-- `@sooth/sdk/core/abis`
-- `@sooth/sdk/core/math`
-- `@sooth/sdk/core/contracts`
-- `@sooth/sdk/core/types`
-- `@sooth/sdk/core/utils`
-- `@sooth/sdk/core/errors`
+For Launchpad/AMM trade:
 
-## Development scripts
+- Buy -> `deltaShares > 0`
+- Sell -> `deltaShares < 0`
+- Guard arg is `maxCostOrMinProceeds`:
+  - Buy: max cost ceiling.
+  - Sell: min proceeds floor.
 
-```bash
-pnpm --filter @sooth/sdk build
-pnpm --filter @sooth/sdk dev
-pnpm --filter @sooth/sdk interactive
-pnpm --filter @sooth/sdk interactive -- 03d4f3f7
-```
+SDK builder:
 
-## Hardening notes
+- `buildLaunchpadTradeRequest(...)`
 
-- `soothcli --list` is intentionally lightweight and does not load the full interactive runtime.
-- The wrapper prints a clear error when runtime dependencies are missing.
-- CLI accepts only 8-character node IDs. Aliases and `--chain=` are rejected by design.
+### 3) Fee Composition
 
-## Troubleshooting
+Launchpad fee is layered over AMM quote:
 
-- `Missing runtime dependency 'viem'`
-  - Run `pnpm install` at repo root (or install deps in your environment), then retry.
-- `Failed to fetch node list`
-  - Check network access to `registry.sooth.market`.
-  - Override registry URL with `SOOTH_REGISTRY_URL`.
+- Base quote from `AMMEngine.getPositionQuote`.
+- Fee bps selected by market stage:
+  - pre-graduation: `preGradFeeBps`
+  - post-graduation: `postGradFeeBps`
+
+SDK function:
+
+- `readLaunchpadAmmQuote(...)`
+
+### 4) Venue Selection
+
+SDK chooses venue via `selectTradingVenue(...)`:
+
+- If settled/finalized -> non-trading state in UI flow, AMM settlement/redeem domain.
+- If graduated and active SoothBook -> `soothbook`.
+- Else -> `amm`.
+
+### 5) Claim Routing
+
+Claim logic must route by lifecycle, not by app guesswork:
+
+1. Dismissed trial market -> `LaunchpadEngine.claimRefund`.
+2. Settled pre-graduation AMM position -> `AMMEngine.settlePosition`.
+3. Graduated collateral-token domain -> `Collateralizer.redeemOutcome`.
+4. SoothBook token domain -> `SoothBook.redeem`.
+
+Telegram hook implementation:
+
+- `apps/telegram/webapp/src/hooks/useClaim.ts`
+
+## Decimal and Unit Handling
+
+Decimal handling is a critical part of parity.
+
+### Internal Unit Standard
+
+- Internal economic values are treated as WAD (`1e18`) in SDK math:
+  - shares
+  - quote amounts
+  - fee amounts
+  - slippage guards
+
+### Contract Boundary Rules
+
+Contracts convert between token decimals and WAD using `DecimalMath`:
+
+- `toWad`: token units -> WAD.
+- `fromWad`: WAD -> token units (floor, outbound to user).
+- `fromWadCeil`: WAD -> token units (ceil, inbound from user).
+
+Rationale:
+
+- Ceiling when pulling funds avoids underpayment.
+- Floor when sending funds avoids overpayment.
+
+### MockUSDC vs Real USDC
+
+- Current Base Sepolia `MockUSDC` is 18 decimals.
+- Real USDC is 6 decimals.
+
+Implication:
+
+- App adapters must not hardcode decimal assumptions for long-term compatibility.
+- SDK/app boundary code must read token decimals where token-unit operations occur.
+
+### SoothBook Specific Unit Behavior
+
+SoothBook computes `cost = amount * tick / 1000` in raw collateral token units.
+
+Implication:
+
+- `amount` and `maxCost` passed to SoothBook must already be in collateral token units.
+- Adapter must normalize user input to token units before request assembly.
+
+## Slippage Policy (SDK-Level)
+
+Use only `applySlippageToAmount(...)` for Launchpad/AMM guard construction.
+
+Rules:
+
+- Buy: `maxCost = quotedAmount * (1 + slippageBps/10000)`
+- Sell: `minProceeds = quotedAmount * (1 - slippageBps/10000)`
+
+Example:
+
+- Buy quote `100e18`, slippage `500` bps -> max cost `105e18`.
+- Sell quote `100e18`, slippage `500` bps -> min proceeds `95e18`.
+
+Do not add hidden extra buffers in app code.
+
+## SDK API Contract
+
+Use these functions as the only protocol logic entry points:
+
+State:
+
+- `readLaunchpadAmmSnapshot(...)`
+- `readSoothCoreSnapshot(...)`
+
+Quote:
+
+- `readLaunchpadAmmQuote(...)`
+- `computeLaunchpadAmmQuote(...)`
+
+Requests:
+
+- `buildLaunchpadTradeRequest(...)`
+- `buildSoothBookBuyRequest(...)`
+
+Math helpers:
+
+- `applySlippageToAmount(...)`
+- `computeLmsrYesProbability(...)`
+- `getLaunchpadFeeBps(...)`
+
+## Adapter Rule (Mandatory)
+
+App hooks/components are adapters only.
+
+Allowed:
+
+- query invalidation
+- wallet UX
+- loading/error states
+- i18n/formatting
+
+Not allowed:
+
+- custom fee math
+- custom outcome mapping
+- custom signed-share assembly
+- custom slippage formulas
+- custom venue routing
+
+## Conformance Checklist
+
+An app is protocol-compatible only if all are true:
+
+1. Uses `readSoothCoreSnapshot` for market lifecycle and venue context.
+2. Uses SDK quote functions for Launchpad/AMM math.
+3. Uses SDK request builders for tx args.
+4. Uses SDK slippage helper for guard values.
+5. Routes claim/redeem by lifecycle contract path.
+6. Does not duplicate fee/outcome/slippage math outside SDK.
+7. Handles token decimals at boundary points only.
+8. Marks SoothBook quote as indicative unless full depth simulation exists.
+
+## Current Migration Status
+
+Telegram:
+
+- Integrated with unified snapshot/quote/tx/claim/position logic.
+- Files:
+  - `apps/telegram/webapp/src/hooks/useSoothMarket.ts`
+  - `apps/telegram/webapp/src/hooks/useSoothQuote.ts`
+  - `apps/telegram/webapp/src/hooks/useTrade.ts`
+  - `apps/telegram/webapp/src/hooks/useSoothPosition.ts`
+  - `apps/telegram/webapp/src/hooks/usePositions.ts`
+  - `apps/telegram/webapp/src/hooks/useClaim.ts`
+  - `apps/telegram/webapp/src/hooks/useMarkets.ts`
+
+Demo and Lens:
+
+- Audited for parity gaps.
+- Pending migration to SDK-only adapters.
+
+## Known Limitations
+
+1. SoothBook quote is currently indicative (implied price), not full depth fill simulation.
+2. SDK package currently has no dedicated automated conformance test suite yet.
+
+## Recommended Next Steps
+
+1. Add SDK conformance tests for:
+   - outcome mapping
+   - fee composition (pre/post grad)
+   - slippage guard formulas
+   - tx arg builders
+   - venue selection
+   - claim route selection
+2. Migrate Lens to SDK adapters first (small surface).
+3. Migrate Demo by replacing legacy quote/swap math with SDK calls.
+4. Add CI gate: fail if app code introduces duplicated fee/slippage/outcome math.
+
+## Build Verification (Current)
+
+Validated locally:
+
+- `pnpm --filter @sooth/sdk build`
+- `pnpm --filter @sooth/telegram build:webapp`
+
+Both pass; frontend bundle warnings are third-party rollup warnings, not protocol-logic failures.
