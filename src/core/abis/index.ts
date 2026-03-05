@@ -4,6 +4,7 @@ export { DynamicFeeHookABI } from './DynamicFeeHook.js';
 export { LaunchpadEngineABI } from './LaunchpadEngine.js';
 export { OutcomeTokenABI } from './OutcomeToken.js';
 export { TruthMarketABI } from './TruthMarket.js';
+export { SoothBookABI } from './SoothBook.js';
 
 import { AMMEngineABI } from './AMMEngine.js';
 import { CollateralizerABI } from './Collateralizer.js';
@@ -11,6 +12,7 @@ import { DynamicFeeHookABI } from './DynamicFeeHook.js';
 import { LaunchpadEngineABI } from './LaunchpadEngine.js';
 import { OutcomeTokenABI } from './OutcomeToken.js';
 import { TruthMarketABI } from './TruthMarket.js';
+import { SoothBookABI } from './SoothBook.js';
 
 export const ABIS = {
   AMMEngine: AMMEngineABI,
@@ -19,4 +21,5 @@ export const ABIS = {
   LaunchpadEngine: LaunchpadEngineABI,
   OutcomeToken: OutcomeTokenABI,
   TruthMarket: TruthMarketABI,
+  SoothBook: SoothBookABI,
 } as const;
