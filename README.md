@@ -1,275 +1,428 @@
-# Sooth Core Unified Engine
+# Sooth SDK Core Unified Layer
 
-Single reference for protocol interaction logic across all app surfaces (Demo, Lens, Telegram, and future apps).
+Single canonical protocol interaction layer for Launchpad + AMM + SoothBook + settlement flows.
 
-## Purpose
-
-The protocol is intentionally flexible, but frontend logic must not drift.
-
-This layer exists to guarantee:
+Primary goals:
 
 1. No missing features.
 2. No missing calculations.
-3. No missing protocol know-how.
+3. No missing protocol know-how across app surfaces.
 
-## Scope
+This SDK layer is built from parity review across:
 
-The unified engine covers all core contracts:
+- `apps/market` (primary SoothBook trading reference)
+- `apps/demo` (reference-heavy Launchpad/AMM surface)
+- `apps/lens` (adapter flow constraints)
+- `apps/telegram/webapp` (current live integration testbed / "white rat")
 
-- `LaunchpadEngine`
-- `AMMEngine`
-- `TruthMarket`
-- `Collateralizer`
-- `SoothBook`
+## Phase Status
 
-Current rollout:
+`Phase 1`, `Phase 2`, and `Phase 3` roadmap items are implemented in one shot.
 
-- Telegram is the live integration testbed ("white rat").
-- Demo and Lens are reference inputs for parity audit and future migration.
+Implemented scope:
+
+- SoothBook quote helper (indicative, centralized math).
+- SoothBook write builders (buy/sell/cancel/mint/merge/redeem).
+- Pre-bound client factory with shared API surface.
+- Batch snapshot API.
+- Snapshot-based quote convenience path.
+- Claim/settlement request builder.
+- AMM user position in snapshot.
+- Trade preflight + error classification.
+- Approval helper.
+- Indexed provider architecture hooks.
 
 ## Canonical Source Files
-
-Protocol logic in SDK:
 
 - `packages/sdk/src/core/contracts/launchpadAmm.ts`
 - `packages/sdk/src/core/contracts/soothCore.ts`
 - `packages/sdk/src/core/contracts/index.ts`
-- `packages/sdk/src/core/abis/index.ts`
 
-Contract truth:
+## Non-Negotiable Protocol Invariants
 
-- `packages/contracts-core/src/LaunchpadEngine.sol`
-- `packages/contracts-core/src/AMMEngine.sol`
-- `packages/contracts-core/src/Collateralizer.sol`
-- `packages/contracts-core/src/SoothBook.sol`
-- `packages/contracts-core/src/libraries/DecimalMath.sol`
-
-## Non-Negotiable Invariants
-
-### 1) Outcome Encoding
+### Outcome Encoding
 
 - `0 = NO`
 - `1 = YES`
 - `2 = INVALID`
 
-This encoding is protocol-wide and must never be remapped in app code.
+Do not remap outcome values in app adapters.
 
-### 2) Signed Shares and Trade Guards
+### Launchpad Trade Encoding
 
-For Launchpad/AMM trade:
+Launchpad/AMM uses signed shares:
 
-- Buy -> `deltaShares > 0`
-- Sell -> `deltaShares < 0`
-- Guard arg is `maxCostOrMinProceeds`:
-  - Buy: max cost ceiling.
-  - Sell: min proceeds floor.
+- Buy => `deltaShares > 0`
+- Sell => `deltaShares < 0`
 
-SDK builder:
+Use SDK builder only:
 
 - `buildLaunchpadTradeRequest(...)`
+- `buildTradeRequest(...)`
 
-### 3) Fee Composition
+### Slippage Guard Semantics
 
-Launchpad fee is layered over AMM quote:
+Guard arg is always `maxCostOrMinProceeds`:
 
-- Base quote from `AMMEngine.getPositionQuote`.
-- Fee bps selected by market stage:
-  - pre-graduation: `preGradFeeBps`
-  - post-graduation: `postGradFeeBps`
+- Buy => max cost ceiling
+- Sell => min proceeds floor
 
-SDK function:
+Canonical helper:
+
+- `applySlippageToAmount({ action, amount, slippageBps })`
+
+No hidden extra app-level buffers.
+
+### Fee Composition
+
+AMM quote is raw LMSR cost. Launchpad fee is layered on top:
+
+- pre-grad fee: `preGradFeeBps`
+- post-grad fee: `postGradFeeBps`
+- selected via market graduation state
+
+Canonical quoting:
 
 - `readLaunchpadAmmQuote(...)`
+- `readLaunchpadAmmQuoteFromSnapshot(...)`
 
-### 4) Venue Selection
+### Venue Selection
 
-SDK chooses venue via `selectTradingVenue(...)`:
+Canonical venue route:
 
-- If settled/finalized -> non-trading state in UI flow, AMM settlement/redeem domain.
-- If graduated and active SoothBook -> `soothbook`.
-- Else -> `amm`.
+- Settled/finalized => non-trading lifecycle (claims/redeem domain)
+- Graduated + active SoothBook => `soothbook`
+- Else => `amm`
 
-### 5) Claim Routing
+Use `selectTradingVenue(...)`.
 
-Claim logic must route by lifecycle, not by app guesswork:
+## Core API
 
-1. Dismissed trial market -> `LaunchpadEngine.claimRefund`.
-2. Settled pre-graduation AMM position -> `AMMEngine.settlePosition`.
-3. Graduated collateral-token domain -> `Collateralizer.redeemOutcome`.
-4. SoothBook token domain -> `SoothBook.redeem`.
+Import path:
 
-Telegram hook implementation:
+```ts
+import {
+  createSoothClient,
+  readSoothCoreSnapshot,
+  readSoothCoreSnapshots,
+  readSoothQuote,
+  readSoothBookQuote,
+  buildTradeRequest,
+  buildClaimRequest,
+  readApprovalRequest,
+  preflightTrade,
+} from '@sooth/sdk/core/contracts';
+```
 
-- `apps/telegram/webapp/src/hooks/useClaim.ts`
+### 1) Pre-Bound Client Factory
 
-## Decimal and Unit Handling
+```ts
+const sooth = createSoothClient({
+  mode: 'rpc',
+  publicClient,
+  contracts: {
+    launchpadEngine: '0x...',
+    ammEngine: '0x...',
+    collateralizer: '0x...',
+    soothBook: '0x...',
+  },
+});
 
-Decimal handling is a critical part of parity.
+const snapshot = await sooth.getSnapshot(marketAddress);
+const snapshots = await sooth.getSnapshots([marketA, marketB, marketC]);
+```
 
-### Internal Unit Standard
+### 2) Indexed Provider Mode Hook
 
-- Internal economic values are treated as WAD (`1e18`) in SDK math:
-  - shares
-  - quote amounts
-  - fee amounts
-  - slippage guards
+`createSoothClient` supports `mode: 'indexed'` with a provider contract.
 
-### Contract Boundary Rules
+```ts
+const sooth = createSoothClient({
+  mode: 'indexed',
+  indexedProvider: {
+    getSnapshot: async (market) => fetchSnapshot(market),
+    getSnapshots: async (markets) => fetchSnapshots(markets),
+    getQuote: async (market, options) => fetchQuote(market, options),
+    listMarkets: async () => fetchMarketAddresses(),
+  },
+  // optional RPC fallback for quote recomputation / tx prep:
+  publicClient,
+  contracts,
+});
+```
 
-Contracts convert between token decimals and WAD using `DecimalMath`:
+This keeps app hooks stable while data source changes from direct RPC to indexer-backed reads.
 
-- `toWad`: token units -> WAD.
-- `fromWad`: WAD -> token units (floor, outbound to user).
-- `fromWadCeil`: WAD -> token units (ceil, inbound from user).
+### 3) Snapshot APIs
 
-Rationale:
+Single:
 
-- Ceiling when pulling funds avoids underpayment.
-- Floor when sending funds avoids overpayment.
+```ts
+const snapshot = await readSoothCoreSnapshot(publicClient, contracts, marketAddress, {
+  userAddress,
+});
+```
 
-### MockUSDC vs Real USDC
+Batch:
 
-- Current Base Sepolia `MockUSDC` is 18 decimals.
+```ts
+const snapshots = await readSoothCoreSnapshots(publicClient, contracts, marketAddresses, {
+  userAddress,
+});
+```
+
+AMM user positions are included in snapshot when `userAddress` is provided:
+
+- `snapshot.launchpadAmm.amm.userYesShares`
+- `snapshot.launchpadAmm.amm.userNoShares`
+
+### 4) Quote APIs
+
+#### AMM Quote from Snapshot (preferred app path)
+
+```ts
+const quote = await sooth.getAmmQuote(snapshot.launchpadAmm, {
+  action: 'buy',
+  outcome: 1,
+  shares: 5n * 10n ** 18n,
+});
+```
+
+#### SoothBook Quote (indicative)
+
+```ts
+const quote = await readSoothBookQuote(publicClient, contracts, marketAddress, {
+  action: 'buy',
+  outcome: 1,
+  shares: 5n * 10n ** 18n,
+});
+// quote.isIndicative === true
+```
+
+#### Unified Venue-Aware Quote
+
+```ts
+const quote = await readSoothQuote(publicClient, contracts, marketAddress, {
+  action: 'buy',
+  outcome: 1,
+  shares: 5n * 10n ** 18n,
+});
+```
+
+`readSoothQuote` uses canonical venue routing and returns AMM or SoothBook quote shape with explicit `venue` and `isIndicative`.
+
+### 5) Trade Request Builders
+
+Unified:
+
+```ts
+const request = buildTradeRequest({
+  marketAddress,
+  action: 'buy',
+  outcome: 1,
+  shares,
+  maxCostOrMinProceeds,
+  snapshot, // optional; used for venue + default SoothBook tick
+});
+```
+
+AMM-only:
+
+```ts
+const request = buildLaunchpadTradeRequest({
+  marketAddress,
+  action: 'sell',
+  outcome: 0,
+  shares,
+  maxCostOrMinProceeds,
+});
+```
+
+SoothBook buy:
+
+```ts
+const request = buildSoothBookBuyRequest({
+  marketAddress,
+  outcome: 1,
+  tick: 540,
+  amount: shares,
+  maxCost,
+});
+```
+
+SoothBook sell/cancel/mint/merge/redeem:
+
+```ts
+const sell = buildSoothBookSellRequest({
+  marketAddress,
+  outcome: 1, // selling YES
+  tick: 460,  // opposite-side tick
+  amount: shares,
+});
+
+const cancel = buildSoothBookCancelRequest({
+  marketAddress,
+  side: 1,
+  tick: 540,
+});
+
+const cancelById = buildSoothBookCancelByIdRequest({ orderId: 42n });
+const mint = buildSoothBookMintRequest({ marketAddress, amount: shares });
+const merge = buildSoothBookMergeRequest({ marketAddress, amount: shares });
+const redeem = buildSoothBookRedeemRequest({ marketAddress });
+```
+
+Max-cost helper for SoothBook limit/taker paths:
+
+```ts
+const maxCost = computeSoothBookMaxCost({
+  tick: 540,
+  amount: shares,
+  slippageBps: 500, // default 5%
+});
+```
+
+### 6) Claim / Settlement Builder
+
+Canonical lifecycle routing:
+
+1. Dismissed trial => `LaunchpadEngine.claimRefund`
+2. SoothBook finalized position => `SoothBook.redeem`
+3. Graduated collateral redemption => `Collateralizer.redeemOutcome` (handles INVALID dual-redeem case)
+4. Pre-grad AMM position => `AMMEngine.settlePosition`
+
+```ts
+const plan = buildClaimRequest(snapshot, contracts);
+if (plan) {
+  for (const tx of plan.requests) {
+    // execute tx.contract + tx.functionName + tx.args
+  }
+}
+```
+
+### 7) Trade Preflight and Error Classification
+
+```ts
+const preflight = preflightTrade(snapshot, {
+  action: 'buy',
+  outcome: 1,
+  shares,
+  userBalance: usdcBalance,
+  maxCostOrMinProceeds: maxCost,
+});
+```
+
+Possible failures include:
+
+- `invalid_outcome`
+- `invalid_shares`
+- `market_not_active`
+- `market_settled`
+- `market_dismissed`
+- `venue_unavailable`
+- `insufficient_balance`
+- `invalid_guard`
+
+Error parser:
+
+```ts
+const parsed = classifyTradeError(error);
+// { code: 'insufficient_balance' | 'slippage_exceeded' | ... , message }
+```
+
+### 8) Approval Helper
+
+Read + build in one step:
+
+```ts
+const approval = await readApprovalRequest(publicClient, {
+  tokenAddress: collateralToken,
+  owner: userAddress,
+  spender: spenderAddress,
+  amount: maxCost,
+});
+
+if (approval) {
+  // call ERC20 approve(approval.args[0], approval.args[1])
+}
+```
+
+Pure builder (if allowance already known):
+
+```ts
+const approval = buildApprovalRequest({
+  tokenAddress,
+  spender,
+  amount,
+  allowance,
+});
+```
+
+## Decimal Handling
+
+### Internal Standard
+
+SDK economics use WAD (`1e18`) for:
+
+- shares
+- quote values
+- fee values
+- slippage guards
+
+### Contract Boundary
+
+Boundary conversion must be explicit (token units <-> WAD):
+
+- use `tokenUnitsToWad(...)` and `wadToTokenUnits(...)` from `@sooth/sdk/core/utils`
+- never silently mix token decimals in quote/trade math
+
+### Practical Notes
+
+- Base Sepolia MockUSDC in current environments may be 18 decimals.
 - Real USDC is 6 decimals.
+- Do not hardcode collateral decimals in app logic.
 
-Implication:
+## Adapter Rules (Mandatory)
 
-- App adapters must not hardcode decimal assumptions for long-term compatibility.
-- SDK/app boundary code must read token decimals where token-unit operations occur.
+App hooks/components are adapters, not protocol logic engines.
 
-### SoothBook Specific Unit Behavior
+Allowed in app layer:
 
-SoothBook computes `cost = amount * tick / 1000` in raw collateral token units.
-
-Implication:
-
-- `amount` and `maxCost` passed to SoothBook must already be in collateral token units.
-- Adapter must normalize user input to token units before request assembly.
-
-## Slippage Policy (SDK-Level)
-
-Use only `applySlippageToAmount(...)` for Launchpad/AMM guard construction.
-
-Rules:
-
-- Buy: `maxCost = quotedAmount * (1 + slippageBps/10000)`
-- Sell: `minProceeds = quotedAmount * (1 - slippageBps/10000)`
-
-Example:
-
-- Buy quote `100e18`, slippage `500` bps -> max cost `105e18`.
-- Sell quote `100e18`, slippage `500` bps -> min proceeds `95e18`.
-
-Do not add hidden extra buffers in app code.
-
-## SDK API Contract
-
-Use these functions as the only protocol logic entry points:
-
-State:
-
-- `readLaunchpadAmmSnapshot(...)`
-- `readSoothCoreSnapshot(...)`
-
-Quote:
-
-- `readLaunchpadAmmQuote(...)`
-- `computeLaunchpadAmmQuote(...)`
-
-Requests:
-
-- `buildLaunchpadTradeRequest(...)`
-- `buildSoothBookBuyRequest(...)`
-
-Math helpers:
-
-- `applySlippageToAmount(...)`
-- `computeLmsrYesProbability(...)`
-- `getLaunchpadFeeBps(...)`
-
-## Adapter Rule (Mandatory)
-
-App hooks/components are adapters only.
-
-Allowed:
-
-- query invalidation
 - wallet UX
 - loading/error states
-- i18n/formatting
+- query invalidation
+- formatting / i18n
 
-Not allowed:
+Not allowed in app layer:
 
-- custom fee math
-- custom outcome mapping
-- custom signed-share assembly
-- custom slippage formulas
-- custom venue routing
+- fee math duplication
+- slippage formula duplication
+- outcome remapping
+- trade arg assembly duplication
+- claim route re-implementation
 
 ## Conformance Checklist
 
-An app is protocol-compatible only if all are true:
+An app is conformant only if all pass:
 
-1. Uses `readSoothCoreSnapshot` for market lifecycle and venue context.
-2. Uses SDK quote functions for Launchpad/AMM math.
+1. Uses `readSoothCoreSnapshot` / `readSoothCoreSnapshots` for lifecycle state.
+2. Uses SDK quote APIs (`readSoothQuote`, `readLaunchpadAmmQuoteFromSnapshot`, `readSoothBookQuote`).
 3. Uses SDK request builders for tx args.
-4. Uses SDK slippage helper for guard values.
-5. Routes claim/redeem by lifecycle contract path.
-6. Does not duplicate fee/outcome/slippage math outside SDK.
-7. Handles token decimals at boundary points only.
-8. Marks SoothBook quote as indicative unless full depth simulation exists.
+4. Uses `applySlippageToAmount`.
+5. Uses `buildClaimRequest` for claim route selection.
+6. Uses SDK preflight + approval helpers instead of local duplicates.
+7. Keeps decimals handling at boundaries only.
 
-## Current Migration Status
-
-Telegram:
-
-- Integrated with unified snapshot/quote/tx/claim/position logic.
-- Files:
-  - `apps/telegram/webapp/src/hooks/useSoothMarket.ts`
-  - `apps/telegram/webapp/src/hooks/useSoothQuote.ts`
-  - `apps/telegram/webapp/src/hooks/useTrade.ts`
-  - `apps/telegram/webapp/src/hooks/useSoothPosition.ts`
-  - `apps/telegram/webapp/src/hooks/usePositions.ts`
-  - `apps/telegram/webapp/src/hooks/useClaim.ts`
-  - `apps/telegram/webapp/src/hooks/useMarkets.ts`
-
-Demo and Lens:
-
-- Audited for parity gaps.
-- Pending migration to SDK-only adapters.
-
-## Known Limitations
-
-1. SoothBook quote is currently indicative (implied price), not full depth fill simulation.
-2. SDK package currently has no dedicated automated conformance test suite yet.
-
-## Recommended Next Steps
-
-1. Add SDK conformance tests for:
-   - outcome mapping
-   - fee composition (pre/post grad)
-   - slippage guard formulas
-   - tx arg builders
-   - venue selection
-   - claim route selection
-2. Migrate Lens to SDK adapters first (small surface).
-3. Migrate Demo by replacing legacy quote/swap math with SDK calls.
-4. Add CI gate: fail if app code introduces duplicated fee/slippage/outcome math.
-
-## Build Verification (Current)
+## Validation
 
 Validated locally:
 
 - `pnpm --filter @sooth/sdk build`
 - `pnpm --filter @sooth/telegram build:webapp`
 
-Both pass; frontend bundle warnings are third-party rollup warnings, not protocol-logic failures.
+Both pass.
 
-## SDK Feedback & Improvement Roadmap
+## Notes
 
-See [SDK-FEEDBACK.md](./SDK-FEEDBACK.md) for detailed feedback from the Telegram dApp build, including:
-
-- 9 prioritized SDK improvements (claim builder, client factory, SoothBook quotes, etc.)
-- Infrastructure considerations (RPC shielding, indexer integration)
-- Library vs backend model analysis with cost projections
-- Decision: stay on library model for now, revisit at ~500 DAU or ~4+ app surfaces
+- SoothBook quote remains indicative until full depth simulation is introduced on-chain or in indexer execution.
+- Indexed mode is an abstraction hook; it intentionally does not force a specific backend implementation.

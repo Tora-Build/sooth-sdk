@@ -43,6 +43,8 @@ export interface LaunchpadAmmMarketSnapshot {
     yesProbability: number;
     noProbability: number;
     maxSafeTradeSharesWad: bigint;
+    userYesShares: bigint;
+    userNoShares: bigint;
   };
   launchpad: {
     creator: Address;
@@ -114,6 +116,12 @@ export interface ReadLaunchpadAmmQuoteOptions {
   currentYesPrice?: number;
 }
 
+export interface ReadLaunchpadAmmQuoteFromSnapshotOptions {
+  action: SoothTradeAction;
+  outcome: BinaryOutcome;
+  shares: bigint;
+}
+
 type LaunchpadMarketsMapping = readonly [
   Address,
   Address,
@@ -132,6 +140,7 @@ type LaunchpadMarketState = readonly [Address, bigint, bigint, bigint, boolean, 
 type LaunchpadGraduationProgress = readonly [bigint, bigint, bigint];
 type LaunchpadTrialState = readonly [bigint, boolean, bigint];
 type AmmMarketState = readonly [bigint, bigint, bigint];
+type AmmPosition = readonly [bigint, bigint];
 type AmmQuote = readonly [bigint, bigint];
 
 function clampProbability(value: number): number {
@@ -291,6 +300,7 @@ export async function readLaunchpadAmmSnapshot(
     postGradFeeBps,
     trialState,
     userLockedCost,
+    userPosition,
   ] = await Promise.all([
     client.readContract({
       address: contracts.ammEngine,
@@ -368,6 +378,18 @@ export async function readLaunchpadAmmSnapshot(
           0n,
         )
       : Promise.resolve(0n),
+    options.userAddress
+      ? readWithFallback(
+          () =>
+            client.readContract({
+              address: contracts.ammEngine,
+              abi: AMMEngineABI,
+              functionName: 'getPosition',
+              args: [marketAddress, options.userAddress!],
+            }) as Promise<AmmPosition>,
+          [0n, 0n] as const,
+        )
+      : Promise.resolve([0n, 0n] as const),
   ]);
 
   const isInitialized = liquidity > 0n;
@@ -385,6 +407,7 @@ export async function readLaunchpadAmmSnapshot(
     : emptyAmmState;
 
   const [qYes, qNo, yesPriceWad] = ammState;
+  const [userYesShares, userNoShares] = userPosition;
   const noPriceWad = yesPriceWad <= WAD ? WAD - yesPriceWad : 0n;
   const yesProbability = clampProbability(Number(yesPriceWad) / 1e18);
   const noProbability = clampProbability(1 - yesProbability);
@@ -438,6 +461,8 @@ export async function readLaunchpadAmmSnapshot(
       yesProbability,
       noProbability,
       maxSafeTradeSharesWad,
+      userYesShares,
+      userNoShares,
     },
     launchpad: {
       creator,
@@ -537,5 +562,23 @@ export async function readLaunchpadAmmQuote(
     newPriceYesWad,
     feeBps,
     currentYesPrice: options.currentYesPrice,
+  });
+}
+
+/**
+ * Snapshot-based quote convenience to avoid recomputing fee/price inputs in app code.
+ */
+export async function readLaunchpadAmmQuoteFromSnapshot(
+  client: PublicClient,
+  contracts: LaunchpadAmmContracts,
+  snapshot: LaunchpadAmmMarketSnapshot,
+  options: ReadLaunchpadAmmQuoteFromSnapshotOptions,
+): Promise<LaunchpadAmmQuote> {
+  return readLaunchpadAmmQuote(client, contracts, snapshot.marketAddress, {
+    action: options.action,
+    outcome: options.outcome,
+    shares: options.shares,
+    feeBps: snapshot.launchpad.currentFeeBps,
+    currentYesPrice: snapshot.amm.yesProbability,
   });
 }
