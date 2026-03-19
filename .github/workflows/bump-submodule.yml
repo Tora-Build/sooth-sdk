@@ -11,6 +11,7 @@ jobs:
       - name: Checkout sooth-alpha
         uses: actions/checkout@v4
         with:
+          ref: develop
           token: ${{ secrets.ALPHA_PAT }}
           submodules: true
           fetch-depth: 0
