@@ -1,0 +1,115 @@
+# Updated for SoothBook V12 (was TickBook)
+# Multi-Actor Orderbook Scenario
+# Tests multiple makers and takers interacting
+
+name: multi-actor-orderbook
+description: Multiple actors placing and crossing orders
+
+steps:
+  # Setup all actors with funds
+  - actor: alice
+    action: mint
+    args:
+      amount: "50000"
+
+  - actor: alice
+    action: approve
+    args:
+      contract: "soothbook"
+
+  - actor: bob
+    action: mint
+    args:
+      amount: "50000"
+
+  - actor: bob
+    action: approve
+    args:
+      contract: "soothbook"
+
+  - actor: charlie
+    action: mint
+    args:
+      amount: "50000"
+
+  - actor: charlie
+    action: approve
+    args:
+      contract: "soothbook"
+
+  # Alice places YES orders at different ticks
+  # 30-40 range → tick 350, 40-50 range → tick 450, 50-60 range → tick 550
+  - actor: alice
+    action: buyyes
+    args:
+      tick: 350
+      amount: "200"
+
+  - actor: alice
+    action: buyyes
+    args:
+      tick: 450
+      amount: "300"
+
+  - actor: alice
+    action: buyyes
+    args:
+      tick: 550
+      amount: "200"
+
+  # Bob places NO orders at different ticks
+  # 50-60 range → tick 550, 60-70 range → tick 650
+  - actor: bob
+    action: buyno
+    args:
+      tick: 550
+      amount: "200"
+
+  - actor: bob
+    action: buyno
+    args:
+      tick: 650
+      amount: "300"
+
+  # Check orderbook state
+  - actor: alice
+    action: book
+    args: {}
+
+  # Charlie crosses some orders as taker
+  - actor: charlie
+    action: buyno
+    args:
+      tick: 950
+      amount: "150"
+
+  - actor: charlie
+    action: buyyes
+    args:
+      tick: 950
+      amount: "100"
+
+  # Check updated book
+  - actor: charlie
+    action: book
+    args: {}
+
+  # SoothBook: fills are automatic, no claim needed
+  # Check order history
+  - actor: alice
+    action: history
+    args: {}
+
+  - actor: bob
+    action: history
+    args: {}
+
+  # Final positions check
+  - actor: alice
+    action: positions
+    args: {}
+
+assertions:
+  - "orderbook.has_liquidity"
+  - "charlie.has_positions"
+  - "vault.solvent"
