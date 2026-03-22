@@ -1,1 +1,0 @@
-../.claude/rules/knowledge.md

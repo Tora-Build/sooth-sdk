@@ -1,1 +1,0 @@
-/Users/danieltang/.claude/skills/repo-librarian/SKILL.md

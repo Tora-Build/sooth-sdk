@@ -1,8 +1,0 @@
-{
-  "overrides": {
-    "example_market_id": {
-      "name": "Overridden Name",
-      "riskLevel": "HIGH"
-    }
-  }
-}
