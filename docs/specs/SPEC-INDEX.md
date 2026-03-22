@@ -107,7 +107,7 @@ Event when a market's `feesAccrued ≥ graduationThreshold` (where `threshold = 
 
 ### Adjudicator
 
-An autonomous contract implementing `IAdjudicator`, **built and deployed independently by a third party**. It monitors the real-world event, determines the outcome, and calls `TruthMarket.resolve(outcome, tStar)` to propose, `verifyAttestation()` to prove, and `settle()` to finalize. The adjudicator is appointed per-market by the **creator** at market creation. Users execute the final redemption via `AMMEngine.settlePosition()` or `matchingEngine.settlePosition()`. Adjudicator contracts are BSL-licensed.
+An autonomous contract implementing `IAdjudicator`, **built and deployed independently by a third party**. It monitors the real-world event, determines the outcome, and calls `TruthMarket.resolve(outcome, tStar)` to propose, `TruthMarket.attest()` to confirm, and `TruthMarket.settle()` to finalize. The adjudicator is configured per-market by `LaunchpadEngine.createMarket()` via `configureMarket(market, config)`. Users execute the final redemption via `AMMEngine.settlePosition()` or `matchingEngine.settlePosition()`. Base contracts (`AdjudicatorBase`, `IAdjudicator`) are in sooth-core (MIT); concrete implementations live in the soothsayer repo (BSL-1.1). Phase lifecycle: `IDLE → ACTIVE → RESOLVED → ATTESTED → SETTLED` (with `DISPUTED` branch for guardian vetoes).
 
 ### LP Token
 
@@ -244,10 +244,10 @@ Address approved by an adjudicator's owner via `AdjudicatorBase`. Guardians moni
      ┌───────────┐                   ┌───────────┐  resolve()
      │ REFUNDED  │                   │ RESOLVING │  (adjudicator proposes)
      └───────────┘                   └─────┬─────┘
-                                           │ verifyAttestation()
+                                           │ attest()
                                            ▼
                                      ┌───────────┐
-                                     │ RESOLVED  │  (Guardian can veto)
+                                     │ ATTESTED  │  (Guardian can dispute via adjudicator)
                                      └─────┬─────┘
                                            │ settle()
                                            ▼
@@ -304,7 +304,7 @@ Fee percentages (5% pre-grad, Dynamic post-grad) and splits (50/30/10/10) are co
 | `FeeRouter` | `src/FeeRouter.sol` (planned) | Unified fee calculation and distribution for all venues (AMM and matching engine). Handles pre/post-grad fee splits, LP minting, graduation trigger, trial accounting. |
 | `IMatchingEngine` | `src/interfaces/IMatchingEngine.sol` (planned) | Unified settlement interface implemented by both onchain and offchain matching engines. Handles post-graduation order matching and onchain settlement for both engine types. |
 | `SoothBook` | `src/SoothBook.sol` | **Onchain** `IMatchingEngine` implementation. 4-atomic orderbook, FIFO matching, internal position balances (no ERC20 tokens). One option per instance. |
-| `TruthMarket` | `src/TruthMarket.sol` | Per-market lifecycle authority (LIVE→RESOLVING→RESOLVED→SETTLED). Deployed as CREATE2 minimal proxy clone (~50k gas). Third-party adjudicators call `resolve()` / `settle()` directly on this address. |
+| `TruthMarket` | `src/TruthMarket.sol` | Per-market lifecycle authority (LIVE→RESOLVING→ATTESTED→SETTLED). Deployed as CREATE2 minimal proxy clone (~50k gas). Adjudicators call `resolve()` / `attest()` / `settle()` on this address. |
 | `TruthMarketImpl` | `src/TruthMarket.sol` (same) | Shared implementation for all TruthMarket clones. Deployed once per instance. Immutable in `LaunchpadEngine`. |
 | `LaunchpadLPToken` | `src/LaunchpadLPToken.sol` | ERC20 LP token, deployed per market at creation |
 | `IAdjudicator` | `src/interfaces/IAdjudicator.sol` | Interface all adjudicator contracts must implement (third-party) |
