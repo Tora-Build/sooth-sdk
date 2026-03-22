@@ -1,1 +1,0 @@
-/Users/danieltang/.claude/skills/codebase-auditor/SKILL.md

@@ -1,0 +1,55 @@
+# Updated for SoothBook V12 (was TickBook)
+# Basic Roundtrip Scenario
+# Tests the fundamental order placement, crossing, and auto-fill flow
+
+name: basic-roundtrip
+description: Place a limit order, cross it with market order, auto-fills
+
+steps:
+  # Setup: Alice gets funds and approves
+  - actor: alice
+    action: mint
+    args:
+      amount: "10000"
+
+  - actor: alice
+    action: approve
+    args:
+      contract: "soothbook"
+
+  # Alice places a YES limit order at tick 500 (40-60% range midpoint)
+  - actor: alice
+    action: buyyes
+    args:
+      tick: 500
+      amount: "100"
+
+  # Bob gets funds and approves
+  - actor: bob
+    action: mint
+    args:
+      amount: "10000"
+
+  - actor: bob
+    action: approve
+    args:
+      contract: "soothbook"
+
+  # Bob executes market order to buy NO (crosses Alice's YES order)
+  # Use tick 950 for aggressive taker order
+  - actor: bob
+    action: buyno
+    args:
+      tick: 950
+      amount: "50"
+
+  # SoothBook: fills are automatic, no claim needed
+  # Check final positions
+  - actor: alice
+    action: positions
+    args: {}
+
+assertions:
+  - "alice.positions.yes >= 0"
+  - "bob.positions.no >= 50"
+  - "vault.solvent"

@@ -1,233 +1,428 @@
-# Sooth Protocol Monorepo
+# Sooth SDK Core Unified Layer
 
-A unified prediction market protocol with **Launchpad Markets** — permissionless market creation with aligned incentives.
+Single canonical protocol interaction layer for Launchpad + AMM + SoothBook + settlement flows.
 
-**Current Version**: V11.1 (Trial Period, ERC20 LP, ValidatedAdjudicator)  
-**Codebase**: V11 | **Deployed**: V11.1 (Base Sepolia testing)  
-**Status**: Alpha (breaking changes allowed)
+Primary goals:
 
-## Active Deployments
+1. No missing features.
+2. No missing calculations.
+3. No missing protocol know-how across app surfaces.
 
-### Base Sepolia (chainId: 84532) - V11.1 (Active Testing)
-| Contract | Address |
-|----------|---------|
-| LaunchpadEngine | `0x3cfa2113c919c916e8334d245b157de937e76836` |
-| TickBookPoolManager | `0x61ddf4716a181658e2fa9efd98b93c634ac49cdd` |
-| TickBookVault | `0x667c100f8f5667177fce0e9566ffe1403fc7c6f7` |
-| AMMEngine | `0x1399d385d2861eb046d83ededb7f4ea3aaca2ef5` |
-| Collateralizer | `0x4deae2f0a39b84f57a28f07762e8b47085ed38de` |
-| ProtocolConfig | `0x4c76089b2ad28b2fc9c4d7a1c06eeb13d0336fc0` |
-| MockUSDC | `0xb4f46ed670ed6c4cf422ea61e06961d64a753e9d` |
+This SDK layer is built from parity review across:
 
-> **Note:** V11.1 deployed to Base Sepolia and Monad Testnet. MegaETH and Arc remain at V10.9.
+- `apps/market` (primary SoothBook trading reference)
+- `apps/demo` (reference-heavy Launchpad/AMM surface)
+- `apps/lens` (adapter flow constraints)
+- `apps/telegram/webapp` (current live integration testbed / "white rat")
 
-### Monad Testnet (chainId: 10143) - V11.1
-| Contract | Address |
-|----------|---------|
-| LaunchpadEngine | `0x744724aa5b389644f31dfcfbb67786b581602084` |
-| TickBookPoolManager | `0xcc8fbc38af3510c9b28941298b5bdd481a7698b4` |
-| TickBookVault | `0x93c9ee74896f1f7854a35003d92c9e7b54c0f296` |
-| AMMEngine | `0x67147bc54df45ce43cb88b735043c496047596a7` |
-| Collateralizer | `0x57992a707c285971a22dffc3106118331b5e632f` |
-| ProtocolConfig | `0x6784f9b2e3a629c94cc05b441b6fdec4a6890830` |
-| MockUSDC | `0x3b2f5a6e16cb5d5cf277f8718a9add3af0b1222a` |
+## Phase Status
 
-### MegaETH Testnet (chainId: 6343) - V10.9
-| Contract | Address |
-|----------|---------|
-| LaunchpadEngine | `0xa2b2653124cb98b4d83a8a314e5e0bef2621832f` |
-| TickBookPoolManager | `0xf52a8e9f5defcc6fe0e66b523d29ad7cfc3af530` |
-| TickBookVault | `0x5b9a8b49d5616326bd61ac57b429cbf84e8cc756` |
-| AMMEngine | `0x61470420cc117e9460aae3bdc6cdf77c443ac09c` |
-| Collateralizer | `0xe928d0cf62a98f2e24e65978ae487f562749305a` |
-| MockUSDC | `0x57bda4319c306a68054f25017183030752f97d63` |
+`Phase 1`, `Phase 2`, and `Phase 3` roadmap items are implemented in one shot.
 
-### Arc Testnet (chainId: 5042002) - V10.9
-| Contract | Address |
-|----------|---------|
-| LaunchpadEngine | `0x625b4b2997232380126f0aecd84867086f89b27e` |
-| TickBookPoolManager | `0x8ba9751284d77ed59f46ea877577e6430bc30209` |
-| TickBookVault | `0x1695ac9983f457e446d8f903d7c4061fbc7907f8` |
-| AMMEngine | `0x0f0dd0be87f6ab153e732039469fe64353b95dbb` |
-| Collateralizer | `0x0313af9c18e3c954f42b771a6d301fbbc6ad60a5` |
-| MockUSDC | `0x805825e6af09178ea699a32a8d6cc5ca3637df80` |
+Implemented scope:
 
-## Structure
+- SoothBook quote helper (indicative, centralized math).
+- SoothBook write builders (buy/sell/cancel/mint/merge/redeem).
+- Pre-bound client factory with shared API surface.
+- Batch snapshot API.
+- Snapshot-based quote convenience path.
+- Claim/settlement request builder.
+- AMM user position in snapshot.
+- Trade preflight + error classification.
+- Approval helper.
+- Indexed provider architecture hooks.
 
-```
-sooth-alpha/
-├── apps/
-│   └── web/                      # Frontend dApp (Vite + React 18)
-├── packages/
-│   ├── contracts-core/           # Solidity smart contracts (Foundry) - Audit scope
-│   ├── contracts-core/        # Contract tests, CLI & deployment scripts
-│   ├── indexer/                  # Ponder indexer for orderbook data
-│   └── keeper/                   # Arbitrage keeper bot for TickBook
-├── .agent/                       # Agent workflows and knowledge base
-├── package.json                  # pnpm workspace root
-├── pnpm-workspace.yaml
-└── turbo.json                    # Build pipeline
-```
+## Canonical Source Files
 
-## Quick Start
+- `packages/sdk/src/core/contracts/launchpadAmm.ts`
+- `packages/sdk/src/core/contracts/soothCore.ts`
+- `packages/sdk/src/core/contracts/index.ts`
 
-### Prerequisites
+## Non-Negotiable Protocol Invariants
 
-- **Node.js** 18+
-- **pnpm** 9+ (`npm install -g pnpm`)
-- **Foundry** (`curl -L https://foundry.paradigm.xyz | bash`)
-- **Bun** (for deployment scripts: `curl -fsSL https://bun.sh/install | bash`)
+### Outcome Encoding
 
-### Setup
+- `0 = NO`
+- `1 = YES`
+- `2 = INVALID`
 
-```bash
-# Install all dependencies
-pnpm install
+Do not remap outcome values in app adapters.
 
-# Build everything
-pnpm build
-```
+### Launchpad Trade Encoding
 
-### Development
+Launchpad/AMM uses signed shares:
 
-```bash
-# Start web + indexer (parallel)
-pnpm dev
+- Buy => `deltaShares > 0`
+- Sell => `deltaShares < 0`
 
-# Or individually
-pnpm dev:web        # → http://localhost:5173
-pnpm dev:indexer    # → http://localhost:42069
-```
+Use SDK builder only:
 
-**Contracts:**
+- `buildLaunchpadTradeRequest(...)`
+- `buildTradeRequest(...)`
 
-```bash
-# Build
-pnpm build
+### Slippage Guard Semantics
 
-# Test
-pnpm test:contracts
+Guard arg is always `maxCostOrMinProceeds`:
 
-# Deploy
-pnpm deploy:contracts
-```
+- Buy => max cost ceiling
+- Sell => min proceeds floor
 
-**Interactive CLI:**
+Canonical helper:
 
-```bash
-pnpm dev:cli:base      # Base Sepolia
-pnpm dev:cli:monad     # Monad Testnet
-pnpm dev:cli:arc       # Arc Testnet
-pnpm dev:cli:megaeth   # MegaETH Testnet
+- `applySlippageToAmount({ action, amount, slippageBps })`
+
+No hidden extra app-level buffers.
+
+### Fee Composition
+
+AMM quote is raw LMSR cost. Launchpad fee is layered on top:
+
+- pre-grad fee: `preGradFeeBps`
+- post-grad fee: `postGradFeeBps`
+- selected via market graduation state
+
+Canonical quoting:
+
+- `readLaunchpadAmmQuote(...)`
+- `readLaunchpadAmmQuoteFromSnapshot(...)`
+
+### Venue Selection
+
+Canonical venue route:
+
+- Settled/finalized => non-trading lifecycle (claims/redeem domain)
+- Graduated + active SoothBook => `soothbook`
+- Else => `amm`
+
+Use `selectTradingVenue(...)`.
+
+## Core API
+
+Import path:
+
+```ts
+import {
+  createSoothClient,
+  readSoothCoreSnapshot,
+  readSoothCoreSnapshots,
+  readSoothQuote,
+  readSoothBookQuote,
+  buildTradeRequest,
+  buildClaimRequest,
+  readApprovalRequest,
+  preflightTrade,
+} from '@sooth/sdk/core/contracts';
 ```
 
-**Keeper Bot:**
+### 1) Pre-Bound Client Factory
 
-```bash
-PRIVATE_KEY=0x... pnpm dev:keeper:base
-PRIVATE_KEY=0x... pnpm dev:keeper:monad
-PRIVATE_KEY=0x... pnpm dev:keeper:arc
-PRIVATE_KEY=0x... pnpm dev:keeper:megaeth
+```ts
+const sooth = createSoothClient({
+  mode: 'rpc',
+  publicClient,
+  contracts: {
+    launchpadEngine: '0x...',
+    ammEngine: '0x...',
+    collateralizer: '0x...',
+    soothBook: '0x...',
+  },
+});
+
+const snapshot = await sooth.getSnapshot(marketAddress);
+const snapshots = await sooth.getSnapshots([marketA, marketB, marketC]);
 ```
 
-## Architecture (V10 Unified Crossing)
+### 2) Indexed Provider Mode Hook
 
-V10 introduces unified crossing where `placeOrder` natively crosses both Spot Sells and Range Orders:
+`createSoothClient` supports `mode: 'indexed'` with a provider contract.
 
+```ts
+const sooth = createSoothClient({
+  mode: 'indexed',
+  indexedProvider: {
+    getSnapshot: async (market) => fetchSnapshot(market),
+    getSnapshots: async (markets) => fetchSnapshots(markets),
+    getQuote: async (market, options) => fetchQuote(market, options),
+    listMarkets: async () => fetchMarketAddresses(),
+  },
+  // optional RPC fallback for quote recomputation / tx prep:
+  publicClient,
+  contracts,
+});
 ```
-TruthMarket (lifecycle + settlement)
-  ↑ (queried by)
-LaunchpadEngine (creator economics, graduation mechanics)
-  ↓ (delegates to)
-AMMEngine (LMSR positions for pre-graduation)
-TickBookPoolManager (unified orderbook: spot + range liquidity)
-  ↓ (manages)
-TickBookVault (USDC + outcome token custody)
-Collateralizer (split/merge/redeem for graduated markets)
+
+This keeps app hooks stable while data source changes from direct RPC to indexer-backed reads.
+
+### 3) Snapshot APIs
+
+Single:
+
+```ts
+const snapshot = await readSoothCoreSnapshot(publicClient, contracts, marketAddress, {
+  userAddress,
+});
 ```
 
-### Key Concepts
+Batch:
 
-| Concept | Description |
-|---------|-------------|
-| **TruthMarket** | Canonical lifecycle + settlement authority |
-| **LaunchpadEngine** | Creator deposit + fee distribution + graduation |
-| **AMMEngine** | LMSR trading logic for pre-graduation markets |
-| **TickBookPoolManager** | V10 unified orderbook (spot-first, then range crossing) |
-| **TickBookVault** | User fund custody (USDC + outcome tokens) |
-| **Collateralizer** | Token split/merge/redeem operations |
+```ts
+const snapshots = await readSoothCoreSnapshots(publicClient, contracts, marketAddresses, {
+  userAddress,
+});
+```
 
-## Packages
+AMM user positions are included in snapshot when `userAddress` is provided:
 
-### `apps/web`
+- `snapshot.launchpadAmm.amm.userYesShares`
+- `snapshot.launchpadAmm.amm.userNoShares`
 
-Vite + React 18 dApp with:
+### 4) Quote APIs
 
-- Wagmi v2 + Viem for Web3 connectivity
-- Zustand for state management
-- CSS variables for theming
+#### AMM Quote from Snapshot (preferred app path)
 
-### `packages/contracts-core`
+```ts
+const quote = await sooth.getAmmQuote(snapshot.launchpadAmm, {
+  action: 'buy',
+  outcome: 1,
+  shares: 5n * 10n ** 18n,
+});
+```
 
-Foundry project containing the **audit scope**:
+#### SoothBook Quote (indicative)
 
-- `TickBookPoolManager` — V10 unified orderbook with spot-first crossing
-- `TickBookVault` — User fund custody
-- `LaunchpadEngine` — Market creation + graduation
-- `AMMEngine` — LMSR trading (pre-graduation)
-- `Collateralizer` — Token management
-- `TruthMarket` — Lifecycle + settlement
+```ts
+const quote = await readSoothBookQuote(publicClient, contracts, marketAddress, {
+  action: 'buy',
+  outcome: 1,
+  shares: 5n * 10n ** 18n,
+});
+// quote.isIndicative === true
+```
 
-### `packages/contracts-core`
+#### Unified Venue-Aware Quote
 
-Testing & deployment tools:
+```ts
+const quote = await readSoothQuote(publicClient, contracts, marketAddress, {
+  action: 'buy',
+  outcome: 1,
+  shares: 5n * 10n ** 18n,
+});
+```
 
-- Forge test suites (79 tests)
-- Interactive CLI for on-chain testing
-- Deployment scripts (multi-chain)
+`readSoothQuote` uses canonical venue routing and returns AMM or SoothBook quote shape with explicit `venue` and `isIndicative`.
 
-## Agent Workflows
+### 5) Trade Request Builders
 
-This repo supports **scoped agent contexts** for different developer roles:
+Unified:
 
-| Role         | Command         | Focus                      |
-| ------------ | --------------- | -------------------------- |
-| EVM Dev      | `/evm-dev`      | Solidity contracts         |
-| Frontend Dev | `/frontend-dev` | React dApp                 |
-| Full-Stack   | `/fullstack-dev`| Cross-package features     |
-| Librarian    | `/librarian`    | Docs & cleanup             |
-| Preflight    | `/preflight`    | Session startup checklist  |
+```ts
+const request = buildTradeRequest({
+  marketAddress,
+  action: 'buy',
+  outcome: 1,
+  shares,
+  maxCostOrMinProceeds,
+  snapshot, // optional; used for venue + default SoothBook tick
+});
+```
 
-Run `/preflight` at session start to load context.
+AMM-only:
 
-## Scripts
+```ts
+const request = buildLaunchpadTradeRequest({
+  marketAddress,
+  action: 'sell',
+  outcome: 0,
+  shares,
+  maxCostOrMinProceeds,
+});
+```
 
-| Script | Description |
-|--------|-------------|
-| `pnpm dev` | Start web + indexer (parallel) |
-| `pnpm dev:web` | Start web only |
-| `pnpm dev:indexer` | Start indexer only |
-| `pnpm build` | Build all packages |
-| `pnpm test` | Run all tests |
-| `pnpm test:contracts` | Run forge tests |
-| `pnpm deploy:contracts` | Deploy contracts |
-| `pnpm dev:cli:base` | Interactive CLI (Base Sepolia) |
-| `pnpm dev:cli:monad` | Interactive CLI (Monad Testnet) |
-| `pnpm dev:cli:arc` | Interactive CLI (Arc Testnet) |
-| `pnpm dev:cli:megaeth` | Interactive CLI (MegaETH Testnet) |
-| `pnpm dev:keeper:base` | Keeper bot (Base Sepolia) |
-| `pnpm dev:keeper:monad` | Keeper bot (Monad Testnet) |
-| `pnpm dev:keeper:arc` | Keeper bot (Arc Testnet) |
-| `pnpm dev:keeper:megaeth` | Keeper bot (MegaETH Testnet) |
+SoothBook buy:
 
-## Key Files
+```ts
+const request = buildSoothBookBuyRequest({
+  marketAddress,
+  outcome: 1,
+  tick: 540,
+  amount: shares,
+  maxCost,
+});
+```
 
-- `STATUS.md` — Current project state & deployments
-- `CHANGELOG.md` — Release history
-- `DECISIONS.md` — Architecture decisions (ADRs)
-- `.agent/KNOWLEDGE.md` — Protocol facts and formulas
-- `.agent/LESSONS_LEARNED.md` — Mistakes to avoid
+SoothBook sell/cancel/mint/merge/redeem:
 
-## License
+```ts
+const sell = buildSoothBookSellRequest({
+  marketAddress,
+  outcome: 1, // selling YES
+  tick: 460,  // opposite-side tick
+  amount: shares,
+});
 
-MIT
+const cancel = buildSoothBookCancelRequest({
+  marketAddress,
+  side: 1,
+  tick: 540,
+});
+
+const cancelById = buildSoothBookCancelByIdRequest({ orderId: 42n });
+const mint = buildSoothBookMintRequest({ marketAddress, amount: shares });
+const merge = buildSoothBookMergeRequest({ marketAddress, amount: shares });
+const redeem = buildSoothBookRedeemRequest({ marketAddress });
+```
+
+Max-cost helper for SoothBook limit/taker paths:
+
+```ts
+const maxCost = computeSoothBookMaxCost({
+  tick: 540,
+  amount: shares,
+  slippageBps: 500, // default 5%
+});
+```
+
+### 6) Claim / Settlement Builder
+
+Canonical lifecycle routing:
+
+1. Dismissed trial => `LaunchpadEngine.claimRefund`
+2. SoothBook finalized position => `SoothBook.redeem`
+3. Graduated collateral redemption => `Collateralizer.redeemOutcome` (handles INVALID dual-redeem case)
+4. Pre-grad AMM position => `AMMEngine.settlePosition`
+
+```ts
+const plan = buildClaimRequest(snapshot, contracts);
+if (plan) {
+  for (const tx of plan.requests) {
+    // execute tx.contract + tx.functionName + tx.args
+  }
+}
+```
+
+### 7) Trade Preflight and Error Classification
+
+```ts
+const preflight = preflightTrade(snapshot, {
+  action: 'buy',
+  outcome: 1,
+  shares,
+  userBalance: usdcBalance,
+  maxCostOrMinProceeds: maxCost,
+});
+```
+
+Possible failures include:
+
+- `invalid_outcome`
+- `invalid_shares`
+- `market_not_active`
+- `market_settled`
+- `market_dismissed`
+- `venue_unavailable`
+- `insufficient_balance`
+- `invalid_guard`
+
+Error parser:
+
+```ts
+const parsed = classifyTradeError(error);
+// { code: 'insufficient_balance' | 'slippage_exceeded' | ... , message }
+```
+
+### 8) Approval Helper
+
+Read + build in one step:
+
+```ts
+const approval = await readApprovalRequest(publicClient, {
+  tokenAddress: collateralToken,
+  owner: userAddress,
+  spender: spenderAddress,
+  amount: maxCost,
+});
+
+if (approval) {
+  // call ERC20 approve(approval.args[0], approval.args[1])
+}
+```
+
+Pure builder (if allowance already known):
+
+```ts
+const approval = buildApprovalRequest({
+  tokenAddress,
+  spender,
+  amount,
+  allowance,
+});
+```
+
+## Decimal Handling
+
+### Internal Standard
+
+SDK economics use WAD (`1e18`) for:
+
+- shares
+- quote values
+- fee values
+- slippage guards
+
+### Contract Boundary
+
+Boundary conversion must be explicit (token units <-> WAD):
+
+- use `tokenUnitsToWad(...)` and `wadToTokenUnits(...)` from `@sooth/sdk/core/utils`
+- never silently mix token decimals in quote/trade math
+
+### Practical Notes
+
+- Base Sepolia MockUSDC in current environments may be 18 decimals.
+- Real USDC is 6 decimals.
+- Do not hardcode collateral decimals in app logic.
+
+## Adapter Rules (Mandatory)
+
+App hooks/components are adapters, not protocol logic engines.
+
+Allowed in app layer:
+
+- wallet UX
+- loading/error states
+- query invalidation
+- formatting / i18n
+
+Not allowed in app layer:
+
+- fee math duplication
+- slippage formula duplication
+- outcome remapping
+- trade arg assembly duplication
+- claim route re-implementation
+
+## Conformance Checklist
+
+An app is conformant only if all pass:
+
+1. Uses `readSoothCoreSnapshot` / `readSoothCoreSnapshots` for lifecycle state.
+2. Uses SDK quote APIs (`readSoothQuote`, `readLaunchpadAmmQuoteFromSnapshot`, `readSoothBookQuote`).
+3. Uses SDK request builders for tx args.
+4. Uses `applySlippageToAmount`.
+5. Uses `buildClaimRequest` for claim route selection.
+6. Uses SDK preflight + approval helpers instead of local duplicates.
+7. Keeps decimals handling at boundaries only.
+
+## Validation
+
+Validated locally:
+
+- `pnpm --filter @sooth/sdk build`
+- `pnpm --filter @sooth/telegram build:webapp`
+
+Both pass.
+
+## Notes
+
+- SoothBook quote remains indicative until full depth simulation is introduced on-chain or in indexer execution.
+- Indexed mode is an abstraction hook; it intentionally does not force a specific backend implementation.

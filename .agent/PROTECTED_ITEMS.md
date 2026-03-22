@@ -1,1 +1,0 @@
-../.claude/rules/protected.md
