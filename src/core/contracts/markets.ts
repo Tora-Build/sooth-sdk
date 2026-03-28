@@ -48,30 +48,27 @@ export async function getMarketDetails(
       abi: LaunchpadEngineABI,
       functionName: 'markets',
       args: [marketAddress],
-    }) as readonly [Address, Address, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
+    }) as readonly [Address, Address, bigint, bigint, bigint];
 
-    const [
-      creator, lpToken, bBase, bCurrent, creatorDeposit,
-      , , , isGraduated, createdAt,
-    ] = marketsMapping;
+    const [creator, lpToken, bBase, creatorDeposit] = marketsMapping;
 
-    // Fetch question + settlement state
-    const [question, isSettled, isFinalized, trialState, winOutcome] = await Promise.all([
+    // Fetch question + settlement state + graduation
+    const [question, isSettled, isFinalized, isGraduated, winOutcome] = await Promise.all([
       client.readContract({ address: marketAddress, abi: TruthMarketABI, functionName: 'question' }).catch(() => marketAddress.slice(2, 10).toUpperCase()),
       client.readContract({ address: marketAddress, abi: TruthMarketABI, functionName: 'isSettled' }).catch(() => false),
       client.readContract({ address: marketAddress, abi: TruthMarketABI, functionName: 'isFinalized' }).catch(() => false),
-      client.readContract({ address: launchpadEngine, abi: LaunchpadEngineABI, functionName: 'trialStates', args: [marketAddress] }).catch(() => null),
+      client.readContract({ address: launchpadEngine, abi: LaunchpadEngineABI, functionName: 'isGraduated', args: [marketAddress] }).catch(() => false),
       client.readContract({ address: marketAddress, abi: TruthMarketABI, functionName: 'winningOutcome' }).catch(() => null),
     ]);
 
-    const isDismissed = trialState ? (trialState as readonly [bigint, boolean, bigint])[1] : false;
+    const isDismissed = false; // trialStates removed in v0.1.0
     const winningOutcome = (isSettled || isFinalized) && winOutcome !== null ? Number(winOutcome) : null;
 
     let stage: SdkMarket['stage'];
     if (isDismissed) stage = 'dismissed';
     else if (isFinalized as boolean) stage = 'finalized';
     else if (isSettled as boolean) stage = 'settled';
-    else if (isGraduated) stage = 'live';
+    else if (isGraduated as boolean) stage = 'live';
     else stage = 'bonding';
 
     return {
@@ -79,14 +76,14 @@ export async function getMarketDetails(
       question: question as string,
       creator,
       lpToken,
-      isGraduated,
+      isGraduated: isGraduated as boolean,
       isSettled: isSettled as boolean,
       isFinalized: isFinalized as boolean,
       isDismissed,
       winningOutcome,
-      createdAt,
+      createdAt: 0n,
       bBase,
-      bCurrent,
+      bCurrent: 0n,
       creatorDeposit,
       stage,
     };

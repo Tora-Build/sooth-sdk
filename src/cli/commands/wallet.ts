@@ -17,9 +17,8 @@ const OrderEngineAbi = parseAbi([
 
 
 const LaunchpadEngineAbi = parseAbi([
-  'function markets(address) view returns (address creator, address lpToken, uint256 bBase, uint256 bCurrent, uint256 creatorDeposit, uint256 feesAccrued, uint256 totalLPSupply, uint256 lpYieldPool, bool isGraduated, uint64 createdAt, uint64 graduatedAt)',
-  'function trialStates(address market) view returns (uint64 trialEndTime, bool isDismissed, uint256 totalLockedCost)',
-  'function protocolTreasury() view returns (address)',
+  'function markets(address) view returns (address creator, address lpToken, uint256 bBase, uint256 creatorDeposit, uint64 graduatedAt)',
+  'function isGraduated(address market) view returns (bool)',
 ]);
 
 const TruthMarketAbi = parseAbi([
@@ -29,6 +28,7 @@ const TruthMarketAbi = parseAbi([
 
 const AMMEngineAbi = parseAbi([
   'function getPosition(address market, address user) view returns (uint256 yesShares, uint256 noShares)',
+  'function protocolTreasury() view returns (address)',
 ]);
 
 const ERC20Abi = parseAbi([
@@ -345,13 +345,13 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
 
   if (marketAddress) {
     try {
-      const [marketState, isSettled, trialState] = await Promise.all([
+      const [marketState, isSettled, isGraduated] = await Promise.all([
         publicClient.readContract({
           address: deployment.contracts.LaunchpadEngine as `0x${string}`,
           abi: LaunchpadEngineAbi,
           functionName: 'markets',
           args: [marketAddress],
-        }) as Promise<[string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint]>,
+        }) as Promise<[string, string, bigint, bigint, bigint]>,
         publicClient.readContract({
           address: marketAddress,
           abi: TruthMarketAbi,
@@ -360,13 +360,12 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
         publicClient.readContract({
           address: deployment.contracts.LaunchpadEngine as `0x${string}`,
           abi: LaunchpadEngineAbi,
-          functionName: 'trialStates',
+          functionName: 'isGraduated',
           args: [marketAddress],
-        }).catch(() => [0n, false, 0n]) as Promise<readonly [bigint, boolean, bigint]>,
+        }).catch(() => false) as Promise<boolean>,
       ]);
 
-      const [, lpTokenAddress, , , creatorDeposit, feesAccrued, totalLPSupply, lpYieldPool, isGraduated] = marketState;
-      const [, isDismissed] = trialState;
+      const [, lpTokenAddress, , creatorDeposit] = marketState;
 
       let winningOutcome = -1;
       if (isSettled) {
@@ -380,14 +379,14 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
       snap.market = {
         address: marketAddress,
         creatorDeposit,
-        feesAccrued,
-        totalLPSupply,
+        feesAccrued: 0n,
+        totalLPSupply: 0n,
         lpTokenAddress,
-        lpYieldPool,
+        lpYieldPool: 0n,
         isSettled,
         winningOutcome,
         isGraduated,
-        isDismissed,
+        isDismissed: false,
       };
     } catch (e) {
       console.log(dim('  Could not fetch market state'));
@@ -453,8 +452,8 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
   }
 
   const protocolTreasuryAddr = await publicClient.readContract({
-    address: deployment.contracts.LaunchpadEngine as `0x${string}`,
-    abi: LaunchpadEngineAbi,
+    address: deployment.contracts.AMMEngine as `0x${string}`,
+    abi: AMMEngineAbi,
     functionName: 'protocolTreasury',
   }) as `0x${string}`;
 
@@ -632,13 +631,13 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
 
   if (marketAddress) {
     try {
-      const [marketState, isSettled, trialState] = await Promise.all([
+      const [marketState, isSettled, isGraduated] = await Promise.all([
         publicClient.readContract({
           address: deployment.contracts.LaunchpadEngine as `0x${string}`,
           abi: LaunchpadEngineAbi,
           functionName: 'markets',
           args: [marketAddress],
-        }) as Promise<[string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint]>,
+        }) as Promise<[string, string, bigint, bigint, bigint]>,
         publicClient.readContract({
           address: marketAddress,
           abi: TruthMarketAbi,
@@ -647,13 +646,12 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
         publicClient.readContract({
           address: deployment.contracts.LaunchpadEngine as `0x${string}`,
           abi: LaunchpadEngineAbi,
-          functionName: 'trialStates',
+          functionName: 'isGraduated',
           args: [marketAddress],
-        }).catch(() => [0n, false, 0n]) as Promise<readonly [bigint, boolean, bigint]>,
+        }).catch(() => false) as Promise<boolean>,
       ]);
 
-      const [, lpTokenAddress, , , creatorDeposit, feesAccrued, totalLPSupply, lpYieldPool, isGraduated] = marketState;
-      const [, isDismissed] = trialState;
+      const [, lpTokenAddress, , creatorDeposit] = marketState;
 
       let winningOutcome = -1;
       if (isSettled) {
@@ -667,14 +665,14 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
       after.market = {
         address: marketAddress,
         creatorDeposit,
-        feesAccrued,
-        totalLPSupply,
+        feesAccrued: 0n,
+        totalLPSupply: 0n,
         lpTokenAddress,
-        lpYieldPool,
+        lpYieldPool: 0n,
         isSettled,
         winningOutcome,
         isGraduated,
-        isDismissed,
+        isDismissed: false,
       };
     } catch {}
   }
