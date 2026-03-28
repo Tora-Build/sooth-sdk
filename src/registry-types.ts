@@ -4,9 +4,11 @@ export interface SoothContracts {
   launchpadEngine: Address;
   soothBook: Address;
   ammEngine: Address;
-  collateralizer: Address;
-  usdc: Address;
-  protocolConfig: Address;
+  orderEngine: Address;
+  truthMarket: Address;
+  feeRouter: Address;
+  adjudicatorRegistry: Address;
+  baseToken: Address;
 }
 
 export interface SoothNode {
@@ -16,7 +18,7 @@ export interface SoothNode {
   contracts: SoothContracts;
   deployedAt: string;
   deployedBy: Address;
-  startBlock: number;
+  startBlock?: number;
   indexed?: boolean;
 }
 

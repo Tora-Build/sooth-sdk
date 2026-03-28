@@ -50,6 +50,21 @@ export const megaethTestnet: Chain = {
   testnet: true,
 };
 
+export const hyperEvmTestnet: Chain = {
+  id: 998,
+  name: 'HyperEVM Testnet',
+  nativeCurrency: { name: 'HYPE', symbol: 'HYPE', decimals: 18 },
+  rpcUrls: {
+    default: {
+      http: ['https://rpc.hyperliquid-testnet.xyz/evm'],
+    },
+  },
+  blockExplorers: {
+    default: { name: 'Purrsec', url: 'https://testnet.purrsec.com' },
+  },
+  testnet: true,
+};
+
 function resolveNodeId(input: string): string {
   const trimmed = input.trim();
   if (!/^[0-9a-f]{8}$/i.test(trimmed)) {
@@ -72,10 +87,13 @@ export interface Deployment {
   coreVersion: string;
   contracts: {
     SoothBook?: string;
-    MockUSDC: string;
-    Collateralizer: string;
+    BaseToken: string;
+    OrderEngine: string;
     AMMEngine: string;
     LaunchpadEngine: string;
+    TruthMarket: string;
+    FeeRouter: string;
+    AdjudicatorRegistry: string;
     [key: string]: string | undefined;
   };
   markets: Array<{
@@ -96,11 +114,13 @@ function nodeToDeployment(node: SoothNode, chain: ChainMeta): Deployment {
     coreVersion: node.coreVersion,
     contracts: {
       SoothBook: node.contracts.soothBook,
-      MockUSDC: node.contracts.usdc,
-      Collateralizer: node.contracts.collateralizer,
+      BaseToken: node.contracts.baseToken,
+      OrderEngine: node.contracts.orderEngine,
       AMMEngine: node.contracts.ammEngine,
       LaunchpadEngine: node.contracts.launchpadEngine,
-      ProtocolConfig: node.contracts.protocolConfig,
+      TruthMarket: node.contracts.truthMarket,
+      FeeRouter: node.contracts.feeRouter,
+      AdjudicatorRegistry: node.contracts.adjudicatorRegistry,
     },
     markets: [],
   };
@@ -156,7 +176,7 @@ export function createConfig(nodeIdInput: string): InteractiveConfig {
 
 // Contract ABIs (minimal for interactive testing)
 export const ABIS = {
-  MockUSDC: [
+  BaseToken: [
     { name: 'mint', type: 'function', inputs: [{ type: 'address', name: 'to' }, { type: 'uint256', name: 'amount' }], outputs: [], stateMutability: 'nonpayable' },
     { name: 'approve', type: 'function', inputs: [{ type: 'address', name: 'spender' }, { type: 'uint256', name: 'amount' }], outputs: [{ type: 'bool' }], stateMutability: 'nonpayable' },
     { name: 'balanceOf', type: 'function', inputs: [{ type: 'address', name: 'account' }], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
