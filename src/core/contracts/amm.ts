@@ -104,7 +104,7 @@ export async function getAmmQuote(
     abi: AMMEngineABI,
     functionName: 'getPositionQuote',
     args: [marketAddress, outcome, deltaShares],
-  }) as readonly [bigint, bigint];
+  }) as readonly [bigint, bigint, bigint, bigint];
 
-  return { cost: result[0], newPrice: result[1] };
+  return { cost: result[0], newPrice: result[3] };
 }

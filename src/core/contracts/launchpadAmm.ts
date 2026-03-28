@@ -123,25 +123,16 @@ export interface ReadLaunchpadAmmQuoteFromSnapshotOptions {
 }
 
 type LaunchpadMarketsMapping = readonly [
-  Address,
-  Address,
-  bigint,
-  bigint,
-  bigint,
-  bigint,
-  bigint,
-  bigint,
-  boolean,
-  bigint,
-  bigint,
+  Address,   // creator
+  Address,   // lpToken
+  bigint,    // bBase
+  bigint,    // creatorDeposit
+  bigint,    // graduatedAt
 ];
 
-type LaunchpadMarketState = readonly [Address, bigint, bigint, bigint, boolean, bigint];
-type LaunchpadGraduationProgress = readonly [bigint, bigint, bigint];
-type LaunchpadTrialState = readonly [bigint, boolean, bigint];
 type AmmMarketState = readonly [bigint, bigint, bigint];
 type AmmPosition = readonly [bigint, bigint];
-type AmmQuote = readonly [bigint, bigint];
+type AmmQuote = readonly [bigint, bigint, bigint, bigint];
 
 function clampProbability(value: number): number {
   if (!Number.isFinite(value)) return 0.5;
@@ -279,27 +270,13 @@ export async function readLaunchpadAmmSnapshot(
     0n,
     0n,
     0n,
-    0n,
-    0n,
-    0n,
-    false,
-    0n,
-    0n,
   ];
-  const emptyLaunchpadState: LaunchpadMarketState = [ZERO_ADDRESS, 0n, 0n, 0n, false, 0n];
-  const emptyProgress: LaunchpadGraduationProgress = [0n, 0n, 0n];
-  const emptyTrialState: LaunchpadTrialState = [0n, false, 0n];
   const emptyAmmState: AmmMarketState = [0n, 0n, WAD / 2n];
 
   const [
     liquidity,
-    launchpadState,
     marketsMapping,
-    progress,
-    preGradFeeBps,
-    postGradFeeBps,
-    trialState,
-    userLockedCost,
+    isGraduated,
     userPosition,
   ] = await Promise.all([
     client.readContract({
@@ -308,16 +285,6 @@ export async function readLaunchpadAmmSnapshot(
       functionName: 'getLiquidity',
       args: [marketAddress],
     }) as Promise<bigint>,
-    readWithFallback(
-      () =>
-        client.readContract({
-          address: contracts.launchpadEngine,
-          abi: LaunchpadEngineABI,
-          functionName: 'getMarketState',
-          args: [marketAddress],
-        }) as Promise<LaunchpadMarketState>,
-      emptyLaunchpadState,
-    ),
     readWithFallback(
       () =>
         client.readContract({
@@ -333,51 +300,11 @@ export async function readLaunchpadAmmSnapshot(
         client.readContract({
           address: contracts.launchpadEngine,
           abi: LaunchpadEngineABI,
-          functionName: 'getGraduationProgress',
+          functionName: 'isGraduated',
           args: [marketAddress],
-        }) as Promise<LaunchpadGraduationProgress>,
-      emptyProgress,
+        }) as Promise<boolean>,
+      false,
     ),
-    readWithFallback(
-      () =>
-        client.readContract({
-          address: contracts.launchpadEngine,
-          abi: LaunchpadEngineABI,
-          functionName: 'preGradFeeBps',
-        }) as Promise<number | bigint>,
-      Number(DEFAULT_PRE_GRAD_FEE_BPS),
-    ),
-    readWithFallback(
-      () =>
-        client.readContract({
-          address: contracts.launchpadEngine,
-          abi: LaunchpadEngineABI,
-          functionName: 'postGradFeeBps',
-        }) as Promise<number | bigint>,
-      Number(DEFAULT_POST_GRAD_FEE_BPS),
-    ),
-    readWithFallback(
-      () =>
-        client.readContract({
-          address: contracts.launchpadEngine,
-          abi: LaunchpadEngineABI,
-          functionName: 'trialStates',
-          args: [marketAddress],
-        }) as Promise<LaunchpadTrialState>,
-      emptyTrialState,
-    ),
-    options.userAddress
-      ? readWithFallback(
-          () =>
-            client.readContract({
-              address: contracts.launchpadEngine,
-              abi: LaunchpadEngineABI,
-              functionName: 'userLockedCost',
-              args: [marketAddress, options.userAddress!],
-            }) as Promise<bigint>,
-          0n,
-        )
-      : Promise.resolve(0n),
     options.userAddress
       ? readWithFallback(
           () =>
@@ -413,34 +340,17 @@ export async function readLaunchpadAmmSnapshot(
   const noProbability = clampProbability(1 - yesProbability);
   const maxSafeTradeSharesWad = liquidity > 0n ? liquidity * 45n : 0n;
 
-  const mappingCreator = marketsMapping[0];
-  const mappingHasData = mappingCreator !== ZERO_ADDRESS;
-  const [stateCreator, stateBBase, stateBCurrent, stateSupply, stateIsGraduated, floorValue] = launchpadState;
-
-  const creator = mappingHasData ? mappingCreator : stateCreator;
+  const creator = marketsMapping[0];
   const lpToken = marketsMapping[1];
-  const bBase = mappingHasData ? marketsMapping[2] : stateBBase;
-  const bCurrent = mappingHasData ? marketsMapping[3] : stateBCurrent;
-  const creatorDeposit = marketsMapping[4];
-  const feesAccruedFromProgress = progress[0];
-  const feesAccruedFromMapping = marketsMapping[5];
-  const feesAccrued = feesAccruedFromProgress > 0n ? feesAccruedFromProgress : feesAccruedFromMapping;
-  const graduationThreshold = progress[1];
-  const graduationProgressBps = progress[2];
-  const totalLPSupply = mappingHasData ? marketsMapping[6] : stateSupply;
-  const lpYieldPool = marketsMapping[7];
-  const isGraduated = mappingHasData ? marketsMapping[8] || stateIsGraduated : stateIsGraduated;
-  const createdAt = marketsMapping[9];
-  const graduatedAt = marketsMapping[10];
-  const preGradFeeBpsBig = toBigInt(preGradFeeBps);
-  const postGradFeeBpsBig = toBigInt(postGradFeeBps);
+  const bBase = marketsMapping[2];
+  const creatorDeposit = marketsMapping[3];
+  const graduatedAt = marketsMapping[4];
+
+  const preGradFeeBpsBig = DEFAULT_PRE_GRAD_FEE_BPS;
+  const postGradFeeBpsBig = DEFAULT_POST_GRAD_FEE_BPS;
   const currentFeeBps = getLaunchpadFeeBps(isGraduated, preGradFeeBpsBig, postGradFeeBpsBig);
 
-  const [trialEndTime, isDismissed, totalLockedCost] = trialState;
-  const nowSeconds = options.nowSeconds ?? BigInt(Math.floor(Date.now() / 1000));
-  const isInTrialPeriod = trialEndTime > 0n && nowSeconds < trialEndTime && !isDismissed;
-  const remaining = trialEndTime > nowSeconds ? Number(trialEndTime - nowSeconds) : 0;
-
+  const isDismissed = false; // trialStates removed in v0.1.0
   const stage = resolveSoothMarketStage({
     isDismissed,
     isSettled: options.isSettled ?? false,
@@ -468,26 +378,26 @@ export async function readLaunchpadAmmSnapshot(
       creator,
       lpToken,
       bBase,
-      bCurrent,
+      bCurrent: 0n,
       creatorDeposit,
-      feesAccrued,
-      graduationThreshold,
-      graduationProgressBps,
-      totalLPSupply,
-      lpYieldPool,
-      floorValue,
-      createdAt,
+      feesAccrued: 0n,
+      graduationThreshold: 0n,
+      graduationProgressBps: 0n,
+      totalLPSupply: 0n,
+      lpYieldPool: 0n,
+      floorValue: 0n,
+      createdAt: 0n,
       graduatedAt,
       isGraduated,
       preGradFeeBps: preGradFeeBpsBig,
       postGradFeeBps: postGradFeeBpsBig,
       currentFeeBps,
-      trialEndTime,
+      trialEndTime: 0n,
       isDismissed,
-      totalLockedCost,
-      userLockedCost,
-      isInTrialPeriod,
-      trialTimeRemainingSeconds: remaining,
+      totalLockedCost: 0n,
+      userLockedCost: 0n,
+      isInTrialPeriod: false,
+      trialTimeRemainingSeconds: 0,
     },
   };
 }
@@ -506,7 +416,7 @@ export async function readLaunchpadAmmQuote(
   }
 
   const deltaShares = options.action === 'buy' ? options.shares : -options.shares;
-  const [rawQuote, newPriceYesWad] = (await client.readContract({
+  const [rawQuote, , , newPriceYesWad] = (await client.readContract({
     address: contracts.ammEngine,
     abi: AMMEngineABI,
     functionName: 'getPositionQuote',
@@ -515,39 +425,18 @@ export async function readLaunchpadAmmQuote(
 
   let feeBps = options.feeBps;
   if (feeBps === undefined) {
-    const preGradFeeBps = options.preGradFeeBps
-      ?? await readWithFallback(
-        () =>
-          client.readContract({
-            address: contracts.launchpadEngine,
-            abi: LaunchpadEngineABI,
-            functionName: 'preGradFeeBps',
-          }) as Promise<number | bigint>,
-        Number(DEFAULT_PRE_GRAD_FEE_BPS),
-      );
-
-    const postGradFeeBps = options.postGradFeeBps
-      ?? await readWithFallback(
-        () =>
-          client.readContract({
-            address: contracts.launchpadEngine,
-            abi: LaunchpadEngineABI,
-            functionName: 'postGradFeeBps',
-          }) as Promise<number | bigint>,
-        Number(DEFAULT_POST_GRAD_FEE_BPS),
-      );
+    const preGradFeeBps = options.preGradFeeBps ?? DEFAULT_PRE_GRAD_FEE_BPS;
+    const postGradFeeBps = options.postGradFeeBps ?? DEFAULT_POST_GRAD_FEE_BPS;
 
     const isGraduated = options.isGraduated
       ?? await readWithFallback(
-        async () => {
-          const state = (await client.readContract({
+        () =>
+          client.readContract({
             address: contracts.launchpadEngine,
             abi: LaunchpadEngineABI,
-            functionName: 'getMarketState',
+            functionName: 'isGraduated',
             args: [marketAddress],
-          })) as LaunchpadMarketState;
-          return state[4];
-        },
+          }) as Promise<boolean>,
         false,
       );
 

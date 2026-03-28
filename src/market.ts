@@ -29,35 +29,17 @@ const LaunchpadAbi = [
       { type: 'address', name: 'creator' },
       { type: 'address', name: 'lpToken' },
       { type: 'uint256', name: 'bBase' },
-      { type: 'uint256', name: 'bCurrent' },
       { type: 'uint256', name: 'creatorDeposit' },
-      { type: 'uint256', name: 'feesAccrued' },
-      { type: 'uint256', name: 'totalLPSupply' },
-      { type: 'uint256', name: 'lpYieldPool' },
-      { type: 'bool', name: 'isGraduated' },
-      { type: 'uint64', name: 'createdAt' },
       { type: 'uint64', name: 'graduatedAt' },
     ],
     stateMutability: 'view',
   },
   {
-    name: 'getGraduationProgress',
+    name: 'isGraduated',
     type: 'function',
     inputs: [{ type: 'address', name: 'market' }],
-    outputs: [{ type: 'uint256' }, { type: 'uint256' }, { type: 'uint256' }],
+    outputs: [{ type: 'bool' }],
     stateMutability: 'view',
-  },
-  {
-    name: 'tradePositions',
-    type: 'function',
-    inputs: [
-      { type: 'address', name: 'market' },
-      { type: 'uint8', name: 'outcome' },
-      { type: 'int256', name: 'deltaShares' },
-      { type: 'uint256', name: 'maxCost' },
-    ],
-    outputs: [{ type: 'uint256' }],
-    stateMutability: 'nonpayable',
   },
   {
     name: 'createMarket',
@@ -77,6 +59,18 @@ const LaunchpadAbi = [
 
 const AmmAbi = [
   {
+    name: 'tradePositions',
+    type: 'function',
+    inputs: [
+      { type: 'address', name: 'market' },
+      { type: 'uint8', name: 'outcome' },
+      { type: 'int256', name: 'deltaShares' },
+      { type: 'uint256', name: 'maxCostOrMinProceeds' },
+    ],
+    outputs: [{ type: 'uint256' }],
+    stateMutability: 'nonpayable',
+  },
+  {
     name: 'getPosition',
     type: 'function',
     inputs: [
@@ -90,7 +84,7 @@ const AmmAbi = [
     name: 'getBalances',
     type: 'function',
     inputs: [{ type: 'address', name: 'user' }],
-    outputs: [{ type: 'uint256' }, { type: 'uint256' }],
+    outputs: [{ type: 'uint256' }],
     stateMutability: 'view',
   },
 ] as const;
@@ -124,50 +118,29 @@ export class Markets {
 
   /** Get market info */
   async getInfo(market: `0x${string}`): Promise<MarketInfo> {
-    const result = (await this.client.publicClient.readContract({
-      address: this.client.contracts.launchpadEngine,
-      abi: LaunchpadAbi,
-      functionName: 'markets',
-      args: [market],
-    })) as [
-      `0x${string}`,
-      `0x${string}`,
-      bigint,
-      bigint,
-      bigint,
-      bigint,
-      bigint,
-      bigint,
-      boolean,
-      bigint,
-      bigint,
-    ];
+    const [marketsResult, isGraduated] = await Promise.all([
+      this.client.publicClient.readContract({
+        address: this.client.contracts.launchpadEngine,
+        abi: LaunchpadAbi,
+        functionName: 'markets',
+        args: [market],
+      }) as Promise<[`0x${string}`, `0x${string}`, bigint, bigint, bigint]>,
+      this.client.publicClient.readContract({
+        address: this.client.contracts.launchpadEngine,
+        abi: LaunchpadAbi,
+        functionName: 'isGraduated',
+        args: [market],
+      }) as Promise<boolean>,
+    ]);
     return {
       address: market,
-      creator: result[0],
-      bBase: result[2],
-      bCurrent: result[3],
-      feesAccrued: result[5],
-      totalLPSupply: result[6],
-      isGraduated: result[8],
-      createdAt: result[9],
-    };
-  }
-
-  /** Get graduation progress: [feesAccrued, threshold, progressBps] */
-  async getGraduationProgress(
-    market: `0x${string}`,
-  ): Promise<{ feesAccrued: bigint; threshold: bigint; progressBps: bigint }> {
-    const result = (await this.client.publicClient.readContract({
-      address: this.client.contracts.launchpadEngine,
-      abi: LaunchpadAbi,
-      functionName: 'getGraduationProgress',
-      args: [market],
-    })) as [bigint, bigint, bigint];
-    return {
-      feesAccrued: result[0],
-      threshold: result[1],
-      progressBps: result[2],
+      creator: marketsResult[0],
+      bBase: marketsResult[2],
+      bCurrent: 0n, // No longer in struct
+      feesAccrued: 0n, // No longer in struct
+      totalLPSupply: 0n, // No longer in struct
+      isGraduated,
+      createdAt: 0n, // No longer in struct
     };
   }
 
@@ -195,8 +168,8 @@ export class Markets {
     const maxCost = parseUnits(params.maxCost, 18);
 
     return this.client.writeContract({
-      address: this.client.contracts.launchpadEngine,
-      abi: LaunchpadAbi,
+      address: this.client.contracts.ammEngine,
+      abi: AmmAbi,
       functionName: 'tradePositions',
       args: [market, outcome, shares, maxCost],
     });

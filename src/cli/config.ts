@@ -214,44 +214,54 @@ export const ABIS = {
 
   LaunchpadEngine: [
     {
-      name: 'tradePositions', type: 'function', inputs: [
-        { type: 'address', name: 'market' },
-        { type: 'uint8', name: 'outcome' },
-        { type: 'int256', name: 'deltaShares' },
-        { type: 'uint256', name: 'maxCost' },
-      ], outputs: [{ type: 'uint256' }], stateMutability: 'nonpayable'
-    },
-    {
-      // V11: lpToken added to markets struct (11 fields total)
+      // v0.1.0: markets struct reduced to 5 fields
       name: 'markets', type: 'function', inputs: [{ type: 'address', name: 'market' }],
       outputs: [
         { type: 'address', name: 'creator' },
         { type: 'address', name: 'lpToken' },
         { type: 'uint256', name: 'bBase' },
-        { type: 'uint256', name: 'bCurrent' },
         { type: 'uint256', name: 'creatorDeposit' },
-        { type: 'uint256', name: 'feesAccrued' },
-        { type: 'uint256', name: 'totalLPSupply' },
-        { type: 'uint256', name: 'lpYieldPool' },
-        { type: 'bool', name: 'isGraduated' },
-        { type: 'uint64', name: 'createdAt' },
         { type: 'uint64', name: 'graduatedAt' },
       ], stateMutability: 'view'
     },
     {
-      name: 'getGraduationProgress', type: 'function', inputs: [{ type: 'address', name: 'market' }],
-      outputs: [{ type: 'uint256' }, { type: 'uint256' }, { type: 'uint256' }], stateMutability: 'view'
+      name: 'isGraduated', type: 'function', inputs: [{ type: 'address', name: 'market' }],
+      outputs: [{ type: 'bool' }], stateMutability: 'view'
+    },
+    {
+      name: 'getMarkets', type: 'function', inputs: [],
+      outputs: [{ type: 'address[]' }], stateMutability: 'view'
+    },
+    {
+      name: 'getMarketCount', type: 'function', inputs: [],
+      outputs: [{ type: 'uint256' }], stateMutability: 'view'
     },
   ],
 
   AMMEngine: [
+    {
+      name: 'tradePositions', type: 'function', inputs: [
+        { type: 'address', name: 'market' },
+        { type: 'uint8', name: 'outcome' },
+        { type: 'int256', name: 'deltaShares' },
+        { type: 'uint256', name: 'maxCostOrMinProceeds' },
+      ], outputs: [{ type: 'uint256' }], stateMutability: 'nonpayable'
+    },
     {
       name: 'getPosition', type: 'function', inputs: [{ type: 'address', name: 'market' }, { type: 'address', name: 'user' }],
       outputs: [{ type: 'uint256' }, { type: 'uint256' }], stateMutability: 'view'
     },
     {
       name: 'getBalances', type: 'function', inputs: [{ type: 'address', name: 'user' }],
-      outputs: [{ type: 'uint256' }, { type: 'uint256' }], stateMutability: 'view'
+      outputs: [{ type: 'uint256' }], stateMutability: 'view'
+    },
+    {
+      name: 'getMarketState', type: 'function', inputs: [{ type: 'address', name: 'market' }],
+      outputs: [{ type: 'uint256' }, { type: 'uint256' }, { type: 'uint256' }], stateMutability: 'view'
+    },
+    {
+      name: 'protocolTreasury', type: 'function', inputs: [],
+      outputs: [{ type: 'address' }], stateMutability: 'view'
     },
   ],
 } as const;

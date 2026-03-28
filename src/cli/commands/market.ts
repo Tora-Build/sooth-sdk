@@ -56,25 +56,21 @@ const ERC20Abi = parseAbi([
 
 const LaunchpadEngineAbi = parseAbi([
   'function createMarket(string question, uint64 startTime, uint64 deadline, address adjudicator, uint256 bBase, uint256 initialProbabilityWad) external returns (address market, address lpToken)',
-  'function markets(address) view returns (address creator, address lpToken, uint256 bBase, uint256 bCurrent, uint256 creatorDeposit, uint256 feesAccrued, uint256 totalLPSupply, uint256 lpYieldPool, bool isGraduated, uint64 createdAt, uint64 graduatedAt)',
-  'function getGraduationProgress(address market) view returns (uint256 feesAccrued, uint256 threshold, uint256 percentComplete)',
-  'function tradePositions(address market, uint8 outcome, int256 deltaShares, uint256 maxCost) external returns (uint256)',
-  'function preGradFeeBps() view returns (uint16)',
-  'function postGradFeeBps() view returns (uint16)',
-  'function protocolShareBps() view returns (uint16)',
-  'function redeemLP(address market, uint256 lpAmount) external returns (uint256 usdcReturned)',
-  // V11: Trial Period Functions
+  'function markets(address) view returns (address creator, address lpToken, uint256 bBase, uint256 creatorDeposit, uint64 graduatedAt)',
+  'function isGraduated(address market) view returns (bool)',
+  'function isTrialExpiredWithoutGraduation(address market) view returns (bool)',
+  'function getLPToken(address market) view returns (address)',
   'function dismissMarket(address market) external',
   'function claimRefund(address market) external returns (uint256)',
-  'function trialStates(address market) view returns (uint64 trialEndTime, bool isDismissed, uint256 totalLockedCost)',
-  'function userLockedCost(address market, address user) view returns (uint256)',
-  'function DEFAULT_TRIAL_PERIOD() view returns (uint64)',
 ]);
 
 const AMMEngineAbi = parseAbi([
-  'function getPrice(address market, uint8 outcome) view returns (uint256)',
+  'function tradePositions(address market, uint8 outcome, int256 deltaShares, uint256 maxCostOrMinProceeds) external returns (uint256)',
   'function getPosition(address market, address user) view returns (uint256 yesShares, uint256 noShares)',
+  'function getMarketState(address market) view returns (uint256 qYes, uint256 qNo, uint256 price)',
   'function settlePosition(address market) external returns (uint256 payout)',
+  'function redeemLP(address market, uint256 lpAmount) external returns (uint256 tokenAmount)',
+  'function protocolTreasury() view returns (address)',
 ]);
 
 const MARKET_TEMPLATES: Record<string, { question: string; name: string; deadline: string }> = {
@@ -305,38 +301,21 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
     return { success: false, message: 'No market selected. Use: setmarket <address>' };
   }
 
-  // Get current graduation status
-  let progress: [bigint, bigint, bigint];
+  // Check if already graduated
+  let isGraduated: boolean;
   try {
-    progress = await publicClient.readContract({
+    isGraduated = await publicClient.readContract({
       address: deployment.contracts.LaunchpadEngine as `0x${string}`,
       abi: LaunchpadEngineAbi,
-      functionName: 'getGraduationProgress',
+      functionName: 'isGraduated',
       args: [marketAddress],
-    }) as [bigint, bigint, bigint];
+    }) as boolean;
   } catch (err) {
     return { success: false, message: `Market not found in LaunchpadEngine: ${(err as Error).message}` };
   }
 
-  const [feesAccrued, threshold, percentComplete] = progress;
-
-  // Also check if actually graduated on-chain
-  const marketState = await publicClient.readContract({
-    address: deployment.contracts.LaunchpadEngine as `0x${string}`,
-    abi: LaunchpadEngineAbi,
-    functionName: 'markets',
-    args: [marketAddress],
-  }) as [string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
-  const isGraduated = marketState[8];
-
-  // percentComplete is in basis points (10000 = 100%)
-  const progressPct = Number(percentComplete) / 100;
-
   console.log(`\n  ${bold('Graduation Status')}`);
   console.log('  ' + '─'.repeat(40));
-  console.log(`  Fees Accrued: ${formatWad(feesAccrued)} USDC`);
-  console.log(`  Threshold:    ${formatWad(threshold)} USDC`);
-  console.log(`  Progress:     ${progressPct.toFixed(1)}%`);
   console.log(`  Graduated:    ${isGraduated ? success('Yes') : warn('No')}`);
 
   if (isGraduated) {
@@ -344,69 +323,12 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
     return { success: true };
   }
 
-  // If fees >= threshold but not graduated, do one small trade to trigger graduation
-  if (percentComplete >= 10000n) {
-    console.log(`\n  ${warn('Fees reached threshold but not graduated yet. Triggering graduation...')}`);
-
-    // Approve and do a tiny trade to trigger graduation
-    const tinyTrade = WAD; // 1 share
-    await walletClient.writeContract({
-      address: deployment.contracts.BaseToken as `0x${string}`,
-      abi: ABIS.BaseToken,
-      functionName: 'approve',
-      args: [deployment.contracts.LaunchpadEngine as `0x${string}`, MAX_UINT256],
-      gas: 500000n, // High gas for Monad testnet
-    });
-
-    const hash = await walletClient.writeContract({
-      address: deployment.contracts.LaunchpadEngine as `0x${string}`,
-      abi: LaunchpadEngineAbi,
-      functionName: 'tradePositions',
-      args: [marketAddress, 1, tinyTrade, MAX_UINT256],
-      gas: 5000000n,
-    });
-    await actorManager.waitForTransactionReceipt(hash);
-
-    console.log(`  ${success('MARKET GRADUATED!')}\n`);
-    return { success: true };
-  }
-
   // Parse number of steps (default 8)
   const numTrades = args[0] ? parseInt(args[0], 10) : 8;
 
-  // Get fee rate to calculate required volume
-  const feeBpsRaw = await publicClient.readContract({
-    address: deployment.contracts.LaunchpadEngine as `0x${string}`,
-    abi: LaunchpadEngineAbi,
-    functionName: 'preGradFeeBps',
-  });
-  const feeBps = BigInt(Number(feeBpsRaw));
+  // Use a reasonable default trade size (graduation details no longer queryable)
+  const tradeSize = 500n * WAD;
 
-  // Calculate trade size to reach 110% of threshold
-  // Fee = cost * feeBps / 10000
-  // Total volume needed = targetFees * 10000 / feeBps
-  // Each round-trip has 2 trades (buy + sell), so divide by numTrades * 2
-  const remaining = threshold - feesAccrued;
-  const targetFees = (remaining * 110n) / 100n; // 110% of remaining
-
-  const numTradesBigInt = BigInt(numTrades);
-  // Volume needed = targetFees * 10000 / feeBps
-  // IMPORTANT: tradeSize is in SHARES, but fee is charged on COST (USDC spent)
-  // With LMSR at ~50% price, cost ≈ 0.5 × shares
-  // So we need to double the share amount to get the target cost/fees
-  //
-  // With alternating BUY/SELL where SELL is half size:
-  // - numTrades/2 BUY trades at tradeSize (cost ≈ tradeSize * 0.5)
-  // - numTrades/2 SELL trades at tradeSize/2 (cost ≈ tradeSize * 0.25)
-  // Total cost ≈ (numTrades/2) * tradeSize * 0.5 + (numTrades/2) * tradeSize * 0.25
-  //            = numTrades * tradeSize * 0.375
-  // So: tradeSize = volumeNeeded / (0.375 * numTrades) = volumeNeeded * 8 / (3 * numTrades)
-  const volumeNeeded = (targetFees * 10000n) / feeBps;
-  const tradeSize = (volumeNeeded * 8n) / (3n * numTradesBigInt);
-
-  console.log(`\n  Remaining to graduate: ${formatWad(remaining)} USDC`);
-  console.log(`  Target fees (110%):    ${formatWad(targetFees)} USDC`);
-  console.log(`  Fee rate:              ${Number(feeBps) / 100}%`);
   console.log(`  Trade size:            ${formatWad(tradeSize)} shares`);
   console.log(`  Steps:                 ${numTrades}`);
   console.log('');
@@ -437,12 +359,12 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
     console.log(success('  Minted USDC'));
   }
 
-  // Approve LaunchpadEngine
+  // Approve AMMEngine (tradePositions moved to AMMEngine in v0.1.0)
   const approveHash = await walletClient.writeContract({
     address: deployment.contracts.BaseToken as `0x${string}`,
     abi: ABIS.BaseToken,
     functionName: 'approve',
-    args: [deployment.contracts.LaunchpadEngine as `0x${string}`, MAX_UINT256],
+    args: [deployment.contracts.AMMEngine as `0x${string}`, MAX_UINT256],
     gas: 500000n, // High gas for Monad testnet
   });
   await actorManager.waitForTransactionReceipt(approveHash);
@@ -476,48 +398,41 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
         const maxCostOrMinProceeds = isBuy ? MAX_UINT256 : 0n;
 
         // Determine gas limit
-        // MegaETH (chain 6343): skip mid-trade reads to avoid RPC corruption, use high gas always
-        // Other chains: check progress and use higher gas near graduation threshold
-        let gasLimit = 10_000_000n;
-        
-        if (isMegaETH) {
-          // MegaETH: 60M gas for graduation tx (code deposit = 10k gas/byte, 2 contracts ~4.4KB = 44M storage gas)
-          gasLimit = 60_000_000n;
-        } else {
-          const [, , currentPercent] = await publicClient.readContract({
+        const gasLimit = isMegaETH ? 60_000_000n : 10_000_000n;
+
+        // Check if already graduated before trading
+        if (!isMegaETH) {
+          const graduated = await publicClient.readContract({
             address: deployment.contracts.LaunchpadEngine as `0x${string}`,
             abi: LaunchpadEngineAbi,
-            functionName: 'getGraduationProgress',
+            functionName: 'isGraduated',
             args: [marketAddress],
-          }) as [bigint, bigint, bigint];
+          }) as boolean;
 
-          if (currentPercent >= 10000n) {
+          if (graduated) {
             spinner.succeed(`Trade ${i + 1}: ${isBuy ? 'BUY' : 'SELL'} skipped (already graduated)`);
             console.log(`\n  ${success('MARKET GRADUATED!')} after ${tradesExecuted} trades\n`);
             return { success: true, data: { tradesExecuted, totalGas } };
           }
-
-          // Use 30M if we are > 90% progress, otherwise 5M is enough for trades
-          gasLimit = currentPercent > 9000n ? 30_000_000n : 5_000_000n;
         }
 
         let hash: `0x${string}`;
         if (isMegaETH) {
           // MegaETH: use raw sendTransaction to bypass viem simulation
           const data = encodeFunctionData({
-            abi: LaunchpadEngineAbi,
+            abi: AMMEngineAbi,
             functionName: 'tradePositions',
             args: [marketAddress, outcome, delta, maxCostOrMinProceeds],
           });
           hash = await walletClient.sendTransaction({
-            to: deployment.contracts.LaunchpadEngine as `0x${string}`,
+            to: deployment.contracts.AMMEngine as `0x${string}`,
             data,
             gas: gasLimit,
           });
         } else {
           hash = await walletClient.writeContract({
-            address: deployment.contracts.LaunchpadEngine as `0x${string}`,
-            abi: LaunchpadEngineAbi,
+            address: deployment.contracts.AMMEngine as `0x${string}`,
+            abi: AMMEngineAbi,
             functionName: 'tradePositions',
             args: [marketAddress, outcome, delta, maxCostOrMinProceeds],
             gas: gasLimit,
@@ -535,15 +450,14 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
         if (isMegaETH) {
           await sleep(2000);
         }
-        // Always check isGraduated flag directly - don't rely on percent
-        // (after graduation, getGraduationProgress may return 0% as fees reset)
-        const mktState = await publicClient.readContract({
+        // Always check isGraduated flag directly
+        const graduated = await publicClient.readContract({
           address: deployment.contracts.LaunchpadEngine as `0x${string}`,
           abi: LaunchpadEngineAbi,
-          functionName: 'markets',
+          functionName: 'isGraduated',
           args: [marketAddress],
-        }) as [string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
-        if (mktState[8]) {
+        }) as boolean;
+        if (graduated) {
           console.log(`\n  ${success('MARKET GRADUATED!')} after ${tradesExecuted} trades\n`);
           return { success: true, data: { tradesExecuted, totalGas } };
         }
@@ -552,17 +466,17 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
         const decoded = decodeError(err as Error);
 
         try {
-          const mktState = await readContractWithRpcFallback<readonly [string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint]>(
+          const graduatedCheck = await readContractWithRpcFallback<boolean>(
             ctx.config.chain,
             ctx.config.rpc,
             {
               address: deployment.contracts.LaunchpadEngine as `0x${string}`,
               abi: LaunchpadEngineAbi,
-              functionName: 'markets',
+              functionName: 'isGraduated',
               args: [marketAddress],
             },
           );
-          if (mktState[8]) {
+          if (graduatedCheck) {
             spinner.succeed(`Trade ${i + 1}: ${isBuy ? 'BUY' : 'SELL'} rejected (post-graduation)`);
             console.log(`\n  ${success('MARKET GRADUATED!')} after ${tradesExecuted} trades\n`);
             return { success: true, data: { tradesExecuted, totalGas } };
@@ -596,19 +510,18 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
   }
 
   // Final status
-  const [finalFees, finalThreshold, finalPercent] = await publicClient.readContract({
+  const finalGraduated = await publicClient.readContract({
     address: deployment.contracts.LaunchpadEngine as `0x${string}`,
     abi: LaunchpadEngineAbi,
-    functionName: 'getGraduationProgress',
+    functionName: 'isGraduated',
     args: [marketAddress],
-  }) as [bigint, bigint, bigint];
+  }) as boolean;
 
-  console.log(`\n  Final Progress: ${(Number(finalPercent) / 100).toFixed(1)}%`);
-  console.log(`  Fees: ${formatWad(finalFees)} / ${formatWad(finalThreshold)} USDC`);
+  console.log(`\n  Graduated: ${finalGraduated ? success('YES') : warn('NO')}`);
   console.log(`  Total gas used: ${totalGas.toString()}`);
   console.log('');
 
-  return { success: true, data: { tradesExecuted, totalGas, percentComplete: Number(finalPercent) / 100 } };
+  return { success: true, data: { tradesExecuted, totalGas, graduated: finalGraduated } };
 }
 
 function mulberry32(seed: number): () => number {
@@ -952,42 +865,39 @@ export async function marketstatus(ctx: CommandContext, args: string[]): Promise
       abi: LaunchpadEngineAbi,
       functionName: 'markets',
       args: [marketAddress],
-    }) as any;
+    }) as [string, string, bigint, bigint, bigint];
 
     const initialized = marketState[0] !== '0x0000000000000000000000000000000000000000';
 
     if (initialized) {
-      console.log(`  Initialized: ${success('YES')}`);
-      console.log(`  Creator:     ${shortAddress(marketState[0])}`);
-      console.log(`  LP Token:    ${shortAddress(marketState[1])}`);
-      console.log(`  bBase:       ${formatWad(marketState[2])}`);
-      console.log(`  bCurrent:    ${formatWad(marketState[3])}`);
-      console.log(`  Deposit:     ${(Number(marketState[4]) / 1e6).toFixed(2)} USDC`);
-      console.log(`  Fees:        ${formatWad(marketState[5])} USDC`);
-      console.log(`  LP Supply:   ${formatWad(marketState[6])}`);
-      console.log(`  Graduated:   ${marketState[8] ? success('YES') : warn('NO')}`);
+      const [creator, lpToken, bBase, creatorDeposit, graduatedAt] = marketState;
+      const isGraduated = await publicClient.readContract({
+        address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+        abi: LaunchpadEngineAbi,
+        functionName: 'isGraduated',
+        args: [marketAddress],
+      }) as boolean;
 
-      if (!marketState[8]) {
-        const [feesAccrued, threshold, percent] = await publicClient.readContract({
-          address: deployment.contracts.LaunchpadEngine as `0x${string}`,
-          abi: LaunchpadEngineAbi,
-          functionName: 'getGraduationProgress',
+      console.log(`  Initialized: ${success('YES')}`);
+      console.log(`  Creator:     ${shortAddress(creator)}`);
+      console.log(`  LP Token:    ${shortAddress(lpToken)}`);
+      console.log(`  bBase:       ${formatWad(bBase)}`);
+      console.log(`  Deposit:     ${formatWad(creatorDeposit)} USDC`);
+      console.log(`  Graduated:   ${isGraduated ? success('YES') : warn('NO')}`);
+      if (graduatedAt > 0n) {
+        console.log(`  Graduated At: ${new Date(Number(graduatedAt) * 1000).toISOString().slice(0, 10)}`);
+      }
+
+      // Get current price from AMMEngine
+      try {
+        const [, , price] = await publicClient.readContract({
+          address: deployment.contracts.AMMEngine as `0x${string}`,
+          abi: AMMEngineAbi,
+          functionName: 'getMarketState',
           args: [marketAddress],
         }) as [bigint, bigint, bigint];
 
-        console.log(`  Progress:    ${(Number(percent) / 100).toFixed(1)}% (${formatWad(feesAccrued)}/${formatWad(threshold)} USDC)`);
-      }
-
-      // Get current price
-      try {
-        const yesPrice = await publicClient.readContract({
-          address: deployment.contracts.AMMEngine as `0x${string}`,
-          abi: AMMEngineAbi,
-          functionName: 'getPrice',
-          args: [marketAddress, 1],
-        }) as bigint;
-
-        console.log(`  YES Price:   ${(Number(yesPrice) / 1e18 * 100).toFixed(2)}%`);
+        console.log(`  YES Price:   ${(Number(price) / 1e18 * 100).toFixed(2)}%`);
       } catch {
         // Price not available
       }
@@ -1281,14 +1191,12 @@ export async function redeemlp(ctx: CommandContext, args: string[]): Promise<Com
     return { success: false, message: 'No market selected. Use setmarket first.' };
   }
 
-  const marketState = await publicClient.readContract({
+  const lpTokenAddress = await publicClient.readContract({
     address: deployment.contracts.LaunchpadEngine as `0x${string}`,
     abi: LaunchpadEngineAbi,
-    functionName: 'markets',
+    functionName: 'getLPToken',
     args: [marketAddress],
-  }) as [string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
-
-  const [, lpTokenAddress, , , , , totalLPSupply] = marketState;
+  }) as `0x${string}`;
 
   if (lpTokenAddress === '0x0000000000000000000000000000000000000000') {
     return { success: false, message: 'Market not found in LaunchpadEngine' };
@@ -1319,16 +1227,14 @@ export async function redeemlp(ctx: CommandContext, args: string[]): Promise<Com
   console.log('  ' + '─'.repeat(40));
   console.log(`  LP Balance:    ${formatWad(lpBalance)}`);
   console.log(`  Redeeming:     ${formatWad(amount)}`);
-  console.log(`  Total Supply:  ${formatWad(totalLPSupply)}`);
-  console.log(`  Share:         ${((Number(amount) / Number(totalLPSupply)) * 100).toFixed(2)}%`);
 
   const spinner = new Spinner('Redeeming LP tokens...');
   spinner.start();
 
   try {
     const hash = await walletClient.writeContract({
-      address: deployment.contracts.LaunchpadEngine as `0x${string}`,
-      abi: LaunchpadEngineAbi,
+      address: deployment.contracts.AMMEngine as `0x${string}`,
+      abi: AMMEngineAbi,
       functionName: 'redeemLP',
       args: [marketAddress, amount],
       gas: 1000000n,
@@ -1398,30 +1304,23 @@ export async function pnl(ctx: CommandContext, args: string[]): Promise<CommandR
   let totalLPSupply = 0n;
   let lpYieldPool = 0n;
   let isGraduated = false;
-  let protocolShareBps = 2000n;
   try {
     const marketState = await publicClient.readContract({
       address: deployment.contracts.LaunchpadEngine as `0x${string}`,
       abi: LaunchpadEngineAbi,
       functionName: 'markets',
       args: [marketAddress],
-    }) as [string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
+    }) as [string, string, bigint, bigint, bigint];
 
-    const [, lpTokenAddress, , , deposit, fees, supply, yieldPool, graduated] = marketState;
+    const [, lpTokenAddress, , deposit] = marketState;
     creatorDeposit = deposit;
-    feesAccrued = fees;
-    totalLPSupply = supply;
-    lpYieldPool = yieldPool;
-    isGraduated = graduated;
 
-    try {
-      const rawProtocolShareBps = await publicClient.readContract({
-        address: deployment.contracts.LaunchpadEngine as `0x${string}`,
-        abi: LaunchpadEngineAbi,
-        functionName: 'protocolShareBps',
-      }) as unknown;
-      protocolShareBps = BigInt(Number(rawProtocolShareBps));
-    } catch {}
+    isGraduated = await publicClient.readContract({
+      address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+      abi: LaunchpadEngineAbi,
+      functionName: 'isGraduated',
+      args: [marketAddress],
+    }) as boolean;
 
     if (lpTokenAddress !== '0x0000000000000000000000000000000000000000') {
       lpBalance = await publicClient.readContract({
@@ -1431,9 +1330,8 @@ export async function pnl(ctx: CommandContext, args: string[]): Promise<CommandR
         args: [address],
       }) as bigint;
 
-      if (lpBalance > 0n && totalLPSupply > 0n) {
-        const poolValue = creatorDeposit + feesAccrued;
-        lpValue = (poolValue * lpBalance) / totalLPSupply;
+      if (lpBalance > 0n) {
+        lpValue = lpBalance; // LP token value approximation
       }
     }
   } catch {}
@@ -1496,31 +1394,10 @@ export async function pnl(ctx: CommandContext, args: string[]): Promise<CommandR
     console.log(dim('  No positions'));
   }
 
-  if (feesAccrued > 0n || lpYieldPool > 0n) {
-    console.log(`\n  ${info('Fee Distribution')}`);
+  if (creatorDeposit > 0n) {
+    console.log(`\n  ${info('Pool')}`);
     console.log('  ' + '─'.repeat(40));
-    
-    const lpShareBps = 10000n - protocolShareBps;
-    const postGradFees = lpShareBps > 0n ? (lpYieldPool * 10000n) / lpShareBps : 0n;
-    const protocolEarnings = postGradFees - lpYieldPool;
-    const preGradFees = feesAccrued - postGradFees;
-    
-    if (preGradFees > 0n) {
-      console.log(`  Pre-grad fees: ${formatWad(preGradFees).padStart(15)} USDC ${dim('(→ LP Pool)')}`);
-    }
-    
-    if (isGraduated && postGradFees > 0n) {
-      console.log(`  Post-grad fees:${formatWad(postGradFees).padStart(15)} USDC`);
-      console.log(`    → LP Pool:   ${formatWad(lpYieldPool).padStart(15)} USDC ${dim(`(${100 - Number(protocolShareBps) / 100}%)`)}`);
-      console.log(`    → Protocol:  ${formatWad(protocolEarnings).padStart(15)} USDC ${dim(`(${Number(protocolShareBps) / 100}%)`)}`);
-    }
-    
-    console.log(`  Pool Total:    ${formatWad(creatorDeposit + feesAccrued).padStart(15)} USDC`);
-    
-    if (lpBalance > 0n && totalLPSupply > 0n) {
-      const userFeeShare = (feesAccrued * lpBalance) / totalLPSupply;
-      console.log(`  Your Share:    ${formatWad(userFeeShare).padStart(15)} USDC ${dim(`(${((Number(lpBalance) / Number(totalLPSupply)) * 100).toFixed(1)}% of pool)`)}`);
-    }
+    console.log(`  Creator Deposit: ${formatWad(creatorDeposit).padStart(13)} USDC`);
   }
 
   console.log(`\n  ${info('Summary')}`);
@@ -1602,14 +1479,13 @@ export async function transferlp(ctx: CommandContext, args: string[]): Promise<C
     return { success: false, message: 'Cannot transfer to yourself' };
   }
 
-  const marketState = await publicClient.readContract({
+  const lpTokenAddress = await publicClient.readContract({
     address: deployment.contracts.LaunchpadEngine as `0x${string}`,
     abi: LaunchpadEngineAbi,
-    functionName: 'markets',
+    functionName: 'getLPToken',
     args: [marketAddress],
-  }) as [string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
+  }) as `0x${string}`;
 
-  const lpTokenAddress = marketState[1];
   if (lpTokenAddress === '0x0000000000000000000000000000000000000000') {
     return { success: false, message: 'Market not found in LaunchpadEngine' };
   }
@@ -1676,79 +1552,35 @@ export async function trialstatus(ctx: CommandContext, _args: string[]): Promise
   }
 
   try {
-    const trialState = await publicClient.readContract({
-      address: deployment.contracts.LaunchpadEngine as `0x${string}`,
-      abi: LaunchpadEngineAbi,
-      functionName: 'trialStates',
-      args: [marketAddress],
-    }) as readonly [bigint, boolean, bigint];
+    const [isGraduated, isTrialExpired] = await Promise.all([
+      publicClient.readContract({
+        address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+        abi: LaunchpadEngineAbi,
+        functionName: 'isGraduated',
+        args: [marketAddress],
+      }) as Promise<boolean>,
+      publicClient.readContract({
+        address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+        abi: LaunchpadEngineAbi,
+        functionName: 'isTrialExpiredWithoutGraduation',
+        args: [marketAddress],
+      }).catch(() => false) as Promise<boolean>,
+    ]);
 
-    const [trialEndTime, isDismissed, totalLockedCost] = trialState;
-
-    const trialDurationSeconds = await publicClient.readContract({
-      address: deployment.contracts.LaunchpadEngine as `0x${string}`,
-      abi: LaunchpadEngineAbi,
-      functionName: 'DEFAULT_TRIAL_PERIOD',
-      args: [],
-    }) as bigint;
-
-    const now = BigInt(Math.floor(Date.now() / 1000));
-    const isInTrialPeriod = now < trialEndTime && !isDismissed;
-    const trialEnded = now >= trialEndTime;
-    const trialEndDate = new Date(Number(trialEndTime) * 1000);
-
-    // Check graduation status
-    const mktState = await publicClient.readContract({
-      address: deployment.contracts.LaunchpadEngine as `0x${string}`,
-      abi: LaunchpadEngineAbi,
-      functionName: 'markets',
-      args: [marketAddress],
-    }) as readonly [string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
-    const isGraduated = mktState[8];
-
-    // Dismiss is allowed: after trial ends AND not graduated AND not already dismissed
-    const canDismiss = trialEnded && !isGraduated && !isDismissed;
+    const canDismiss = isTrialExpired && !isGraduated;
 
     console.log(`
   ${bold('Trial Period Status')}
   ────────────────────────────────────────
   Market:           ${shortAddress(marketAddress)}
-  Trial Duration:   ${Number(trialDurationSeconds) / 86400} days
-  Trial End Time:   ${trialEndDate.toISOString()}
-  Trial Ended:      ${trialEnded ? success('YES') : 'NO'}
   Is Graduated:     ${isGraduated ? success('YES') : 'NO'}
-  Is Dismissed:     ${isDismissed ? warn('YES') : 'NO'}
-  Can Dismiss:      ${canDismiss ? warn('YES (trial ended, not graduated)') : 'NO'}
-  Total Locked:     ${formatWad(totalLockedCost)} USDC
+  Trial Expired:    ${isTrialExpired ? warn('YES') : 'NO'}
+  Can Dismiss:      ${canDismiss ? warn('YES (trial expired, not graduated)') : 'NO'}
 `);
-
-    const actors = actorManager.listActors();
-    const lockedCosts: { name: string; locked: bigint }[] = [];
-
-    for (const actor of actors) {
-      const userLocked = await publicClient.readContract({
-        address: deployment.contracts.LaunchpadEngine as `0x${string}`,
-        abi: LaunchpadEngineAbi,
-        functionName: 'userLockedCost',
-        args: [marketAddress, actor.account.address],
-      }) as bigint;
-
-      if (userLocked > 0n) {
-        lockedCosts.push({ name: actor.name, locked: userLocked });
-      }
-    }
-
-    if (lockedCosts.length > 0) {
-      console.log(`  ${bold('User Locked Costs:')}`);
-      for (const { name, locked } of lockedCosts) {
-        console.log(`    ${name}: ${formatWad(locked)} USDC`);
-      }
-      console.log('');
-    }
 
     return {
       success: true,
-      data: { trialEndTime, isDismissed, totalLockedCost, isInTrialPeriod, trialEnded, isGraduated, canDismiss }
+      data: { isGraduated, isTrialExpired, canDismiss }
     };
   } catch (err) {
     return { success: false, message: `Failed to fetch trial status: ${(err as Error).message}` };
@@ -1773,25 +1605,18 @@ export async function dismiss(ctx: CommandContext, _args: string[]): Promise<Com
     return { success: false, message: 'No market selected. Use setmarket first.' };
   }
 
-  const trialState = await publicClient.readContract({
+  const isTrialExpired = await publicClient.readContract({
     address: deployment.contracts.LaunchpadEngine as `0x${string}`,
     abi: LaunchpadEngineAbi,
-    functionName: 'trialStates',
+    functionName: 'isTrialExpiredWithoutGraduation',
     args: [marketAddress],
-  }) as readonly [bigint, boolean, bigint];
+  }).catch(() => false) as boolean;
 
-  const [trialEndTime, isDismissed, totalLockedCost] = trialState;
-
-  if (isDismissed) {
-    return { success: false, message: 'Market already dismissed' };
+  if (!isTrialExpired) {
+    return { success: false, message: 'Market cannot be dismissed (trial not expired or already graduated)' };
   }
 
-  const now = BigInt(Math.floor(Date.now() / 1000));
-  if (now < trialEndTime) {
-    return { success: false, message: 'Trial period not ended yet' };
-  }
-
-  const spinner = new Spinner(`Dismissing market (${formatWad(totalLockedCost)} USDC locked)...`);
+  const spinner = new Spinner('Dismissing market...');
   spinner.start();
 
   try {
@@ -1840,31 +1665,7 @@ export async function claimrefund(ctx: CommandContext, _args: string[]): Promise
     return { success: false, message: 'No market selected. Use setmarket first.' };
   }
 
-  const trialState = await publicClient.readContract({
-    address: deployment.contracts.LaunchpadEngine as `0x${string}`,
-    abi: LaunchpadEngineAbi,
-    functionName: 'trialStates',
-    args: [marketAddress],
-  }) as readonly [bigint, boolean, bigint];
-
-  const [, isDismissed] = trialState;
-
-  if (!isDismissed) {
-    return { success: false, message: 'Market is not dismissed. Cannot claim refund.' };
-  }
-
-  const userLocked = await publicClient.readContract({
-    address: deployment.contracts.LaunchpadEngine as `0x${string}`,
-    abi: LaunchpadEngineAbi,
-    functionName: 'userLockedCost',
-    args: [marketAddress, address],
-  }) as bigint;
-
-  if (userLocked === 0n) {
-    return { success: false, message: 'No locked cost to refund' };
-  }
-
-  const spinner = new Spinner(`Claiming refund of ${formatWad(userLocked)} USDC...`);
+  const spinner = new Spinner('Claiming refund...');
   spinner.start();
 
   try {
