@@ -227,7 +227,7 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
       address: deployment.contracts.LaunchpadEngine as `0x${string}`,
       abi: LaunchpadEngineAbi,
       functionName: 'createMarket',
-      args: [template.question, startTime, deadline, adjudicatorAddress, liquidityWad, 0n],
+      args: [template.question, startTime, deadline, adjudicatorAddress, liquidityWad, 500000000000000000n],
       gas: createGas,
     });
 

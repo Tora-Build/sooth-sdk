@@ -190,7 +190,7 @@ export class Markets {
       address: this.client.contracts.launchpadEngine,
       abi: LaunchpadAbi,
       functionName: 'createMarket',
-      args: [params.question, 0n, deadline, adjudicator, bBase, 0n],
+      args: [params.question, 0n, deadline, adjudicator, bBase, 500000000000000000n],
     });
   }
 }
