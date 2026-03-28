@@ -27,26 +27,30 @@ import { decodeEventLog, parseAbi, encodeFunctionData } from 'viem';
 
 const TruthMarketAbi = parseAbi([
   'function question() view returns (string)',
+  'function questionHash() view returns (bytes32)',
   'function startTime() view returns (uint64)',
   'function deadline() view returns (uint64)',
   'function creator() view returns (address)',
   'function adjudicator() view returns (address)',
+  'function launchpadEngine() view returns (address)',
   'function isLive() view returns (bool)',
+  'function isResolving() view returns (bool)',
+  'function isAttested() view returns (bool)',
   'function isSettled() view returns (bool)',
-  'function isFinalized() view returns (bool)',
   'function winningOutcome() view returns (uint8)',
-  'function settle(uint8 outcome, uint64 tStar) external',
-  'function finalize() external',
-  'event MarketCreated(address indexed market, string question, uint64 startTime, uint64 deadline)',
+  'function tStar() view returns (uint64)',
+  'function getRedemptionValue(uint8 outcome) view returns (uint256)',
+  'function resolve(uint8 outcome, uint64 tStar) external',
+  'function attest() external',
+  'function settle() external',
+  'function veto() external',
+  'event MarketCreated(address indexed market, bytes32 questionHash, string question, uint64 startTime, uint64 deadline)',
 ]);
 
-const CollateralizerAbi = parseAbi([
-  'function registerMarket(address market, string name, string symbol) external returns (address yesToken, address noToken)',
-  'function getOutcomeTokens(address market) view returns (address yesToken, address noToken)',
+const OrderEngineAbi = parseAbi([
+  'function getPosition(address market, address user) view returns (uint256 yesShares, uint256 noShares)',
   'function isMarketRegistered(address market) view returns (bool)',
-  'function redeem(address market, uint256 amount) external returns (uint256)',
-  'function getBalances(address market, address user) view returns (uint256 yesBalance, uint256 noBalance)',
-  'function isMarketSettled(address market) view returns (bool)',
+  'function getCollateralBacking(address market) view returns (uint256)',
 ]);
 
 const ERC20Abi = parseAbi([
@@ -798,59 +802,56 @@ export async function marketstatus(ctx: CommandContext, args: string[]): Promise
   console.log('  ' + '─'.repeat(40));
 
   try {
-    const [question, startTime, deadline, creator, adjudicator, isLive, isSettled, isFinalized] = await Promise.all([
-      publicClient.readContract({ address: marketAddress, abi: TruthMarketAbi, functionName: 'question' }),
+    const [questionHash, startTime, deadline, creator, adjudicator, isLive, isResolving, isAttested, isSettled] = await Promise.all([
+      publicClient.readContract({ address: marketAddress, abi: TruthMarketAbi, functionName: 'questionHash' }),
       publicClient.readContract({ address: marketAddress, abi: TruthMarketAbi, functionName: 'startTime' }),
       publicClient.readContract({ address: marketAddress, abi: TruthMarketAbi, functionName: 'deadline' }),
       publicClient.readContract({ address: marketAddress, abi: TruthMarketAbi, functionName: 'creator' }),
       publicClient.readContract({ address: marketAddress, abi: TruthMarketAbi, functionName: 'adjudicator' }),
       publicClient.readContract({ address: marketAddress, abi: TruthMarketAbi, functionName: 'isLive' }),
+      publicClient.readContract({ address: marketAddress, abi: TruthMarketAbi, functionName: 'isResolving' }),
+      publicClient.readContract({ address: marketAddress, abi: TruthMarketAbi, functionName: 'isAttested' }),
       publicClient.readContract({ address: marketAddress, abi: TruthMarketAbi, functionName: 'isSettled' }),
-      publicClient.readContract({ address: marketAddress, abi: TruthMarketAbi, functionName: 'isFinalized' }),
     ]);
 
     const startDate = new Date(Number(startTime) * 1000);
     const deadlineDate = new Date(Number(deadline) * 1000);
-    const isActive = isLive && !isSettled;
 
-    console.log(`  Question:   ${(question as string).slice(0, 50)}${(question as string).length > 50 ? '...' : ''}`);
+    const statusDisplay = isSettled ? success('SETTLED') : isAttested ? success('ATTESTED') : isResolving ? warn('RESOLVING') : isLive ? success('LIVE') : warn('INACTIVE');
+
+    console.log(`  QuestionHash: ${(questionHash as string).slice(0, 18)}...`);
     console.log(`  Creator:    ${shortAddress(creator as string)}`);
     console.log(`  Adjudicator: ${shortAddress(adjudicator as string)}`);
     console.log(`  Starts:     ${startDate.toISOString().slice(0, 10)}`);
-    console.log(`  Deadline:   ${deadlineDate.toISOString().slice(0, 10)}`);
-    console.log(`  Status:     ${isActive ? success('LIVE') : isFinalized ? success('FINALIZED') : isSettled ? dim('SETTLED') : warn('INACTIVE')}`);
+    console.log(`  Deadline:   ${Number(deadline) > 4102444800 ? 'No expiry' : deadlineDate.toISOString().slice(0, 10)}`);
+    console.log(`  Status:     ${statusDisplay}`);
 
-    if (isSettled) {
+    if (isSettled || isAttested || isResolving) {
       const winningOutcome = await publicClient.readContract({
         address: marketAddress,
         abi: TruthMarketAbi,
         functionName: 'winningOutcome',
       });
-      console.log(`  Winner:     ${winningOutcome === 1 ? 'YES' : winningOutcome === 0 ? 'NO' : 'INVALID'}`);
+      console.log(`  Outcome:    ${winningOutcome === 1 ? 'YES' : winningOutcome === 0 ? 'NO' : 'INVALID'}`);
     }
   } catch (err) {
     console.log(`  ${error('Not a TruthMarket or not deployed')}`);
     return { success: false, message: 'Failed to read TruthMarket' };
   }
 
-  // 2. Collateralizer Status
-  console.log(`\n  ${info('Collateralizer')}`);
+  // 2. OrderEngine Status
+  console.log(`\n  ${info('OrderEngine')}`);
   console.log('  ' + '─'.repeat(40));
 
   try {
-    const [yesToken, noToken] = await publicClient.readContract({
+    const isRegistered = await publicClient.readContract({
       address: deployment.contracts.OrderEngine as `0x${string}`,
-      abi: CollateralizerAbi,
-      functionName: 'getOutcomeTokens',
+      abi: OrderEngineAbi,
+      functionName: 'isMarketRegistered',
       args: [marketAddress],
-    }) as [string, string];
+    }) as boolean;
 
-    const registered = yesToken !== '0x0000000000000000000000000000000000000000';
-    console.log(`  Registered: ${registered ? success('YES') : warn('NO')}`);
-    if (registered) {
-      console.log(`  YES Token:  ${shortAddress(yesToken)}`);
-      console.log(`  NO Token:   ${shortAddress(noToken)}`);
-    }
+    console.log(`  Registered: ${isRegistered ? success('YES') : warn('NO (pre-graduation)')}`);
   } catch {
     console.log(`  Registered: ${warn('NO')}`);
   }
@@ -1043,7 +1044,7 @@ export async function redeem(ctx: CommandContext, args: string[]): Promise<Comma
 
   const isSettled = await publicClient.readContract({
     address: deployment.contracts.OrderEngine as `0x${string}`,
-    abi: CollateralizerAbi,
+    abi: OrderEngineAbi,
     functionName: 'isMarketSettled',
     args: [marketAddress],
   });
@@ -1064,7 +1065,7 @@ export async function redeem(ctx: CommandContext, args: string[]): Promise<Comma
 
   const [yesBalance, noBalance] = await publicClient.readContract({
     address: deployment.contracts.OrderEngine as `0x${string}`,
-    abi: CollateralizerAbi,
+    abi: OrderEngineAbi,
     functionName: 'getBalances',
     args: [marketAddress, address],
   }) as [bigint, bigint];
@@ -1081,7 +1082,7 @@ export async function redeem(ctx: CommandContext, args: string[]): Promise<Comma
     try {
       const hash = await walletClient.writeContract({
         address: deployment.contracts.OrderEngine as `0x${string}`,
-        abi: CollateralizerAbi,
+        abi: OrderEngineAbi,
         functionName: 'redeem',
         args: [marketAddress, totalTokens],
         gas: 500000n,
@@ -1291,7 +1292,7 @@ export async function pnl(ctx: CommandContext, args: string[]): Promise<CommandR
   try {
     [yesTokens, noTokens] = await publicClient.readContract({
       address: deployment.contracts.OrderEngine as `0x${string}`,
-      abi: CollateralizerAbi,
+      abi: OrderEngineAbi,
       functionName: 'getBalances',
       args: [marketAddress, address],
     }) as [bigint, bigint];
