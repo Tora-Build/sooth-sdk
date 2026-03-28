@@ -55,8 +55,7 @@ const ERC20Abi = parseAbi([
 ]);
 
 const LaunchpadEngineAbi = parseAbi([
-  'function createMarket(string question, uint64 startTime, uint64 deadline, address adjudicator, address guardian, uint256 initialLiquidity, uint256 adjudicatorAgentId, uint256 adjudicatorMinValidators) external returns (address market, uint256 lpTokens)',
-  'function protocolConfig() view returns (address)',
+  'function createMarket(string question, uint64 startTime, uint64 deadline, address adjudicator, uint256 bBase, uint256 initialProbabilityWad) external returns (address market, address lpToken)',
   'function markets(address) view returns (address creator, address lpToken, uint256 bBase, uint256 bCurrent, uint256 creatorDeposit, uint256 feesAccrued, uint256 totalLPSupply, uint256 lpYieldPool, bool isGraduated, uint64 createdAt, uint64 graduatedAt)',
   'function getGraduationProgress(address market) view returns (uint256 feesAccrued, uint256 threshold, uint256 percentComplete)',
   'function tradePositions(address market, uint8 outcome, int256 deltaShares, uint256 maxCost) external returns (uint256)',
@@ -228,22 +227,11 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
     // Gas limits vary by chain. Base Sepolia limits ~15M, MegaETH needs ~30M for code deployment
     const isMegaETH = ctx.config.chain.id === 6343;
     const createGas = isMegaETH ? 30_000_000n : 10_000_000n;
-    const protocolConfig = await readContractWithRpcFallback<`0x${string}`>(
-      ctx.config.chain,
-      ctx.config.rpc,
-      {
-        address: deployment.contracts.LaunchpadEngine as `0x${string}`,
-        abi: LaunchpadEngineAbi,
-        functionName: 'protocolConfig',
-        args: [],
-      },
-    );
-
     const createHash = await walletClient.writeContract({
       address: deployment.contracts.LaunchpadEngine as `0x${string}`,
       abi: LaunchpadEngineAbi,
       functionName: 'createMarket',
-      args: [template.question, startTime, deadline, adjudicatorAddress, protocolConfig, liquidityWad, 0n, 0n],
+      args: [template.question, startTime, deadline, adjudicatorAddress, liquidityWad, 0n],
       gas: createGas,
     });
 
