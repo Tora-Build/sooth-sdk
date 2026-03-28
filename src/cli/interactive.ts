@@ -318,38 +318,25 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
   if (deployedMarket?.marketKey) {
     currentMarketKey = deployedMarket.marketKey as `0x${string}`;
   } else {
-    // First check if market exists in LaunchpadEngine (pre-graduation)
+    // Check if market exists in LaunchpadEngine
     let isLaunchpadMarket = false;
     try {
-      // V11: MarketState includes lpToken
-      const marketState = await publicClient.readContract({
-        address: config.deployment.contracts.LaunchpadEngine as `0x${string}`,
-        abi: [
-          {
-            name: 'markets',
-            type: 'function',
-            inputs: [{ type: 'address', name: 'market' }],
-            outputs: [
-              { type: 'address', name: 'creator' },
-              { type: 'address', name: 'lpToken' },
-              { type: 'uint256', name: 'bBase' },
-              { type: 'uint256', name: 'bCurrent' },
-              { type: 'uint256', name: 'creatorDeposit' },
-              { type: 'uint256', name: 'feesAccrued' },
-              { type: 'uint256', name: 'totalLPSupply' },
-              { type: 'uint256', name: 'lpYieldPool' },
-              { type: 'bool', name: 'isGraduated' },
-              { type: 'uint64', name: 'createdAt' },
-              { type: 'uint64', name: 'graduatedAt' },
-            ],
-            stateMutability: 'view',
-          },
-        ],
-        functionName: 'markets',
-        args: [marketAddress as `0x${string}`],
-      }) as [string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
+      const [marketState, isGraduated] = await Promise.all([
+        publicClient.readContract({
+          address: config.deployment.contracts.LaunchpadEngine as `0x${string}`,
+          abi: LaunchpadDiscoveryAbi,
+          functionName: 'markets',
+          args: [marketAddress as `0x${string}`],
+        }) as Promise<[string, string, bigint, bigint, bigint]>,
+        publicClient.readContract({
+          address: config.deployment.contracts.LaunchpadEngine as `0x${string}`,
+          abi: LaunchpadDiscoveryAbi,
+          functionName: 'isGraduated',
+          args: [marketAddress as `0x${string}`],
+        }) as Promise<boolean>,
+      ]);
 
-      const [creator, , , , , , , , isGraduated] = marketState;
+      const creator = marketState[0];
       if (creator !== '0x0000000000000000000000000000000000000000') {
         isLaunchpadMarket = true;
 
@@ -357,7 +344,7 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
         try {
           marketName = await publicClient.readContract({
             address: marketAddress as `0x${string}`,
-            abi: [{ name: 'question', type: 'function', inputs: [], outputs: [{ type: 'string' }], stateMutability: 'view' }],
+            abi: TruthMarketQuestionAbi,
             functionName: 'question',
           }) as string;
         } catch {}
@@ -379,44 +366,9 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
       }
     } catch {}
 
-    try {
-      const [yes, no] = await publicClient.readContract({
-        address: config.deployment.contracts.Collateralizer as `0x${string}`,
-        abi: [
-          {
-            name: 'getOutcomeTokens',
-            type: 'function',
-            inputs: [{ type: 'address', name: 'market' }],
-            outputs: [{ type: 'address', name: 'yesToken' }, { type: 'address', name: 'noToken' }],
-            stateMutability: 'view',
-          },
-        ],
-        functionName: 'getOutcomeTokens',
-        args: [marketAddress as `0x${string}`],
-      }) as [string, string];
-
-      if (yes !== '0x0000000000000000000000000000000000000000') {
-        currentMarketKey = currentMarketKey || null;
-      } else if (!isLaunchpadMarket) {
-        console.log(error(`  Market not found: ${shortAddress(marketAddress)}`));
-        return false;
-      }
-    } catch (collateralizerErr) {
-      if (!isLaunchpadMarket && isDirectAddress) {
-        currentMarketAddress = marketAddress as `0x${string}`;
-        currentMarketKey = null;
-        const symbol = marketAddress.slice(2, 10).toUpperCase();
-        console.log(warn(`  Market set (unverified): [${symbol}]`));
-        console.log(dim(`  Address: ${marketAddress}`));
-        console.log(dim(`  Key: (not available)`));
-        return true;
-      }
-      if (!isLaunchpadMarket) {
-        console.log(error(`  Failed to fetch market info: ${(collateralizerErr as Error).message}`));
-        return false;
-      }
-      // For LaunchpadEngine markets, Collateralizer not being registered is expected
-      // (pre-graduation markets don't have outcome tokens yet)
+    if (!isLaunchpadMarket && !isDirectAddress) {
+      console.log(error(`  Market not found`));
+      return false;
     }
   }
 
