@@ -67,12 +67,10 @@ const LaunchpadAbi = [
       { type: 'uint64', name: 'startTime' },
       { type: 'uint64', name: 'deadline' },
       { type: 'address', name: 'adjudicator' },
-      { type: 'address', name: 'guardian' },
-      { type: 'uint256', name: 'initialLiquidity' },
-      { type: 'uint256', name: 'adjudicatorAgentId' },
-      { type: 'uint256', name: 'adjudicatorMinValidators' },
+      { type: 'uint256', name: 'bBase' },
+      { type: 'uint256', name: 'initialProbabilityWad' },
     ],
-    outputs: [{ type: 'address' }],
+    outputs: [{ type: 'address' }, { type: 'address' }],
     stateMutability: 'nonpayable',
   },
 ] as const;
@@ -209,19 +207,17 @@ export class Markets {
     question: string;
     initialLiquidity: string;
     adjudicator?: `0x${string}`;
-    guardian?: `0x${string}`;
     deadline?: bigint;
   }): Promise<`0x${string}`> {
-    const liquidity = parseUnits(params.initialLiquidity, 18);
+    const bBase = parseUnits(params.initialLiquidity, 18);
     const adjudicator = params.adjudicator ?? (this.client.account as `0x${string}`);
-    const guardian = params.guardian ?? this.client.contracts.adjudicatorRegistry;
     const deadline = params.deadline ?? 7258118399n; // year 2199
 
     return this.client.writeContract({
       address: this.client.contracts.launchpadEngine,
       abi: LaunchpadAbi,
       functionName: 'createMarket',
-      args: [params.question, 0n, deadline, adjudicator, guardian, liquidity, 0n, 0n],
+      args: [params.question, 0n, deadline, adjudicator, bBase, 0n],
     });
   }
 }
