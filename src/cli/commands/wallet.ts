@@ -9,7 +9,7 @@ import { formatWad, parseWad, shortAddress, shortTx, Spinner, success, error, wa
 import { parseAbi } from 'viem';
 
 // Additional ABIs for complete position tracking
-const CollateralizerAbi = parseAbi([
+const OrderEngineAbi = parseAbi([
   'function getBalances(address market, address user) view returns (uint256 yesBalance, uint256 noBalance)',
   'function isMarketRegistered(address market) view returns (bool)',
 ]);
@@ -58,8 +58,8 @@ export async function balance(ctx: CommandContext, _args: string[]): Promise<Com
         ctx.config.chain,
         ctx.config.rpc,
         {
-          address: deployment.contracts.MockUSDC as `0x${string}`,
-          abi: ABIS.MockUSDC,
+          address: deployment.contracts.BaseToken as `0x${string}`,
+          abi: ABIS.BaseToken,
           functionName: 'balanceOf',
           args: [address],
         },
@@ -100,8 +100,8 @@ export async function balance(ctx: CommandContext, _args: string[]): Promise<Com
     ctx.config.chain,
     ctx.config.rpc,
     {
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
+      address: deployment.contracts.BaseToken as `0x${string}`,
+      abi: ABIS.BaseToken,
       functionName: 'balanceOf',
       args: [address],
     },
@@ -137,8 +137,8 @@ export async function mint(ctx: CommandContext, args: string[]): Promise<Command
 
   try {
     const hash = await walletClient.writeContract({
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
+      address: deployment.contracts.BaseToken as `0x${string}`,
+      abi: ABIS.BaseToken,
       functionName: 'mint',
       args: [address, amount],
     });
@@ -186,8 +186,8 @@ export async function approve(ctx: CommandContext, args: string[]): Promise<Comm
 
     try {
       const hash = await walletClient.writeContract({
-        address: deployment.contracts.MockUSDC as `0x${string}`,
-        abi: ABIS.MockUSDC,
+        address: deployment.contracts.BaseToken as `0x${string}`,
+        abi: ABIS.BaseToken,
         functionName: 'approve',
         args: [address as `0x${string}`, amount],
       });
@@ -247,8 +247,8 @@ export async function allowance(ctx: CommandContext, _args: string[]): Promise<C
 
   for (const contract of contracts) {
     const allowanceValue = await publicClient.readContract({
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
+      address: deployment.contracts.BaseToken as `0x${string}`,
+      abi: ABIS.BaseToken,
       functionName: 'allowance',
       args: [address, contract.address as `0x${string}`],
     }) as bigint;
@@ -294,7 +294,7 @@ export interface BalanceSnapshot {
   actors: Record<string, ActorPositions>;
   contracts: {
     launchpadEngine: bigint;
-    collateralizer: bigint;
+    orderEngine: bigint;
     ammEngine: bigint;
     protocolTreasury: bigint;
   };
@@ -334,7 +334,7 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
     actors: {},
     contracts: {
       launchpadEngine: 0n,
-      collateralizer: 0n,
+      orderEngine: 0n,
       ammEngine: 0n,
       protocolTreasury: 0n,
     },
@@ -398,8 +398,8 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
     const actorAddr = actor.account.address;
     
     const wallet = await publicClient.readContract({
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
+      address: deployment.contracts.BaseToken as `0x${string}`,
+      abi: ABIS.BaseToken,
       functionName: 'balanceOf',
       args: [actorAddr],
     }) as Promise<bigint>;
@@ -413,8 +413,8 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
     if (marketAddress) {
       try {
         [erc20Yes, erc20No] = await publicClient.readContract({
-          address: deployment.contracts.Collateralizer as `0x${string}`,
-          abi: CollateralizerAbi,
+          address: deployment.contracts.OrderEngine as `0x${string}`,
+          abi: OrderEngineAbi,
           functionName: 'getBalances',
           args: [marketAddress, actorAddr],
         }) as [bigint, bigint];
@@ -458,28 +458,28 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
     functionName: 'protocolTreasury',
   }) as `0x${string}`;
 
-  const [launchpadBal, collateralizerBal, ammEngineBal, treasuryBal] = await Promise.all([
+  const [launchpadBal, orderEngineBal, ammEngineBal, treasuryBal] = await Promise.all([
     publicClient.readContract({
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
+      address: deployment.contracts.BaseToken as `0x${string}`,
+      abi: ABIS.BaseToken,
       functionName: 'balanceOf',
       args: [deployment.contracts.LaunchpadEngine as `0x${string}`],
     }) as Promise<bigint>,
     publicClient.readContract({
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
+      address: deployment.contracts.BaseToken as `0x${string}`,
+      abi: ABIS.BaseToken,
       functionName: 'balanceOf',
-      args: [deployment.contracts.Collateralizer as `0x${string}`],
+      args: [deployment.contracts.OrderEngine as `0x${string}`],
     }) as Promise<bigint>,
     publicClient.readContract({
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
+      address: deployment.contracts.BaseToken as `0x${string}`,
+      abi: ABIS.BaseToken,
       functionName: 'balanceOf',
       args: [deployment.contracts.AMMEngine as `0x${string}`],
     }) as Promise<bigint>,
     publicClient.readContract({
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
+      address: deployment.contracts.BaseToken as `0x${string}`,
+      abi: ABIS.BaseToken,
       functionName: 'balanceOf',
       args: [protocolTreasuryAddr],
     }) as Promise<bigint>,
@@ -487,15 +487,15 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
 
   snap.contracts = {
     launchpadEngine: launchpadBal,
-    collateralizer: collateralizerBal,
+    orderEngine: orderEngineBal,
     ammEngine: ammEngineBal,
     protocolTreasury: treasuryBal,
   };
   snap.protocolTreasuryAddress = protocolTreasuryAddr;
 
   snap.totalMinted = await publicClient.readContract({
-    address: deployment.contracts.MockUSDC as `0x${string}`,
-    abi: ABIS.MockUSDC,
+    address: deployment.contracts.BaseToken as `0x${string}`,
+    abi: ABIS.BaseToken,
     functionName: 'totalSupply',
   }) as bigint;
 
@@ -594,7 +594,7 @@ function printSnapshot(snap: BalanceSnapshot, title: string): void {
   console.log(`\n  ${info('Contract Balances:')}`);
   console.log(`    LaunchpadEngine  ${formatWad(snap.contracts.launchpadEngine).padStart(12)} USDC`);
   console.log(`    AMMEngine        ${formatWad(snap.contracts.ammEngine).padStart(12)} USDC`);
-  console.log(`    Collateralizer   ${formatWad(snap.contracts.collateralizer).padStart(12)} USDC`);
+  console.log(`    OrderEngine   ${formatWad(snap.contracts.orderEngine).padStart(12)} USDC`);
   console.log(`    ProtocolTreasury ${formatWad(snap.contracts.protocolTreasury).padStart(12)} USDC`);
 
   console.log(`\n  ${info('Summary:')}`);
@@ -621,7 +621,7 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
     actors: {},
     contracts: {
       launchpadEngine: 0n,
-      collateralizer: 0n,
+      orderEngine: 0n,
       ammEngine: 0n,
       protocolTreasury: 0n,
     },
@@ -683,8 +683,8 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
     const actorAddr = actor.account.address;
     
     const wallet = await publicClient.readContract({
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
+      address: deployment.contracts.BaseToken as `0x${string}`,
+      abi: ABIS.BaseToken,
       functionName: 'balanceOf',
       args: [actorAddr],
     }) as Promise<bigint>;
@@ -698,8 +698,8 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
     if (marketAddress) {
       try {
         [erc20Yes, erc20No] = await publicClient.readContract({
-          address: deployment.contracts.Collateralizer as `0x${string}`,
-          abi: CollateralizerAbi,
+          address: deployment.contracts.OrderEngine as `0x${string}`,
+          abi: OrderEngineAbi,
           functionName: 'getBalances',
           args: [marketAddress, actorAddr],
         }) as [bigint, bigint];
@@ -739,28 +739,28 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
 
   const treasuryAddr = before.protocolTreasuryAddress as `0x${string}` | null;
   
-  const [launchpadBal, collateralizerBal, ammEngineBal, treasuryBal] = await Promise.all([
+  const [launchpadBal, orderEngineBal, ammEngineBal, treasuryBal] = await Promise.all([
     publicClient.readContract({
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
+      address: deployment.contracts.BaseToken as `0x${string}`,
+      abi: ABIS.BaseToken,
       functionName: 'balanceOf',
       args: [deployment.contracts.LaunchpadEngine as `0x${string}`],
     }) as Promise<bigint>,
     publicClient.readContract({
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
+      address: deployment.contracts.BaseToken as `0x${string}`,
+      abi: ABIS.BaseToken,
       functionName: 'balanceOf',
-      args: [deployment.contracts.Collateralizer as `0x${string}`],
+      args: [deployment.contracts.OrderEngine as `0x${string}`],
     }) as Promise<bigint>,
     publicClient.readContract({
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
+      address: deployment.contracts.BaseToken as `0x${string}`,
+      abi: ABIS.BaseToken,
       functionName: 'balanceOf',
       args: [deployment.contracts.AMMEngine as `0x${string}`],
     }) as Promise<bigint>,
     treasuryAddr ? publicClient.readContract({
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
+      address: deployment.contracts.BaseToken as `0x${string}`,
+      abi: ABIS.BaseToken,
       functionName: 'balanceOf',
       args: [treasuryAddr],
     }) as Promise<bigint> : Promise.resolve(0n),
@@ -768,14 +768,14 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
 
   after.contracts = {
     launchpadEngine: launchpadBal,
-    collateralizer: collateralizerBal,
+    orderEngine: orderEngineBal,
     ammEngine: ammEngineBal,
     protocolTreasury: treasuryBal,
   };
 
   after.totalMinted = await publicClient.readContract({
-    address: deployment.contracts.MockUSDC as `0x${string}`,
-    abi: ABIS.MockUSDC,
+    address: deployment.contracts.BaseToken as `0x${string}`,
+    abi: ABIS.BaseToken,
     functionName: 'totalSupply',
   }) as bigint;
 
@@ -845,7 +845,7 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
   console.log('  ' + '─'.repeat(70));
 
   const launchpadDelta = after.contracts.launchpadEngine - before.contracts.launchpadEngine;
-  const collateralizerDelta = after.contracts.collateralizer - before.contracts.collateralizer;
+  const orderEngineDelta = after.contracts.orderEngine - before.contracts.orderEngine;
   const ammEngineDelta = after.contracts.ammEngine - before.contracts.ammEngine;
   const treasuryDelta = after.contracts.protocolTreasury - before.contracts.protocolTreasury;
   
@@ -853,7 +853,7 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
   const treasuryIsActor = before.protocolTreasuryAddress && actorAddresses.has(before.protocolTreasuryAddress.toLowerCase());
   const effectiveTreasuryDelta = treasuryIsActor ? 0n : treasuryDelta;
   
-  const totalContractDelta = launchpadDelta + collateralizerDelta + ammEngineDelta + effectiveTreasuryDelta;
+  const totalContractDelta = launchpadDelta + orderEngineDelta + ammEngineDelta + effectiveTreasuryDelta;
 
   const printDelta = (name: string, delta: bigint, note?: string) => {
     const sign = delta >= 0n ? '+' : '';
@@ -864,7 +864,7 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
 
   printDelta('LaunchpadEngine', launchpadDelta);
   printDelta('AMMEngine', ammEngineDelta);
-  printDelta('Collateralizer', collateralizerDelta);
+  printDelta('OrderEngine', orderEngineDelta);
   if (treasuryIsActor) {
     console.log(`    ${dim('ProtocolTreasury'.padEnd(18))} ${dim(`${treasuryDelta >= 0n ? '+' : ''}${formatWad(treasuryDelta)}`.padStart(12))} ${dim('USDC (= actor, not counted)')}`);
   } else {

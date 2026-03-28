@@ -20,13 +20,15 @@ export interface NodeInfo {
     launchpadEngine: `0x${string}`;
     soothBook: `0x${string}`;
     ammEngine: `0x${string}`;
-    collateralizer: `0x${string}`;
-    usdc: `0x${string}`;
-    protocolConfig: `0x${string}`;
+    orderEngine: `0x${string}`;
+    truthMarket: `0x${string}`;
+    feeRouter: `0x${string}`;
+    adjudicatorRegistry: `0x${string}`;
+    baseToken: `0x${string}`;
   };
   deployedAt: string;
   deployedBy: `0x${string}`;
-  startBlock: number;
+  startBlock?: number;
   indexed?: boolean;
 }
 

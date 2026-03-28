@@ -62,7 +62,7 @@ export class Wallet {
   /** Get USDC balance (raw bigint) */
   async getBalance(address: `0x${string}`): Promise<bigint> {
     return (await this.client.publicClient.readContract({
-      address: this.client.contracts.usdc,
+      address: this.client.contracts.baseToken,
       abi: ERC20Abi,
       functionName: 'balanceOf',
       args: [address],
@@ -79,7 +79,7 @@ export class Wallet {
   /** Get USDC decimals */
   async getDecimals(): Promise<number> {
     const result = await this.client.publicClient.readContract({
-      address: this.client.contracts.usdc,
+      address: this.client.contracts.baseToken,
       abi: ERC20Abi,
       functionName: 'decimals',
     });
@@ -92,7 +92,7 @@ export class Wallet {
     spender: `0x${string}`,
   ): Promise<bigint> {
     return (await this.client.publicClient.readContract({
-      address: this.client.contracts.usdc,
+      address: this.client.contracts.baseToken,
       abi: ERC20Abi,
       functionName: 'allowance',
       args: [owner, spender],
@@ -105,7 +105,7 @@ export class Wallet {
     amount?: bigint,
   ): Promise<`0x${string}`> {
     return this.client.writeContract({
-      address: this.client.contracts.usdc,
+      address: this.client.contracts.baseToken,
       abi: ERC20Abi,
       functionName: 'approve',
       args: [spender, amount ?? maxUint256],
@@ -135,7 +135,7 @@ export class Wallet {
   async mint(to: `0x${string}`, amount: string): Promise<`0x${string}`> {
     const decimals = await this.getDecimals();
     return this.client.writeContract({
-      address: this.client.contracts.usdc,
+      address: this.client.contracts.baseToken,
       abi: ERC20Abi,
       functionName: 'mint',
       args: [to, parseUnits(amount, decimals)],

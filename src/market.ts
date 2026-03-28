@@ -214,7 +214,7 @@ export class Markets {
   }): Promise<`0x${string}`> {
     const liquidity = parseUnits(params.initialLiquidity, 18);
     const adjudicator = params.adjudicator ?? (this.client.account as `0x${string}`);
-    const guardian = params.guardian ?? this.client.contracts.protocolConfig;
+    const guardian = params.guardian ?? this.client.contracts.adjudicatorRegistry;
     const deadline = params.deadline ?? 7258118399n; // year 2199
 
     return this.client.writeContract({

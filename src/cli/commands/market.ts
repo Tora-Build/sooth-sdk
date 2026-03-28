@@ -180,8 +180,8 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
       ctx.config.chain,
       ctx.config.rpc,
       {
-        address: deployment.contracts.MockUSDC as `0x${string}`,
-        abi: ABIS.MockUSDC,
+        address: deployment.contracts.BaseToken as `0x${string}`,
+        abi: ABIS.BaseToken,
         functionName: 'balanceOf',
         args: [address],
       },
@@ -194,8 +194,8 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
     if (usdcBalance < required) {
       console.log(warn(`  Insufficient USDC. Minting ${formatWad(required)} USDC...`));
       const mintHash = await walletClient.writeContract({
-        address: deployment.contracts.MockUSDC as `0x${string}`,
-        abi: ABIS.MockUSDC,
+        address: deployment.contracts.BaseToken as `0x${string}`,
+        abi: ABIS.BaseToken,
         functionName: 'mint',
         args: [address, required * 2n],
         gas: 500000n,
@@ -208,8 +208,8 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
     spinner1.start();
 
     const approveHash = await walletClient.writeContract({
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
+      address: deployment.contracts.BaseToken as `0x${string}`,
+      abi: ABIS.BaseToken,
       functionName: 'approve',
       args: [deployment.contracts.LaunchpadEngine as `0x${string}`, MAX_UINT256],
       gas: 500000n,
@@ -363,8 +363,8 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
     // Approve and do a tiny trade to trigger graduation
     const tinyTrade = WAD; // 1 share
     await walletClient.writeContract({
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
+      address: deployment.contracts.BaseToken as `0x${string}`,
+      abi: ABIS.BaseToken,
       functionName: 'approve',
       args: [deployment.contracts.LaunchpadEngine as `0x${string}`, MAX_UINT256],
       gas: 500000n, // High gas for Monad testnet
@@ -429,8 +429,8 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
     ctx.config.chain,
     ctx.config.rpc,
     {
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
+      address: deployment.contracts.BaseToken as `0x${string}`,
+      abi: ABIS.BaseToken,
       functionName: 'balanceOf',
       args: [address],
     },
@@ -439,8 +439,8 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
   if (usdcBalance < requiredUsdc) {
     console.log(warn(`  Low USDC balance. Minting more...`));
     const mintHash = await walletClient.writeContract({
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
+      address: deployment.contracts.BaseToken as `0x${string}`,
+      abi: ABIS.BaseToken,
       functionName: 'mint',
       args: [address, requiredUsdc * 2n],
       gas: 500000n, // High gas for Monad testnet
@@ -451,8 +451,8 @@ export async function graduate(ctx: CommandContext, args: string[]): Promise<Com
 
   // Approve LaunchpadEngine
   const approveHash = await walletClient.writeContract({
-    address: deployment.contracts.MockUSDC as `0x${string}`,
-    abi: ABIS.MockUSDC,
+    address: deployment.contracts.BaseToken as `0x${string}`,
+    abi: ABIS.BaseToken,
     functionName: 'approve',
     args: [deployment.contracts.LaunchpadEngine as `0x${string}`, MAX_UINT256],
     gas: 500000n, // High gas for Monad testnet
@@ -679,8 +679,8 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
     ctx.config.chain,
     ctx.config.rpc,
     {
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
+      address: deployment.contracts.BaseToken as `0x${string}`,
+      abi: ABIS.BaseToken,
       functionName: 'balanceOf',
       args: [address],
     },
@@ -691,8 +691,8 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
     const mintSpinner = new Spinner(`Minting ${formatWad(mintAmount)} USDC...`);
     mintSpinner.start();
     const mintHash = await walletClient.writeContract({
-      address: deployment.contracts.MockUSDC as `0x${string}`,
-      abi: ABIS.MockUSDC,
+      address: deployment.contracts.BaseToken as `0x${string}`,
+      abi: ABIS.BaseToken,
       functionName: 'mint',
       args: [address, mintAmount],
       gas: 500000n,
@@ -704,8 +704,8 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
   const approveSpinner = new Spinner('Approving SoothBook spending...');
   approveSpinner.start();
   const approveHash = await walletClient.writeContract({
-    address: deployment.contracts.MockUSDC as `0x${string}`,
-    abi: ABIS.MockUSDC,
+    address: deployment.contracts.BaseToken as `0x${string}`,
+    abi: ABIS.BaseToken,
     functionName: 'approve',
     args: [soothBook, MAX_UINT256],
     gas: 500000n,
@@ -938,7 +938,7 @@ export async function marketstatus(ctx: CommandContext, args: string[]): Promise
 
   try {
     const [yesToken, noToken] = await publicClient.readContract({
-      address: deployment.contracts.Collateralizer as `0x${string}`,
+      address: deployment.contracts.OrderEngine as `0x${string}`,
       abi: CollateralizerAbi,
       functionName: 'getOutcomeTokens',
       args: [marketAddress],
@@ -1144,7 +1144,7 @@ export async function redeem(ctx: CommandContext, args: string[]): Promise<Comma
   }
 
   const isSettled = await publicClient.readContract({
-    address: deployment.contracts.Collateralizer as `0x${string}`,
+    address: deployment.contracts.OrderEngine as `0x${string}`,
     abi: CollateralizerAbi,
     functionName: 'isMarketSettled',
     args: [marketAddress],
@@ -1165,7 +1165,7 @@ export async function redeem(ctx: CommandContext, args: string[]): Promise<Comma
   console.log(`  Winner: ${['NO', 'YES', 'INVALID'][winningOutcome]}`);
 
   const [yesBalance, noBalance] = await publicClient.readContract({
-    address: deployment.contracts.Collateralizer as `0x${string}`,
+    address: deployment.contracts.OrderEngine as `0x${string}`,
     abi: CollateralizerAbi,
     functionName: 'getBalances',
     args: [marketAddress, address],
@@ -1182,7 +1182,7 @@ export async function redeem(ctx: CommandContext, args: string[]): Promise<Comma
 
     try {
       const hash = await walletClient.writeContract({
-        address: deployment.contracts.Collateralizer as `0x${string}`,
+        address: deployment.contracts.OrderEngine as `0x${string}`,
         abi: CollateralizerAbi,
         functionName: 'redeem',
         args: [marketAddress, totalTokens],
@@ -1386,7 +1386,7 @@ export async function pnl(ctx: CommandContext, args: string[]): Promise<CommandR
   console.log('  ' + '═'.repeat(50));
 
   const walletUsdc = await publicClient.readContract({
-    address: deployment.contracts.MockUSDC as `0x${string}`,
+    address: deployment.contracts.BaseToken as `0x${string}`,
     abi: ERC20Abi,
     functionName: 'balanceOf',
     args: [address],
@@ -1396,7 +1396,7 @@ export async function pnl(ctx: CommandContext, args: string[]): Promise<CommandR
   let noTokens = 0n;
   try {
     [yesTokens, noTokens] = await publicClient.readContract({
-      address: deployment.contracts.Collateralizer as `0x${string}`,
+      address: deployment.contracts.OrderEngine as `0x${string}`,
       abi: CollateralizerAbi,
       functionName: 'getBalances',
       args: [marketAddress, address],

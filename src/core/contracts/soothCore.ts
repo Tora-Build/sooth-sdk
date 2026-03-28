@@ -26,7 +26,7 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const;
 
 export interface SoothCoreContracts extends LaunchpadAmmContracts {
   soothBook?: Address;
-  collateralizer?: Address;
+  orderEngine?: Address;
 }
 
 export interface SoothCoreSnapshotOptions extends LaunchpadAmmSnapshotOptions {
@@ -740,8 +740,8 @@ export async function readSoothCoreSnapshot(
   const [truth, launchpadAmm, collateralizer, soothBook] = await Promise.all([
     readTruthMarketSnapshot(client, marketAddress, { includeQuestion: options.includeQuestion }),
     readLaunchpadAmmSnapshot(client, contracts, marketAddress, options),
-    contracts.collateralizer
-      ? readCollateralizerSnapshot(client, contracts.collateralizer, marketAddress, options.userAddress)
+    contracts.orderEngine
+      ? readCollateralizerSnapshot(client, contracts.orderEngine, marketAddress, options.userAddress)
       : Promise.resolve(null),
     contracts.soothBook
       ? readSoothBookMarketSnapshot(client, contracts.soothBook, marketAddress, options.userAddress)
@@ -1064,7 +1064,7 @@ export function buildClaimRequest(snapshot: SoothCoreSnapshot, contracts: SoothC
       if (yesBalance > 0n) {
         requests.push({
           route: 'collateral_redeem',
-          contract: assertAddress('collateralizer', contracts.collateralizer),
+          contract: assertAddress('collateralizer', contracts.orderEngine),
           functionName: 'redeemOutcome',
           args: [snapshot.marketAddress, OUTCOME.YES, yesBalance] as const,
         });
@@ -1072,7 +1072,7 @@ export function buildClaimRequest(snapshot: SoothCoreSnapshot, contracts: SoothC
       if (noBalance > 0n) {
         requests.push({
           route: 'collateral_redeem',
-          contract: assertAddress('collateralizer', contracts.collateralizer),
+          contract: assertAddress('collateralizer', contracts.orderEngine),
           functionName: 'redeemOutcome',
           args: [snapshot.marketAddress, OUTCOME.NO, noBalance] as const,
         });
@@ -1082,7 +1082,7 @@ export function buildClaimRequest(snapshot: SoothCoreSnapshot, contracts: SoothC
       if (winningBalance > 0n) {
         requests.push({
           route: 'collateral_redeem',
-          contract: assertAddress('collateralizer', contracts.collateralizer),
+          contract: assertAddress('collateralizer', contracts.orderEngine),
           functionName: 'redeemOutcome',
           args: [snapshot.marketAddress, winningOutcome, winningBalance] as const,
         });
