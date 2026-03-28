@@ -113,15 +113,16 @@ const LaunchpadDiscoveryAbi = [
       { type: 'address', name: 'creator' },
       { type: 'address', name: 'lpToken' },
       { type: 'uint256', name: 'bBase' },
-      { type: 'uint256', name: 'bCurrent' },
       { type: 'uint256', name: 'creatorDeposit' },
-      { type: 'uint256', name: 'feesAccrued' },
-      { type: 'uint256', name: 'totalLPSupply' },
-      { type: 'uint256', name: 'lpYieldPool' },
-      { type: 'bool', name: 'isGraduated' },
-      { type: 'uint64', name: 'createdAt' },
       { type: 'uint64', name: 'graduatedAt' },
     ],
+    stateMutability: 'view',
+  },
+  {
+    name: 'isGraduated',
+    type: 'function',
+    inputs: [{ type: 'address', name: 'market' }],
+    outputs: [{ type: 'bool' }],
     stateMutability: 'view',
   },
 ] as const;
@@ -167,15 +168,22 @@ async function discoverMarketsOnChain(): Promise<DiscoveredMarket[]> {
 
   const discovered = await Promise.all(
     marketAddresses.map(async (marketAddress): Promise<DiscoveredMarket | null> => {
-      const state = await publicClient.readContract({
-        address: launchpadAddress,
-        abi: LaunchpadDiscoveryAbi,
-        functionName: 'markets',
-        args: [marketAddress],
-      }) as [string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, bigint, bigint];
+      const [state, isGraduated] = await Promise.all([
+        publicClient.readContract({
+          address: launchpadAddress,
+          abi: LaunchpadDiscoveryAbi,
+          functionName: 'markets',
+          args: [marketAddress],
+        }) as Promise<[string, string, bigint, bigint, bigint]>,
+        publicClient.readContract({
+          address: launchpadAddress,
+          abi: LaunchpadDiscoveryAbi,
+          functionName: 'isGraduated',
+          args: [marketAddress],
+        }) as Promise<boolean>,
+      ]);
 
       const creator = state[0];
-      const isGraduated = state[8];
       if (creator.toLowerCase() === ZERO_ADDRESS) {
         return null;
       }
