@@ -561,13 +561,13 @@ export async function buyyes(ctx: CommandContext, args: string[]): Promise<Comma
     const tick = parseTickValue(args[0]);
     const amount = parseWad(args[1]);
     const escrow = parseEscrow(args[2]);
-    const maxCost = args[3] ? parseWad(args[3]) : 0n;
+    const matchLimit = args[3] ? Number(args[3]) : 0;
 
     const hash = await walletClient.writeContract({
       address: deployment.contracts.SoothBook as `0x${string}`,
       abi: ABIS.SoothBook,
       functionName: 'buyYes',
-      args: [marketKey, tick, amount, escrow, maxCost],
+      args: [marketKey, tick, amount, escrow, matchLimit],
     });
     await waitForTx(ctx, hash);
 
@@ -596,13 +596,13 @@ export async function buyno(ctx: CommandContext, args: string[]): Promise<Comman
     const tick = parseTickValue(args[0]);
     const amount = parseWad(args[1]);
     const escrow = parseEscrow(args[2]);
-    const maxCost = args[3] ? parseWad(args[3]) : 0n;
+    const matchLimit = args[3] ? Number(args[3]) : 0;
 
     const hash = await walletClient.writeContract({
       address: deployment.contracts.SoothBook as `0x${string}`,
       abi: ABIS.SoothBook,
       functionName: 'buyNo',
-      args: [marketKey, tick, amount, escrow, maxCost],
+      args: [marketKey, tick, amount, escrow, matchLimit],
     });
     await waitForTx(ctx, hash);
 

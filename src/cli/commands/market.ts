@@ -688,7 +688,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
               address: soothBook,
               abi: ABIS.SoothBook,
               functionName: 'buyYes',
-              args: [marketKey, tick, amount, false, 0n],
+              args: [marketKey, tick, amount, false, 0],
             });
           } else if (action === 'buyno') {
             const bestYesTick = await readContractWithRpcFallback<number>(ctx.config.chain, ctx.config.rpc, {
@@ -702,7 +702,7 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
               address: soothBook,
               abi: ABIS.SoothBook,
               functionName: 'buyNo',
-              args: [marketKey, tick, amount, false, 0n],
+              args: [marketKey, tick, amount, false, 0],
             });
           } else if (action === 'mint') {
             hash = await walletClient.writeContract({
