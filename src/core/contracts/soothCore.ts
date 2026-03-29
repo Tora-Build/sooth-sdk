@@ -442,7 +442,7 @@ export async function readTruthMarketSnapshot(
   marketAddress: Address,
   options: { includeQuestion?: boolean } = {},
 ): Promise<SoothTruthMarketSnapshot> {
-  const [creator, deadline, winningOutcome, isSettled, isFinalized, isLive, question] = await Promise.all([
+  const [creator, deadline, winningOutcome, isSettled, isLive, questionHash] = await Promise.all([
     readWithFallback(
       () =>
         client.readContract({
@@ -484,15 +484,6 @@ export async function readTruthMarketSnapshot(
         client.readContract({
           address: marketAddress,
           abi: TruthMarketABI,
-          functionName: 'isFinalized',
-        }) as Promise<boolean>,
-      false,
-    ),
-    readWithFallback(
-      () =>
-        client.readContract({
-          address: marketAddress,
-          abi: TruthMarketABI,
           functionName: 'isLive',
         }) as Promise<boolean>,
       true,
@@ -503,7 +494,7 @@ export async function readTruthMarketSnapshot(
             client.readContract({
               address: marketAddress,
               abi: TruthMarketABI,
-              functionName: 'question',
+              functionName: 'questionHash',
             }) as Promise<string>,
           '',
         )
@@ -515,9 +506,9 @@ export async function readTruthMarketSnapshot(
     deadline,
     winningOutcome: Number(winningOutcome),
     isSettled,
-    isFinalized,
+    isFinalized: isSettled,
     isLive,
-    question,
+    question: questionHash ? String(questionHash).slice(0, 18) + '...' : undefined,
   };
 }
 
