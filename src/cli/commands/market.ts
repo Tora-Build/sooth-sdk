@@ -606,17 +606,25 @@ export async function simulate(ctx: CommandContext, args: string[]): Promise<Com
     mintSpinner.succeed(`Minted ${formatWad(mintAmount)} USDC`);
   }
 
-  const approveSpinner = new Spinner('Approving SoothBook spending...');
+  const approveSpinner = new Spinner('Approving SoothBook + OrderEngine...');
   approveSpinner.start();
-  const approveHash = await walletClient.writeContract({
+  const approveSBHash = await walletClient.writeContract({
     address: deployment.contracts.BaseToken as `0x${string}`,
     abi: ABIS.BaseToken,
     functionName: 'approve',
     args: [soothBook, MAX_UINT256],
     gas: 500000n,
   });
-  await actorManager.waitForTransactionReceipt(approveHash);
-  approveSpinner.succeed('SoothBook approved');
+  await actorManager.waitForTransactionReceipt(approveSBHash);
+  const approveOEHash = await walletClient.writeContract({
+    address: deployment.contracts.BaseToken as `0x${string}`,
+    abi: ABIS.BaseToken,
+    functionName: 'approve',
+    args: [deployment.contracts.OrderEngine as `0x${string}`, MAX_UINT256],
+    gas: 500000n,
+  });
+  await actorManager.waitForTransactionReceipt(approveOEHash);
+  approveSpinner.succeed('SoothBook + OrderEngine approved');
 
   let stopRequested = false;
   const onStopInput = (data: Buffer | string) => {
