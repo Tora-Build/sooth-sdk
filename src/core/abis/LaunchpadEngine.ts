@@ -357,6 +357,71 @@ export const LaunchpadEngineABI = [
   },
   {
     "type": "function",
+    "name": "preGradFeeBps",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "uint16", "internalType": "uint16" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "postGradFeeBps",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "uint16", "internalType": "uint16" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "protocolShareBps",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "uint16", "internalType": "uint16" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getGraduationProgress",
+    "inputs": [{ "name": "market", "type": "address", "internalType": "address" }],
+    "outputs": [
+      { "name": "feesAccrued", "type": "uint256", "internalType": "uint256" },
+      { "name": "threshold", "type": "uint256", "internalType": "uint256" },
+      { "name": "progressBps", "type": "uint256", "internalType": "uint256" }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "trialStates",
+    "inputs": [{ "name": "market", "type": "address", "internalType": "address" }],
+    "outputs": [
+      { "name": "trialEndTime", "type": "uint64", "internalType": "uint64" },
+      { "name": "isDismissed", "type": "bool", "internalType": "bool" },
+      { "name": "totalLockedCost", "type": "uint256", "internalType": "uint256" }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "tradePositions",
+    "inputs": [
+      { "name": "market", "type": "address", "internalType": "address" },
+      { "name": "outcome", "type": "uint8", "internalType": "uint8" },
+      { "name": "deltaShares", "type": "int256", "internalType": "int256" },
+      { "name": "maxCost", "type": "uint256", "internalType": "uint256" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "redeemLP",
+    "inputs": [
+      { "name": "market", "type": "address", "internalType": "address" },
+      { "name": "amount", "type": "uint256", "internalType": "uint256" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "graduationMultiplier",
     "inputs": [],
     "outputs": [
@@ -410,31 +475,11 @@ export const LaunchpadEngineABI = [
       }
     ],
     "outputs": [
-      {
-        "name": "creator",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "lpToken",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "bBase",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "creatorDeposit",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "graduatedAt",
-        "type": "uint64",
-        "internalType": "uint64"
-      }
+      { "name": "creator", "type": "address", "internalType": "address" },
+      { "name": "lpToken", "type": "address", "internalType": "address" },
+      { "name": "bBase", "type": "uint256", "internalType": "uint256" },
+      { "name": "creatorDeposit", "type": "uint256", "internalType": "uint256" },
+      { "name": "graduatedAt", "type": "uint64", "internalType": "uint64" }
     ],
     "stateMutability": "view"
   },
