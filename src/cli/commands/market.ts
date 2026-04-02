@@ -23,7 +23,7 @@ import {
   isTransientError,
   readContractWithRpcFallback,
 } from '../cli-utils';
-import { decodeEventLog, parseAbi, encodeFunctionData } from 'viem';
+import { decodeEventLog, parseAbi, encodeFunctionData, encodeAbiParameters } from 'viem';
 
 const TruthMarketAbi = parseAbi([
   'function question() view returns (string)',
@@ -66,6 +66,7 @@ const LaunchpadEngineAbi = parseAbi([
   'function getLPToken(address market) view returns (address)',
   'function dismissMarket(address market) external',
   'function claimRefund(address market) external returns (uint256)',
+  'event MarketCreated(address indexed market, address indexed creator, string question, uint64 startTime, uint64 deadline, uint256 bBase, address adjudicator, address lpToken, uint256 nonce)',
 ]);
 
 const AMMEngineAbi = parseAbi([
@@ -142,12 +143,17 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
   let adjudicatorAddress = address;
   const adjudicatorFlag = args.find(a => a.startsWith('--adjudicator='));
   if (adjudicatorFlag) {
-    const adjudicatorName = adjudicatorFlag.split('=')[1];
-    const adjudicatorActor = actorManager.listActors().find(a => a.name.toLowerCase() === adjudicatorName.toLowerCase());
-    if (!adjudicatorActor) {
-      return { success: false, message: `Unknown actor: ${adjudicatorName}. Available: ${actorManager.listActors().map(a => a.name).join(', ')}` };
+    const adjudicatorValue = adjudicatorFlag.split('=')[1];
+    if (adjudicatorValue.startsWith('0x') && adjudicatorValue.length === 42) {
+      // Direct contract address
+      adjudicatorAddress = adjudicatorValue as `0x${string}`;
+    } else {
+      const adjudicatorActor = actorManager.listActors().find(a => a.name.toLowerCase() === adjudicatorValue.toLowerCase());
+      if (!adjudicatorActor) {
+        return { success: false, message: `Unknown actor: ${adjudicatorValue}. Available: ${actorManager.listActors().map(a => a.name).join(', ')}` };
+      }
+      adjudicatorAddress = adjudicatorActor.account.address;
     }
-    adjudicatorAddress = adjudicatorActor.account.address;
   }
 
   if (!template) {
@@ -224,6 +230,16 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
       ? BigInt('7258118399')
       : BigInt(Math.floor(new Date(template.deadline + 'T23:59:59Z').getTime() / 1000));
 
+    // Build adjudicatorConfig: if adjudicator is a contract, encode (resolver, deadline, vetoPeriod, typeConfig)
+    // resolver = current user, vetoPeriod = 0 (no guardian), typeConfig = empty
+    const isContractAdjudicator = adjudicatorAddress !== address;
+    const adjConfig: `0x${string}` = isContractAdjudicator
+      ? encodeAbiParameters(
+          [{ type: 'address' }, { type: 'uint64' }, { type: 'uint48' }, { type: 'bytes' }],
+          [address, 0n, 0, '0x'],
+        )
+      : '0x';
+
     // Gas limits vary by chain. Base Sepolia limits ~15M, MegaETH needs ~30M for code deployment
     const isMegaETH = ctx.config.chain.id === 6343;
     const createGas = isMegaETH ? 30_000_000n : 10_000_000n;
@@ -231,7 +247,7 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
       address: deployment.contracts.LaunchpadEngine as `0x${string}`,
       abi: LaunchpadEngineAbi,
       functionName: 'createMarket',
-      args: [template.question, startTime, deadline, adjudicatorAddress, liquidityWad, 500000000000000000n, '0x'],
+      args: [template.question, startTime, deadline, adjudicatorAddress, liquidityWad, 500000000000000000n, adjConfig],
       gas: createGas,
     });
 
@@ -241,7 +257,7 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
     for (const log of createReceipt.logs) {
       try {
         const decoded = decodeEventLog({
-          abi: TruthMarketAbi,
+          abi: LaunchpadEngineAbi,
           data: log.data,
           topics: log.topics,
         });
