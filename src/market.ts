@@ -49,11 +49,13 @@ const LaunchpadAbi = [
       { type: 'uint64', name: 'startTime' },
       { type: 'uint64', name: 'deadline' },
       { type: 'address', name: 'adjudicator' },
-      { type: 'uint256', name: 'bBase' },
-      { type: 'uint256', name: 'initialProbabilityWad' },
+      { type: 'address', name: 'guardian' },
+      { type: 'uint256', name: 'initialLiquidity' },
+      { type: 'uint256', name: 'adjudicatorAgentId' },
+      { type: 'uint256', name: 'adjudicatorMinValidators' },
       { type: 'bytes', name: 'adjudicatorConfig' },
     ],
-    outputs: [{ type: 'address' }, { type: 'address' }],
+    outputs: [{ type: 'address' }, { type: 'uint256' }],
     stateMutability: 'nonpayable',
   },
 ] as const;
@@ -191,7 +193,7 @@ export class Markets {
       address: this.client.contracts.launchpadEngine,
       abi: LaunchpadAbi,
       functionName: 'createMarket',
-      args: [params.question, 0n, deadline, adjudicator, bBase, 500000000000000000n, '0x'],
+      args: [params.question, 0n, deadline, adjudicator, adjudicator, bBase, 0n, 0n, '0x'],
     });
   }
 }
