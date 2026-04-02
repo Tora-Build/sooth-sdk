@@ -253,7 +253,7 @@ export const ABIS = {
     },
     {
       name: 'getBalances', type: 'function', inputs: [{ type: 'address', name: 'user' }],
-      outputs: [{ type: 'uint256' }], stateMutability: 'view'
+      outputs: [{ type: 'uint256', name: 'available' }, { type: 'uint256', name: 'locked' }], stateMutability: 'view'
     },
     {
       name: 'getMarketState', type: 'function', inputs: [{ type: 'address', name: 'market' }],
