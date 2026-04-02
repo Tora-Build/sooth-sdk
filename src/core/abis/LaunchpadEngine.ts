@@ -173,6 +173,11 @@ export const LaunchpadEngineABI = [
         "name": "adjudicatorMinValidators",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "adjudicatorConfig",
+        "type": "bytes",
+        "internalType": "bytes"
       }
     ],
     "outputs": [

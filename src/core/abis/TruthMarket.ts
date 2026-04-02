@@ -57,6 +57,13 @@ export const TruthMarketABI = [
   },
   {
     "type": "function",
+    "name": "invalidationBuffer",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "uint64" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "isLive",
     "inputs": [],
     "outputs": [{ "name": "", "type": "bool" }],
