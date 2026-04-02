@@ -59,7 +59,7 @@ const ERC20Abi = parseAbi([
 ]);
 
 const LaunchpadEngineAbi = parseAbi([
-  'function createMarket(string question, uint64 startTime, uint64 deadline, address adjudicator, uint256 bBase, uint256 initialProbabilityWad, bytes adjudicatorConfig) external returns (address market, address lpToken)',
+  'function createMarket(string question, uint64 startTime, uint64 deadline, address adjudicator, address guardian, uint256 initialLiquidity, uint256 adjudicatorAgentId, uint256 adjudicatorMinValidators, bytes adjudicatorConfig) external returns (address market, address lpToken)',
   'function markets(address) view returns (address creator, address lpToken, uint256 bBase, uint256 creatorDeposit, uint64 graduatedAt)',
   'function isGraduated(address market) view returns (bool)',
   'function isTrialExpiredWithoutGraduation(address market) view returns (bool)',
@@ -231,7 +231,7 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
       address: deployment.contracts.LaunchpadEngine as `0x${string}`,
       abi: LaunchpadEngineAbi,
       functionName: 'createMarket',
-      args: [template.question, startTime, deadline, adjudicatorAddress, liquidityWad, 500000000000000000n, '0x'],
+      args: [template.question, startTime, deadline, adjudicatorAddress, address, liquidityWad, 0n, 0n, '0x'],
       gas: createGas,
     });
 
