@@ -518,17 +518,32 @@ export async function readCollateralizerSnapshot(
   marketAddress: Address,
   userAddress?: Address,
 ): Promise<SoothCollateralizerSnapshot> {
-  const [isRegistered, isSettled, totalCollateral, outcomeTokens, balances] = await Promise.all([
-    readWithFallback(
-      () =>
-        client.readContract({
-          address: collateralizer,
-          abi: CollateralizerABI,
-          functionName: 'isMarketRegistered',
-          args: [marketAddress],
-        }) as Promise<boolean>,
-      false,
-    ),
+  // Quick check: if market isn't registered on this contract, skip all other calls.
+  // v0.1.2 OrderEngine has isMarketRegistered but not the other Collateralizer functions.
+  const isRegistered = await readWithFallback(
+    () =>
+      client.readContract({
+        address: collateralizer,
+        abi: CollateralizerABI,
+        functionName: 'isMarketRegistered',
+        args: [marketAddress],
+      }) as Promise<boolean>,
+    false,
+  );
+
+  if (!isRegistered) {
+    return {
+      isRegistered: false,
+      isSettled: false,
+      totalCollateral: 0n,
+      yesToken: ZERO_ADDRESS,
+      noToken: ZERO_ADDRESS,
+      userYesBalance: 0n,
+      userNoBalance: 0n,
+    };
+  }
+
+  const [isSettled, totalCollateral, outcomeTokens, balances] = await Promise.all([
     readWithFallback(
       () =>
         client.readContract({
