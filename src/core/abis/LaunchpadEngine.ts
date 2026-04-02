@@ -155,22 +155,12 @@ export const LaunchpadEngineABI = [
         "internalType": "address"
       },
       {
-        "name": "guardian",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "initialLiquidity",
+        "name": "bBase",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "adjudicatorAgentId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "adjudicatorMinValidators",
+        "name": "initialProbabilityWad",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -187,9 +177,9 @@ export const LaunchpadEngineABI = [
         "internalType": "address"
       },
       {
-        "name": "lpTokens",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "lpToken",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "nonpayable"
