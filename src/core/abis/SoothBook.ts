@@ -138,10 +138,11 @@ export const SoothBookABI = [
     type: "function",
     name: "markets",
     inputs: [{ name: "", type: "bytes32", internalType: "bytes32" }],
+    // Deployed v0.1.2 SoothBook.markets(bytes32) returns only state flags.
+    // Collateral / YES / NO token addresses are NOT in this tuple — read
+    // the deployment manifest (contracts.MockUSDC and the market-level
+    // outcome token) instead.
     outputs: [
-      { name: "collateral", type: "address", internalType: "address" },
-      { name: "yesToken", type: "address", internalType: "address" },
-      { name: "noToken", type: "address", internalType: "address" },
       { name: "active", type: "bool", internalType: "bool" },
       { name: "finalized", type: "bool", internalType: "bool" },
       { name: "outcome", type: "uint8", internalType: "uint8" },
