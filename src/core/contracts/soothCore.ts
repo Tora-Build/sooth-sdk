@@ -1,9 +1,15 @@
-import { encodePacked, erc20Abi, keccak256, type Address, type PublicClient } from 'viem';
-import { AMMEngineABI } from '../abis/AMMEngine.js';
-import { CollateralizerABI } from '../abis/Collateralizer.js';
-import { LaunchpadEngineABI } from '../abis/LaunchpadEngine.js';
-import { SoothBookABI } from '../abis/SoothBook.js';
-import { TruthMarketABI } from '../abis/TruthMarket.js';
+import {
+  encodePacked,
+  erc20Abi,
+  keccak256,
+  type Address,
+  type PublicClient,
+} from "viem";
+import { AMMEngineABI } from "../abis/AMMEngine.js";
+import { CollateralizerABI } from "../abis/Collateralizer.js";
+import { LaunchpadEngineABI } from "../abis/LaunchpadEngine.js";
+import { SoothBookABI } from "../abis/SoothBook.js";
+import { TruthMarketABI } from "../abis/TruthMarket.js";
 import {
   OUTCOME,
   readLaunchpadAmmQuoteFromSnapshot,
@@ -15,14 +21,14 @@ import {
   type LaunchpadAmmSnapshotOptions,
   type ReadLaunchpadAmmQuoteFromSnapshotOptions,
   type SoothTradeAction,
-} from './launchpadAmm.js';
+} from "./launchpadAmm.js";
 
-export type SoothTradingVenue = 'amm' | 'soothbook';
+export type SoothTradingVenue = "amm" | "soothbook";
 
 const WAD = 10n ** 18n;
 const BPS_DENOMINATOR = 10_000n;
 const MAX_UINT256 = (1n << 256n) - 1n;
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const;
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
 
 export interface SoothCoreContracts extends LaunchpadAmmContracts {
   soothBook?: Address;
@@ -181,31 +187,35 @@ export interface SoothQuote {
   soothBookQuote?: SoothBookQuote;
 }
 
-export type ClaimRoute = 'dismissed_refund' | 'soothbook_redeem' | 'collateral_redeem' | 'amm_settle';
+export type ClaimRoute =
+  | "dismissed_refund"
+  | "soothbook_redeem"
+  | "collateral_redeem"
+  | "amm_settle";
 
 export type ClaimTxRequest =
   | {
-      route: 'dismissed_refund';
+      route: "dismissed_refund";
       contract: Address;
-      functionName: 'claimRefund';
+      functionName: "claimRefund";
       args: readonly [Address];
     }
   | {
-      route: 'soothbook_redeem';
+      route: "soothbook_redeem";
       contract: Address;
-      functionName: 'redeem';
+      functionName: "redeem";
       args: readonly [`0x${string}`];
     }
   | {
-      route: 'collateral_redeem';
+      route: "collateral_redeem";
       contract: Address;
-      functionName: 'redeemOutcome';
+      functionName: "redeemOutcome";
       args: readonly [Address, BinaryOutcome, bigint];
     }
   | {
-      route: 'amm_settle';
+      route: "amm_settle";
       contract: Address;
-      functionName: 'settlePosition';
+      functionName: "settlePosition";
       args: readonly [Address];
     };
 
@@ -224,14 +234,14 @@ export interface TradePreflightInput {
 }
 
 export type TradePreflightFailureReason =
-  | 'invalid_outcome'
-  | 'invalid_shares'
-  | 'market_not_active'
-  | 'market_settled'
-  | 'market_dismissed'
-  | 'venue_unavailable'
-  | 'insufficient_balance'
-  | 'invalid_guard';
+  | "invalid_outcome"
+  | "invalid_shares"
+  | "market_not_active"
+  | "market_settled"
+  | "market_dismissed"
+  | "venue_unavailable"
+  | "insufficient_balance"
+  | "invalid_guard";
 
 export type TradePreflightResult =
   | { canTrade: true }
@@ -260,44 +270,86 @@ export interface ReadApprovalRequestInput {
 
 export interface ApprovalRequest {
   contract: Address;
-  functionName: 'approve';
+  functionName: "approve";
   args: readonly [Address, bigint];
   requiredAmount: bigint;
   currentAllowance: bigint;
 }
 
 export interface SoothCoreDataProvider {
-  getSnapshot: (marketAddress: Address, options?: SoothCoreSnapshotOptions) => Promise<SoothCoreSnapshot>;
-  getSnapshots?: (marketAddresses: readonly Address[], options?: SoothCoreSnapshotOptions) => Promise<SoothCoreSnapshot[]>;
-  getQuote?: (marketAddress: Address, options: ReadSoothQuoteOptions) => Promise<SoothQuote>;
+  getSnapshot: (
+    marketAddress: Address,
+    options?: SoothCoreSnapshotOptions,
+  ) => Promise<SoothCoreSnapshot>;
+  getSnapshots?: (
+    marketAddresses: readonly Address[],
+    options?: SoothCoreSnapshotOptions,
+  ) => Promise<SoothCoreSnapshot[]>;
+  getQuote?: (
+    marketAddress: Address,
+    options: ReadSoothQuoteOptions,
+  ) => Promise<SoothQuote>;
   listMarkets?: () => Promise<Address[]>;
 }
 
-export type SoothCoreClientMode = 'rpc' | 'indexed';
+export type SoothCoreClientMode = "rpc" | "indexed";
 
 export interface SoothCoreClient {
   mode: SoothCoreClientMode;
-  getSnapshot: (marketAddress: Address, options?: SoothCoreSnapshotOptions) => Promise<SoothCoreSnapshot>;
-  getSnapshots: (marketAddresses: readonly Address[], options?: SoothCoreSnapshotOptions) => Promise<SoothCoreSnapshot[]>;
-  getQuote: (marketAddress: Address, options: ReadSoothQuoteOptions) => Promise<SoothQuote>;
+  getSnapshot: (
+    marketAddress: Address,
+    options?: SoothCoreSnapshotOptions,
+  ) => Promise<SoothCoreSnapshot>;
+  getSnapshots: (
+    marketAddresses: readonly Address[],
+    options?: SoothCoreSnapshotOptions,
+  ) => Promise<SoothCoreSnapshot[]>;
+  getQuote: (
+    marketAddress: Address,
+    options: ReadSoothQuoteOptions,
+  ) => Promise<SoothQuote>;
   getAmmQuote: (
     snapshot: LaunchpadAmmMarketSnapshot,
     options: ReadLaunchpadAmmQuoteFromSnapshotOptions,
   ) => Promise<LaunchpadAmmQuote>;
-  getSoothBookQuote: (marketAddress: Address, options: ReadSoothBookQuoteOptions) => Promise<SoothBookQuote>;
+  getSoothBookQuote: (
+    marketAddress: Address,
+    options: ReadSoothBookQuoteOptions,
+  ) => Promise<SoothBookQuote>;
   computeSoothBookMaxCost: (input: ComputeSoothBookMaxCostInput) => bigint;
   buildTrade: (input: BuildTradeRequestInput) => SoothTradeRequest;
-  buildSoothBookBuy: (input: BuildSoothBookBuyRequestInput) => ReturnType<typeof buildSoothBookBuyRequest>;
-  buildSoothBookSell: (input: BuildSoothBookSellRequestInput) => ReturnType<typeof buildSoothBookSellRequest>;
-  buildSoothBookCancel: (input: BuildSoothBookCancelRequestInput) => ReturnType<typeof buildSoothBookCancelRequest>;
-  buildSoothBookCancelById: (input: BuildSoothBookCancelByIdRequestInput) => ReturnType<typeof buildSoothBookCancelByIdRequest>;
-  buildSoothBookMint: (input: BuildSoothBookMintRequestInput) => ReturnType<typeof buildSoothBookMintRequest>;
-  buildSoothBookMerge: (input: BuildSoothBookMergeRequestInput) => ReturnType<typeof buildSoothBookMergeRequest>;
-  buildSoothBookRedeem: (input: BuildSoothBookRedeemRequestInput) => ReturnType<typeof buildSoothBookRedeemRequest>;
+  buildSoothBookBuy: (
+    input: BuildSoothBookBuyRequestInput,
+  ) => ReturnType<typeof buildSoothBookBuyRequest>;
+  buildSoothBookSell: (
+    input: BuildSoothBookSellRequestInput,
+  ) => ReturnType<typeof buildSoothBookSellRequest>;
+  buildSoothBookCancel: (
+    input: BuildSoothBookCancelRequestInput,
+  ) => ReturnType<typeof buildSoothBookCancelRequest>;
+  buildSoothBookCancelById: (
+    input: BuildSoothBookCancelByIdRequestInput,
+  ) => ReturnType<typeof buildSoothBookCancelByIdRequest>;
+  buildSoothBookMint: (
+    input: BuildSoothBookMintRequestInput,
+  ) => ReturnType<typeof buildSoothBookMintRequest>;
+  buildSoothBookMerge: (
+    input: BuildSoothBookMergeRequestInput,
+  ) => ReturnType<typeof buildSoothBookMergeRequest>;
+  buildSoothBookRedeem: (
+    input: BuildSoothBookRedeemRequestInput,
+  ) => ReturnType<typeof buildSoothBookRedeemRequest>;
   buildClaim: (snapshot: SoothCoreSnapshot) => ClaimRequestPlan | null;
-  preflightTrade: (snapshot: SoothCoreSnapshot, input: TradePreflightInput) => TradePreflightResult;
-  readApprovalRequest: (input: ReadApprovalRequestInput) => Promise<ApprovalRequest | null>;
-  buildApprovalRequest: (input: BuildApprovalRequestInput) => ApprovalRequest | null;
+  preflightTrade: (
+    snapshot: SoothCoreSnapshot,
+    input: TradePreflightInput,
+  ) => TradePreflightResult;
+  readApprovalRequest: (
+    input: ReadApprovalRequestInput,
+  ) => Promise<ApprovalRequest | null>;
+  buildApprovalRequest: (
+    input: BuildApprovalRequestInput,
+  ) => ApprovalRequest | null;
   listMarkets: () => Promise<Address[]>;
 }
 
@@ -315,11 +367,14 @@ export interface BuildTradeRequestInput {
 
 export type SoothTradeRequest =
   | ({
-      venue: 'amm';
+      venue: "amm";
     } & ReturnType<typeof buildLaunchpadTradeRequest>)
   | ({
-      venue: 'soothbook';
-    } & (ReturnType<typeof buildSoothBookBuyRequest> | ReturnType<typeof buildSoothBookSellRequest>));
+      venue: "soothbook";
+    } & (
+      | ReturnType<typeof buildSoothBookBuyRequest>
+      | ReturnType<typeof buildSoothBookSellRequest>
+    ));
 
 export type SoothBookWriteRequest =
   | ReturnType<typeof buildSoothBookBuyRequest>
@@ -332,19 +387,22 @@ export type SoothBookWriteRequest =
 
 export type CreateSoothCoreClientConfig =
   | {
-      mode?: 'rpc';
+      mode?: "rpc";
       publicClient: PublicClient;
       contracts: SoothCoreContracts;
       indexedProvider?: SoothCoreDataProvider;
     }
   | {
-      mode: 'indexed';
+      mode: "indexed";
       indexedProvider: SoothCoreDataProvider;
       publicClient?: PublicClient;
       contracts?: SoothCoreContracts;
     };
 
-type SoothBookMarketTuple = readonly [Address, Address, Address, boolean, boolean, number];
+// Deployed v0.1.2 SoothBook.markets(bytes32) returns only the 3 state flags;
+// collateral/YES/NO token addresses live on the deployment manifest and on
+// the market contract itself, NOT in this tuple.
+type SoothBookMarketTuple = readonly [boolean, boolean, number];
 
 function clampProbability(value: number): number {
   if (!Number.isFinite(value)) return 0.5;
@@ -353,7 +411,10 @@ function clampProbability(value: number): number {
   return value;
 }
 
-async function readWithFallback<T>(read: () => Promise<T>, fallback: T): Promise<T> {
+async function readWithFallback<T>(
+  read: () => Promise<T>,
+  fallback: T,
+): Promise<T> {
   try {
     return await read();
   } catch {
@@ -362,7 +423,7 @@ async function readWithFallback<T>(read: () => Promise<T>, fallback: T): Promise
 }
 
 function toBigInt(value: bigint | number): bigint {
-  return typeof value === 'bigint' ? value : BigInt(value);
+  return typeof value === "bigint" ? value : BigInt(value);
 }
 
 function assertAddress(name: string, value?: Address): Address {
@@ -372,23 +433,26 @@ function assertAddress(name: string, value?: Address): Address {
   return value;
 }
 
-function normalizeSoothBookPrice(outcome: BinaryOutcome, market: SoothBookMarketSnapshot): bigint {
+function normalizeSoothBookPrice(
+  outcome: BinaryOutcome,
+  market: SoothBookMarketSnapshot,
+): bigint {
   return outcome === OUTCOME.YES ? market.yesPriceWad : market.noPriceWad;
 }
 
 function normalizeTick(tick: number): number {
   if (!Number.isFinite(tick)) {
-    throw new Error('tick must be a finite number');
+    throw new Error("tick must be a finite number");
   }
   const rounded = Math.round(tick);
   if (rounded < 1 || rounded > 999) {
-    throw new Error('tick must be in range [1, 999]');
+    throw new Error("tick must be in range [1, 999]");
   }
   return rounded;
 }
 
 export function computeSoothMarketKey(marketAddress: Address): `0x${string}` {
-  return keccak256(encodePacked(['address'], [marketAddress]));
+  return keccak256(encodePacked(["address"], [marketAddress]));
 }
 
 export function selectTradingVenue(snapshot: {
@@ -397,31 +461,37 @@ export function selectTradingVenue(snapshot: {
   soothBook: { isActive: boolean; isFinalized: boolean } | null;
 }): SoothTradingVenue {
   if (snapshot.truth.isSettled || snapshot.truth.isFinalized) {
-    return 'amm';
+    return "amm";
   }
 
-  const hasActiveSoothBook = !!snapshot.soothBook && snapshot.soothBook.isActive && !snapshot.soothBook.isFinalized;
+  const hasActiveSoothBook =
+    !!snapshot.soothBook &&
+    snapshot.soothBook.isActive &&
+    !snapshot.soothBook.isFinalized;
   if (snapshot.launchpadAmm.launchpad.isGraduated && hasActiveSoothBook) {
-    return 'soothbook';
+    return "soothbook";
   }
 
-  return 'amm';
+  return "amm";
 }
 
-export function computeSoothBookQuote(snapshot: SoothBookMarketSnapshot, options: ReadSoothBookQuoteOptions): SoothBookQuote {
+export function computeSoothBookQuote(
+  snapshot: SoothBookMarketSnapshot,
+  options: ReadSoothBookQuoteOptions,
+): SoothBookQuote {
   if (options.shares <= 0n) {
-    throw new Error('shares must be greater than zero');
+    throw new Error("shares must be greater than zero");
   }
 
   if (options.outcome !== OUTCOME.NO && options.outcome !== OUTCOME.YES) {
-    throw new Error('SoothBook quote only supports binary outcomes');
+    throw new Error("SoothBook quote only supports binary outcomes");
   }
 
   const priceWad = normalizeSoothBookPrice(options.outcome, snapshot);
   const rawQuote = (options.shares * priceWad) / WAD;
   const fee = (rawQuote * snapshot.feeBps) / BPS_DENOMINATOR;
   const proceeds = rawQuote > fee ? rawQuote - fee : 0n;
-  const total = options.action === 'buy' ? rawQuote + fee : proceeds;
+  const total = options.action === "buy" ? rawQuote + fee : proceeds;
 
   return {
     action: options.action,
@@ -442,64 +512,65 @@ export async function readTruthMarketSnapshot(
   marketAddress: Address,
   options: { includeQuestion?: boolean } = {},
 ): Promise<SoothTruthMarketSnapshot> {
-  const [creator, deadline, winningOutcome, isSettled, isLive, questionHash] = await Promise.all([
-    readWithFallback(
-      () =>
-        client.readContract({
-          address: marketAddress,
-          abi: TruthMarketABI,
-          functionName: 'creator',
-        }) as Promise<Address>,
-      ZERO_ADDRESS,
-    ),
-    readWithFallback(
-      () =>
-        client.readContract({
-          address: marketAddress,
-          abi: TruthMarketABI,
-          functionName: 'deadline',
-        }) as Promise<bigint>,
-      0n,
-    ),
-    readWithFallback(
-      () =>
-        client.readContract({
-          address: marketAddress,
-          abi: TruthMarketABI,
-          functionName: 'winningOutcome',
-        }) as Promise<number>,
-      Number(OUTCOME.INVALID),
-    ),
-    readWithFallback(
-      () =>
-        client.readContract({
-          address: marketAddress,
-          abi: TruthMarketABI,
-          functionName: 'isSettled',
-        }) as Promise<boolean>,
-      false,
-    ),
-    readWithFallback(
-      () =>
-        client.readContract({
-          address: marketAddress,
-          abi: TruthMarketABI,
-          functionName: 'isLive',
-        }) as Promise<boolean>,
-      true,
-    ),
-    options.includeQuestion
-      ? readWithFallback(
-          () =>
-            client.readContract({
-              address: marketAddress,
-              abi: TruthMarketABI,
-              functionName: 'questionHash',
-            }) as Promise<string>,
-          '',
-        )
-      : Promise.resolve(undefined),
-  ]);
+  const [creator, deadline, winningOutcome, isSettled, isLive, questionHash] =
+    await Promise.all([
+      readWithFallback(
+        () =>
+          client.readContract({
+            address: marketAddress,
+            abi: TruthMarketABI,
+            functionName: "creator",
+          }) as Promise<Address>,
+        ZERO_ADDRESS,
+      ),
+      readWithFallback(
+        () =>
+          client.readContract({
+            address: marketAddress,
+            abi: TruthMarketABI,
+            functionName: "deadline",
+          }) as Promise<bigint>,
+        0n,
+      ),
+      readWithFallback(
+        () =>
+          client.readContract({
+            address: marketAddress,
+            abi: TruthMarketABI,
+            functionName: "winningOutcome",
+          }) as Promise<number>,
+        Number(OUTCOME.INVALID),
+      ),
+      readWithFallback(
+        () =>
+          client.readContract({
+            address: marketAddress,
+            abi: TruthMarketABI,
+            functionName: "isSettled",
+          }) as Promise<boolean>,
+        false,
+      ),
+      readWithFallback(
+        () =>
+          client.readContract({
+            address: marketAddress,
+            abi: TruthMarketABI,
+            functionName: "isLive",
+          }) as Promise<boolean>,
+        true,
+      ),
+      options.includeQuestion
+        ? readWithFallback(
+            () =>
+              client.readContract({
+                address: marketAddress,
+                abi: TruthMarketABI,
+                functionName: "questionHash",
+              }) as Promise<string>,
+            "",
+          )
+        : Promise.resolve(undefined),
+    ]);
 
   return {
     creator,
@@ -508,7 +579,9 @@ export async function readTruthMarketSnapshot(
     isSettled,
     isFinalized: isSettled,
     isLive,
-    question: questionHash ? String(questionHash).slice(0, 18) + '...' : undefined,
+    question: questionHash
+      ? String(questionHash).slice(0, 18) + "..."
+      : undefined,
   };
 }
 
@@ -525,7 +598,7 @@ export async function readCollateralizerSnapshot(
       client.readContract({
         address: collateralizer,
         abi: CollateralizerABI,
-        functionName: 'isMarketRegistered',
+        functionName: "isMarketRegistered",
         args: [marketAddress],
       }) as Promise<boolean>,
     false,
@@ -543,50 +616,51 @@ export async function readCollateralizerSnapshot(
     };
   }
 
-  const [isSettled, totalCollateral, outcomeTokens, balances] = await Promise.all([
-    readWithFallback(
-      () =>
-        client.readContract({
-          address: collateralizer,
-          abi: CollateralizerABI,
-          functionName: 'isMarketSettled',
-          args: [marketAddress],
-        }) as Promise<boolean>,
-      false,
-    ),
-    readWithFallback(
-      () =>
-        client.readContract({
-          address: collateralizer,
-          abi: CollateralizerABI,
-          functionName: 'getTotalCollateral',
-          args: [marketAddress],
-        }) as Promise<bigint>,
-      0n,
-    ),
-    readWithFallback(
-      () =>
-        client.readContract({
-          address: collateralizer,
-          abi: CollateralizerABI,
-          functionName: 'getOutcomeTokens',
-          args: [marketAddress],
-        }) as Promise<readonly [Address, Address]>,
-      [ZERO_ADDRESS, ZERO_ADDRESS] as const,
-    ),
-    userAddress
-      ? readWithFallback(
-          () =>
-            client.readContract({
-              address: collateralizer,
-              abi: CollateralizerABI,
-              functionName: 'getBalances',
-              args: [marketAddress, userAddress],
-            }) as Promise<readonly [bigint, bigint]>,
-          [0n, 0n] as const,
-        )
-      : Promise.resolve([0n, 0n] as const),
-  ]);
+  const [isSettled, totalCollateral, outcomeTokens, balances] =
+    await Promise.all([
+      readWithFallback(
+        () =>
+          client.readContract({
+            address: collateralizer,
+            abi: CollateralizerABI,
+            functionName: "isMarketSettled",
+            args: [marketAddress],
+          }) as Promise<boolean>,
+        false,
+      ),
+      readWithFallback(
+        () =>
+          client.readContract({
+            address: collateralizer,
+            abi: CollateralizerABI,
+            functionName: "getTotalCollateral",
+            args: [marketAddress],
+          }) as Promise<bigint>,
+        0n,
+      ),
+      readWithFallback(
+        () =>
+          client.readContract({
+            address: collateralizer,
+            abi: CollateralizerABI,
+            functionName: "getOutcomeTokens",
+            args: [marketAddress],
+          }) as Promise<readonly [Address, Address]>,
+        [ZERO_ADDRESS, ZERO_ADDRESS] as const,
+      ),
+      userAddress
+        ? readWithFallback(
+            () =>
+              client.readContract({
+                address: collateralizer,
+                abi: CollateralizerABI,
+                functionName: "getBalances",
+                args: [marketAddress, userAddress],
+              }) as Promise<readonly [bigint, bigint]>,
+            [0n, 0n] as const,
+          )
+        : Promise.resolve([0n, 0n] as const),
+    ]);
 
   return {
     isRegistered,
@@ -606,15 +680,27 @@ export async function readSoothBookMarketSnapshot(
   userAddress?: Address,
 ): Promise<SoothBookMarketSnapshot | null> {
   const marketKey = computeSoothMarketKey(marketAddress);
-  const emptyMarket: SoothBookMarketTuple = [ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS, false, false, Number(OUTCOME.INVALID)];
+  const emptyMarket: SoothBookMarketTuple = [
+    false,
+    false,
+    Number(OUTCOME.INVALID),
+  ];
 
-  const [marketTuple, impliedPrice, bestYesTickRaw, bestNoTickRaw, backing, feeBps, userBalances] = await Promise.all([
+  const [
+    marketTuple,
+    impliedPrice,
+    bestYesTickRaw,
+    bestNoTickRaw,
+    backing,
+    feeBps,
+    userBalances,
+  ] = await Promise.all([
     readWithFallback(
       () =>
         client.readContract({
           address: soothBook,
           abi: SoothBookABI,
-          functionName: 'markets',
+          functionName: "markets",
           args: [marketKey],
         }) as Promise<SoothBookMarketTuple>,
       emptyMarket,
@@ -624,7 +710,7 @@ export async function readSoothBookMarketSnapshot(
         client.readContract({
           address: soothBook,
           abi: SoothBookABI,
-          functionName: 'getImpliedPrice',
+          functionName: "getImpliedPrice",
           args: [marketKey],
         }) as Promise<readonly [bigint, bigint]>,
       [WAD / 2n, WAD / 2n] as const,
@@ -634,7 +720,7 @@ export async function readSoothBookMarketSnapshot(
         client.readContract({
           address: soothBook,
           abi: SoothBookABI,
-          functionName: 'getBestTick',
+          functionName: "getBestTick",
           args: [marketKey, 1],
         }) as Promise<number | bigint>,
       0,
@@ -644,7 +730,7 @@ export async function readSoothBookMarketSnapshot(
         client.readContract({
           address: soothBook,
           abi: SoothBookABI,
-          functionName: 'getBestTick',
+          functionName: "getBestTick",
           args: [marketKey, 0],
         }) as Promise<number | bigint>,
       0,
@@ -654,7 +740,7 @@ export async function readSoothBookMarketSnapshot(
         client.readContract({
           address: soothBook,
           abi: SoothBookABI,
-          functionName: 'getCollateralBacking',
+          functionName: "getCollateralBacking",
           args: [marketKey],
         }) as Promise<bigint>,
       0n,
@@ -664,7 +750,7 @@ export async function readSoothBookMarketSnapshot(
         client.readContract({
           address: soothBook,
           abi: SoothBookABI,
-          functionName: 'feeBps',
+          functionName: "feeBps",
         }) as Promise<number | bigint>,
       0,
     ),
@@ -674,7 +760,7 @@ export async function readSoothBookMarketSnapshot(
             client.readContract({
               address: soothBook,
               abi: SoothBookABI,
-              functionName: 'getBalance',
+              functionName: "getBalance",
               args: [marketKey, userAddress],
             }) as Promise<readonly [bigint, bigint]>,
           [0n, 0n] as const,
@@ -682,11 +768,18 @@ export async function readSoothBookMarketSnapshot(
       : Promise.resolve([0n, 0n] as const),
   ]);
 
-  const [collateral, yesToken, noToken, isActive, isFinalized, outcome] = marketTuple;
-  const exists = collateral !== ZERO_ADDRESS && yesToken !== ZERO_ADDRESS && noToken !== ZERO_ADDRESS;
-  if (!exists && !isActive && !isFinalized) {
+  const [isActive, isFinalized, outcome] = marketTuple;
+  // Deployed SoothBook.markets() no longer returns collateral/YES/NO token
+  // addresses. Treat "registered" as "has non-zero backing OR any state flag
+  // set". Token addresses would need a separate read against the market
+  // itself if a caller needs them.
+  const exists = backing > 0n || isActive || isFinalized;
+  if (!exists) {
     return null;
   }
+  const collateral = ZERO_ADDRESS;
+  const yesToken = ZERO_ADDRESS;
+  const noToken = ZERO_ADDRESS;
 
   const yesPriceWad = impliedPrice[0];
   const noPriceWad = impliedPrice[1];
@@ -721,15 +814,16 @@ export async function readSoothBookQuote(
   marketAddress: Address,
   options: ReadSoothBookQuoteOptions,
 ): Promise<SoothBookQuote> {
-  const marketSnapshot = options.snapshot
-    ?? (await readSoothBookMarketSnapshot(
+  const marketSnapshot =
+    options.snapshot ??
+    (await readSoothBookMarketSnapshot(
       client,
-      assertAddress('soothBook', contracts.soothBook),
+      assertAddress("soothBook", contracts.soothBook),
       marketAddress,
     ));
 
   if (!marketSnapshot) {
-    throw new Error('SoothBook market is unavailable for this market');
+    throw new Error("SoothBook market is unavailable for this market");
   }
 
   return computeSoothBookQuote(marketSnapshot, options);
@@ -744,13 +838,25 @@ export async function readSoothCoreSnapshot(
   const marketKey = computeSoothMarketKey(marketAddress);
 
   const [truth, launchpadAmm, collateralizer, soothBook] = await Promise.all([
-    readTruthMarketSnapshot(client, marketAddress, { includeQuestion: options.includeQuestion }),
+    readTruthMarketSnapshot(client, marketAddress, {
+      includeQuestion: options.includeQuestion,
+    }),
     readLaunchpadAmmSnapshot(client, contracts, marketAddress, options),
     contracts.orderEngine
-      ? readCollateralizerSnapshot(client, contracts.orderEngine, marketAddress, options.userAddress)
+      ? readCollateralizerSnapshot(
+          client,
+          contracts.orderEngine,
+          marketAddress,
+          options.userAddress,
+        )
       : Promise.resolve(null),
     contracts.soothBook
-      ? readSoothBookMarketSnapshot(client, contracts.soothBook, marketAddress, options.userAddress)
+      ? readSoothBookMarketSnapshot(
+          client,
+          contracts.soothBook,
+          marketAddress,
+          options.userAddress,
+        )
       : Promise.resolve(null),
   ]);
 
@@ -777,7 +883,11 @@ export async function readSoothCoreSnapshots(
   marketAddresses: readonly Address[],
   options: SoothCoreSnapshotOptions = {},
 ): Promise<SoothCoreSnapshot[]> {
-  return Promise.all(marketAddresses.map((marketAddress) => readSoothCoreSnapshot(client, contracts, marketAddress, options)));
+  return Promise.all(
+    marketAddresses.map((marketAddress) =>
+      readSoothCoreSnapshot(client, contracts, marketAddress, options),
+    ),
+  );
 }
 
 export async function readSoothQuote(
@@ -786,21 +896,28 @@ export async function readSoothQuote(
   marketAddress: Address,
   options: ReadSoothQuoteOptions,
 ): Promise<SoothQuote> {
-  const snapshot = options.snapshot ?? await readSoothCoreSnapshot(client, contracts, marketAddress);
+  const snapshot =
+    options.snapshot ??
+    (await readSoothCoreSnapshot(client, contracts, marketAddress));
 
-  if (snapshot.tradingVenue === 'soothbook' && snapshot.soothBook) {
-    const soothBookQuote = await readSoothBookQuote(client, contracts, marketAddress, {
-      action: options.action,
-      outcome: options.outcome,
-      shares: options.shares,
-      snapshot: snapshot.soothBook,
-    });
+  if (snapshot.tradingVenue === "soothbook" && snapshot.soothBook) {
+    const soothBookQuote = await readSoothBookQuote(
+      client,
+      contracts,
+      marketAddress,
+      {
+        action: options.action,
+        outcome: options.outcome,
+        shares: options.shares,
+        snapshot: snapshot.soothBook,
+      },
+    );
 
     return {
       action: options.action,
       outcome: options.outcome,
       shares: options.shares,
-      venue: 'soothbook',
+      venue: "soothbook",
       isIndicative: true,
       rawQuote: soothBookQuote.rawQuote,
       fee: soothBookQuote.fee,
@@ -811,17 +928,22 @@ export async function readSoothQuote(
     };
   }
 
-  const ammQuote = await readLaunchpadAmmQuoteFromSnapshot(client, contracts, snapshot.launchpadAmm, {
-    action: options.action,
-    outcome: options.outcome,
-    shares: options.shares,
-  });
+  const ammQuote = await readLaunchpadAmmQuoteFromSnapshot(
+    client,
+    contracts,
+    snapshot.launchpadAmm,
+    {
+      action: options.action,
+      outcome: options.outcome,
+      shares: options.shares,
+    },
+  );
 
   return {
     action: options.action,
     outcome: options.outcome,
     shares: options.shares,
-    venue: 'amm',
+    venue: "amm",
     isIndicative: false,
     rawQuote: ammQuote.rawQuote,
     fee: ammQuote.fee,
@@ -832,47 +954,67 @@ export async function readSoothQuote(
   };
 }
 
-export function buildLaunchpadTradeRequest(input: BuildLaunchpadTradeRequestInput): {
-  functionName: 'tradePositions';
+export function buildLaunchpadTradeRequest(
+  input: BuildLaunchpadTradeRequestInput,
+): {
+  functionName: "tradePositions";
   args: readonly [Address, BinaryOutcome, bigint, bigint];
 } {
-  const deltaShares = input.action === 'buy' ? input.shares : -input.shares;
+  const deltaShares = input.action === "buy" ? input.shares : -input.shares;
   return {
-    functionName: 'tradePositions',
-    args: [input.marketAddress, input.outcome, deltaShares, input.maxCostOrMinProceeds] as const,
+    functionName: "tradePositions",
+    args: [
+      input.marketAddress,
+      input.outcome,
+      deltaShares,
+      input.maxCostOrMinProceeds,
+    ] as const,
   };
 }
 
-export function buildSoothBookBuyRequest(input: BuildSoothBookBuyRequestInput): {
+export function buildSoothBookBuyRequest(
+  input: BuildSoothBookBuyRequestInput,
+): {
   marketKey: `0x${string}`;
-  functionName: 'buyYes' | 'buyNo';
+  functionName: "buyYes" | "buyNo";
   args: readonly [`0x${string}`, number, bigint, boolean, bigint];
 } {
   if (input.outcome !== OUTCOME.NO && input.outcome !== OUTCOME.YES) {
-    throw new Error('SoothBook only supports binary outcomes for buy requests');
+    throw new Error("SoothBook only supports binary outcomes for buy requests");
   }
 
   const marketKey = computeSoothMarketKey(input.marketAddress);
   const tick = normalizeTick(input.tick);
   return {
     marketKey,
-    functionName: input.outcome === OUTCOME.YES ? 'buyYes' : 'buyNo',
-    args: [marketKey, tick, input.amount, input.escrow ?? false, input.maxCost] as const,
+    functionName: input.outcome === OUTCOME.YES ? "buyYes" : "buyNo",
+    args: [
+      marketKey,
+      tick,
+      input.amount,
+      input.escrow ?? false,
+      input.maxCost,
+    ] as const,
   };
 }
 
-export function computeSoothBookMaxCost(input: ComputeSoothBookMaxCostInput): bigint {
+export function computeSoothBookMaxCost(
+  input: ComputeSoothBookMaxCostInput,
+): bigint {
   if (input.amount <= 0n) {
-    throw new Error('amount must be greater than zero');
+    throw new Error("amount must be greater than zero");
   }
 
   const tick = BigInt(normalizeTick(input.tick));
-  const slippage = input.slippageBps === undefined
-    ? 500n
-    : (typeof input.slippageBps === 'bigint' ? input.slippageBps : BigInt(input.slippageBps));
+  const slippage =
+    input.slippageBps === undefined
+      ? 500n
+      : typeof input.slippageBps === "bigint"
+        ? input.slippageBps
+        : BigInt(input.slippageBps);
 
   if (slippage < 0n || slippage > BPS_DENOMINATOR) {
-    throw new Error('slippageBps must be in range [0, 10000]');
+    throw new Error("slippageBps must be in range [0, 10000]");
   }
 
   // SoothBook costs are in collateral token units: amount * tick / 1000.
@@ -880,18 +1022,22 @@ export function computeSoothBookMaxCost(input: ComputeSoothBookMaxCostInput): bi
   return rawCost + (rawCost * slippage) / BPS_DENOMINATOR;
 }
 
-export function buildSoothBookSellRequest(input: BuildSoothBookSellRequestInput): {
+export function buildSoothBookSellRequest(
+  input: BuildSoothBookSellRequestInput,
+): {
   marketKey: `0x${string}`;
-  functionName: 'buyYes' | 'buyNo';
+  functionName: "buyYes" | "buyNo";
   args: readonly [`0x${string}`, number, bigint, true, bigint];
 } {
   if (input.outcome !== OUTCOME.NO && input.outcome !== OUTCOME.YES) {
-    throw new Error('SoothBook only supports binary outcomes for sell requests');
+    throw new Error(
+      "SoothBook only supports binary outcomes for sell requests",
+    );
   }
 
   const marketKey = computeSoothMarketKey(input.marketAddress);
   const tick = normalizeTick(input.tick);
-  const oppositeFunction = input.outcome === OUTCOME.YES ? 'buyNo' : 'buyYes';
+  const oppositeFunction = input.outcome === OUTCOME.YES ? "buyNo" : "buyYes";
 
   // Sell path in SoothBook is modeled as escrow buy on opposite side.
   return {
@@ -901,86 +1047,99 @@ export function buildSoothBookSellRequest(input: BuildSoothBookSellRequestInput)
   };
 }
 
-export function buildSoothBookCancelRequest(input: BuildSoothBookCancelRequestInput): {
+export function buildSoothBookCancelRequest(
+  input: BuildSoothBookCancelRequestInput,
+): {
   marketKey: `0x${string}`;
-  functionName: 'cancel';
+  functionName: "cancel";
   args: readonly [`0x${string}`, BinaryOutcome, number];
 } {
   const marketKey = computeSoothMarketKey(input.marketAddress);
   return {
     marketKey,
-    functionName: 'cancel',
+    functionName: "cancel",
     args: [marketKey, input.side, normalizeTick(input.tick)] as const,
   };
 }
 
-export function buildSoothBookCancelByIdRequest(input: BuildSoothBookCancelByIdRequestInput): {
-  functionName: 'cancelById';
+export function buildSoothBookCancelByIdRequest(
+  input: BuildSoothBookCancelByIdRequestInput,
+): {
+  functionName: "cancelById";
   args: readonly [bigint];
 } {
   return {
-    functionName: 'cancelById',
+    functionName: "cancelById",
     args: [input.orderId] as const,
   };
 }
 
-export function buildSoothBookMintRequest(input: BuildSoothBookMintRequestInput): {
+export function buildSoothBookMintRequest(
+  input: BuildSoothBookMintRequestInput,
+): {
   marketKey: `0x${string}`;
-  functionName: 'mint';
+  functionName: "mint";
   args: readonly [`0x${string}`, bigint];
 } {
   const marketKey = computeSoothMarketKey(input.marketAddress);
   return {
     marketKey,
-    functionName: 'mint',
+    functionName: "mint",
     args: [marketKey, input.amount] as const,
   };
 }
 
-export function buildSoothBookMergeRequest(input: BuildSoothBookMergeRequestInput): {
+export function buildSoothBookMergeRequest(
+  input: BuildSoothBookMergeRequestInput,
+): {
   marketKey: `0x${string}`;
-  functionName: 'merge';
+  functionName: "merge";
   args: readonly [`0x${string}`, bigint];
 } {
   const marketKey = computeSoothMarketKey(input.marketAddress);
   return {
     marketKey,
-    functionName: 'merge',
+    functionName: "merge",
     args: [marketKey, input.amount] as const,
   };
 }
 
-export function buildSoothBookRedeemRequest(input: BuildSoothBookRedeemRequestInput): {
+export function buildSoothBookRedeemRequest(
+  input: BuildSoothBookRedeemRequestInput,
+): {
   marketKey: `0x${string}`;
-  functionName: 'redeem';
+  functionName: "redeem";
   args: readonly [`0x${string}`];
 } {
   const marketKey = computeSoothMarketKey(input.marketAddress);
   return {
     marketKey,
-    functionName: 'redeem',
+    functionName: "redeem",
     args: [marketKey] as const,
   };
 }
 
-export function buildTradeRequest(input: BuildTradeRequestInput): SoothTradeRequest {
-  const venue = input.venue ?? input.snapshot?.tradingVenue ?? 'amm';
+export function buildTradeRequest(
+  input: BuildTradeRequestInput,
+): SoothTradeRequest {
+  const venue = input.venue ?? input.snapshot?.tradingVenue ?? "amm";
 
-  if (venue === 'soothbook') {
-    const tick = input.tick
-      ?? (
-        input.snapshot?.soothBook
-          ? (input.outcome === OUTCOME.YES ? input.snapshot.soothBook.bestYesTick : input.snapshot.soothBook.bestNoTick)
-          : undefined
-      );
+  if (venue === "soothbook") {
+    const tick =
+      input.tick ??
+      (input.snapshot?.soothBook
+        ? input.outcome === OUTCOME.YES
+          ? input.snapshot.soothBook.bestYesTick
+          : input.snapshot.soothBook.bestNoTick
+        : undefined);
 
     if (tick === undefined) {
-      throw new Error('tick is required for SoothBook requests');
+      throw new Error("tick is required for SoothBook requests");
     }
 
-    if (input.action === 'sell') {
+    if (input.action === "sell") {
       return {
-        venue: 'soothbook',
+        venue: "soothbook",
         ...buildSoothBookSellRequest({
           marketAddress: input.marketAddress,
           outcome: input.outcome,
@@ -992,7 +1151,7 @@ export function buildTradeRequest(input: BuildTradeRequestInput): SoothTradeRequ
     }
 
     return {
-      venue: 'soothbook',
+      venue: "soothbook",
       ...buildSoothBookBuyRequest({
         marketAddress: input.marketAddress,
         outcome: input.outcome,
@@ -1005,7 +1164,7 @@ export function buildTradeRequest(input: BuildTradeRequestInput): SoothTradeRequ
   }
 
   return {
-    venue: 'amm',
+    venue: "amm",
     ...buildLaunchpadTradeRequest({
       marketAddress: input.marketAddress,
       action: input.action,
@@ -1016,19 +1175,22 @@ export function buildTradeRequest(input: BuildTradeRequestInput): SoothTradeRequ
   };
 }
 
-export function buildClaimRequest(snapshot: SoothCoreSnapshot, contracts: SoothCoreContracts): ClaimRequestPlan | null {
+export function buildClaimRequest(
+  snapshot: SoothCoreSnapshot,
+  contracts: SoothCoreContracts,
+): ClaimRequestPlan | null {
   if (snapshot.launchpadAmm.launchpad.isDismissed) {
     if (snapshot.launchpadAmm.launchpad.userLockedCost <= 0n) {
       return null;
     }
 
     return {
-      route: 'dismissed_refund',
+      route: "dismissed_refund",
       requests: [
         {
-          route: 'dismissed_refund',
+          route: "dismissed_refund",
           contract: contracts.launchpadEngine,
-          functionName: 'claimRefund',
+          functionName: "claimRefund",
           args: [snapshot.marketAddress] as const,
         },
       ] as const,
@@ -1044,12 +1206,12 @@ export function buildClaimRequest(snapshot: SoothCoreSnapshot, contracts: SoothC
   const hasSoothBookPosition = soothBookYes > 0n || soothBookNo > 0n;
   if (snapshot.soothBook?.isFinalized && hasSoothBookPosition) {
     return {
-      route: 'soothbook_redeem',
+      route: "soothbook_redeem",
       requests: [
         {
-          route: 'soothbook_redeem',
-          contract: assertAddress('soothBook', contracts.soothBook),
-          functionName: 'redeem',
+          route: "soothbook_redeem",
+          contract: assertAddress("soothBook", contracts.soothBook),
+          functionName: "redeem",
           args: [snapshot.marketKey] as const,
         },
       ] as const,
@@ -1069,28 +1231,36 @@ export function buildClaimRequest(snapshot: SoothCoreSnapshot, contracts: SoothC
     if (winningOutcome === OUTCOME.INVALID) {
       if (yesBalance > 0n) {
         requests.push({
-          route: 'collateral_redeem',
-          contract: assertAddress('collateralizer', contracts.orderEngine),
-          functionName: 'redeemOutcome',
+          route: "collateral_redeem",
+          contract: assertAddress("collateralizer", contracts.orderEngine),
+          functionName: "redeemOutcome",
           args: [snapshot.marketAddress, OUTCOME.YES, yesBalance] as const,
         });
       }
       if (noBalance > 0n) {
         requests.push({
-          route: 'collateral_redeem',
-          contract: assertAddress('collateralizer', contracts.orderEngine),
-          functionName: 'redeemOutcome',
+          route: "collateral_redeem",
+          contract: assertAddress("collateralizer", contracts.orderEngine),
+          functionName: "redeemOutcome",
           args: [snapshot.marketAddress, OUTCOME.NO, noBalance] as const,
         });
       }
-    } else if (winningOutcome === OUTCOME.YES || winningOutcome === OUTCOME.NO) {
-      const winningBalance = winningOutcome === OUTCOME.YES ? yesBalance : noBalance;
+    } else if (
+      winningOutcome === OUTCOME.YES ||
+      winningOutcome === OUTCOME.NO
+    ) {
+      const winningBalance =
+        winningOutcome === OUTCOME.YES ? yesBalance : noBalance;
       if (winningBalance > 0n) {
         requests.push({
-          route: 'collateral_redeem',
-          contract: assertAddress('collateralizer', contracts.orderEngine),
-          functionName: 'redeemOutcome',
-          args: [snapshot.marketAddress, winningOutcome, winningBalance] as const,
+          route: "collateral_redeem",
+          contract: assertAddress("collateralizer", contracts.orderEngine),
+          functionName: "redeemOutcome",
+          args: [
+            snapshot.marketAddress,
+            winningOutcome,
+            winningBalance,
+          ] as const,
         });
       }
     }
@@ -1100,76 +1270,89 @@ export function buildClaimRequest(snapshot: SoothCoreSnapshot, contracts: SoothC
     }
 
     return {
-      route: 'collateral_redeem',
+      route: "collateral_redeem",
       requests,
     };
   }
 
-  const hasAmmPosition = snapshot.launchpadAmm.amm.userYesShares > 0n || snapshot.launchpadAmm.amm.userNoShares > 0n;
+  const hasAmmPosition =
+    snapshot.launchpadAmm.amm.userYesShares > 0n ||
+    snapshot.launchpadAmm.amm.userNoShares > 0n;
   if (!hasAmmPosition) {
     return null;
   }
 
   return {
-    route: 'amm_settle',
+    route: "amm_settle",
     requests: [
       {
-        route: 'amm_settle',
+        route: "amm_settle",
         contract: contracts.ammEngine,
-        functionName: 'settlePosition',
+        functionName: "settlePosition",
         args: [snapshot.marketAddress] as const,
       },
     ] as const,
   };
 }
 
-export function preflightTrade(snapshot: SoothCoreSnapshot, input: TradePreflightInput): TradePreflightResult {
+export function preflightTrade(
+  snapshot: SoothCoreSnapshot,
+  input: TradePreflightInput,
+): TradePreflightResult {
   if (input.outcome !== OUTCOME.NO && input.outcome !== OUTCOME.YES) {
-    return { canTrade: false, reason: 'invalid_outcome' };
+    return { canTrade: false, reason: "invalid_outcome" };
   }
 
   if (input.shares <= 0n) {
-    return { canTrade: false, reason: 'invalid_shares' };
+    return { canTrade: false, reason: "invalid_shares" };
   }
 
   if (snapshot.launchpadAmm.launchpad.isDismissed) {
-    return { canTrade: false, reason: 'market_dismissed' };
+    return { canTrade: false, reason: "market_dismissed" };
   }
 
   if (snapshot.truth.isSettled || snapshot.truth.isFinalized) {
-    return { canTrade: false, reason: 'market_settled' };
+    return { canTrade: false, reason: "market_settled" };
   }
 
-  if (snapshot.tradingVenue === 'soothbook' && !snapshot.soothBook?.isActive) {
-    return { canTrade: false, reason: 'venue_unavailable' };
+  if (snapshot.tradingVenue === "soothbook" && !snapshot.soothBook?.isActive) {
+    return { canTrade: false, reason: "venue_unavailable" };
   }
 
-  if (snapshot.tradingVenue === 'amm' && !snapshot.launchpadAmm.amm.isInitialized) {
-    return { canTrade: false, reason: 'market_not_active' };
+  if (
+    snapshot.tradingVenue === "amm" &&
+    !snapshot.launchpadAmm.amm.isInitialized
+  ) {
+    return { canTrade: false, reason: "market_not_active" };
   }
 
-  if (input.action === 'buy') {
+  if (input.action === "buy") {
     const required = input.maxCostOrMinProceeds ?? input.quotedTotal ?? 0n;
     if (required <= 0n) {
-      return { canTrade: false, reason: 'invalid_guard' };
+      return { canTrade: false, reason: "invalid_guard" };
     }
 
-    if (typeof input.userBalance === 'bigint' && input.userBalance < required) {
+    if (typeof input.userBalance === "bigint" && input.userBalance < required) {
       return {
         canTrade: false,
-        reason: 'insufficient_balance',
+        reason: "insufficient_balance",
         required,
         available: input.userBalance,
       };
     }
-  } else if (typeof input.maxCostOrMinProceeds === 'bigint' && input.maxCostOrMinProceeds <= 0n) {
-    return { canTrade: false, reason: 'invalid_guard' };
+  } else if (
+    typeof input.maxCostOrMinProceeds === "bigint" &&
+    input.maxCostOrMinProceeds <= 0n
+  ) {
+    return { canTrade: false, reason: "invalid_guard" };
   }
 
   return { canTrade: true };
 }
 
-export function buildApprovalRequest(input: BuildApprovalRequestInput): ApprovalRequest | null {
+export function buildApprovalRequest(
+  input: BuildApprovalRequestInput,
+): ApprovalRequest | null {
   if (input.amount <= 0n) {
     return null;
   }
@@ -1180,7 +1363,7 @@ export function buildApprovalRequest(input: BuildApprovalRequestInput): Approval
 
   return {
     contract: input.tokenAddress,
-    functionName: 'approve',
+    functionName: "approve",
     args: [input.spender, input.approveAmount ?? MAX_UINT256] as const,
     requiredAmount: input.amount,
     currentAllowance: input.allowance,
@@ -1194,7 +1377,7 @@ export async function readApprovalRequest(
   const allowance = (await client.readContract({
     address: input.tokenAddress,
     abi: erc20Abi,
-    functionName: 'allowance',
+    functionName: "allowance",
     args: [input.owner, input.spender],
   })) as bigint;
 
@@ -1207,66 +1390,102 @@ export async function readApprovalRequest(
   });
 }
 
-export function createSoothCoreClient(config: CreateSoothCoreClientConfig): SoothCoreClient {
-  const mode = config.mode ?? 'rpc';
-  const indexedProvider = config.mode === 'indexed' ? config.indexedProvider : config.indexedProvider;
-  const publicClient = config.mode === 'indexed' ? config.publicClient : config.publicClient;
-  const contracts = config.mode === 'indexed' ? config.contracts : config.contracts;
+export function createSoothCoreClient(
+  config: CreateSoothCoreClientConfig,
+): SoothCoreClient {
+  const mode = config.mode ?? "rpc";
+  const indexedProvider =
+    config.mode === "indexed" ? config.indexedProvider : config.indexedProvider;
+  const publicClient =
+    config.mode === "indexed" ? config.publicClient : config.publicClient;
+  const contracts =
+    config.mode === "indexed" ? config.contracts : config.contracts;
 
-  const requireRpc = (): { publicClient: PublicClient; contracts: SoothCoreContracts } => {
+  const requireRpc = (): {
+    publicClient: PublicClient;
+    contracts: SoothCoreContracts;
+  } => {
     if (!publicClient || !contracts) {
-      throw new Error('RPC mode requires publicClient and contracts');
+      throw new Error("RPC mode requires publicClient and contracts");
     }
     return { publicClient, contracts };
   };
 
   const requireIndexed = (): SoothCoreDataProvider => {
     if (!indexedProvider) {
-      throw new Error('Indexed mode requires indexedProvider');
+      throw new Error("Indexed mode requires indexedProvider");
     }
     return indexedProvider;
   };
 
-  const getSnapshot = async (marketAddress: Address, options: SoothCoreSnapshotOptions = {}): Promise<SoothCoreSnapshot> => {
-    if (mode === 'indexed') {
+  const getSnapshot = async (
+    marketAddress: Address,
+    options: SoothCoreSnapshotOptions = {},
+  ): Promise<SoothCoreSnapshot> => {
+    if (mode === "indexed") {
       return requireIndexed().getSnapshot(marketAddress, options);
     }
 
     const rpc = requireRpc();
-    return readSoothCoreSnapshot(rpc.publicClient, rpc.contracts, marketAddress, options);
+    return readSoothCoreSnapshot(
+      rpc.publicClient,
+      rpc.contracts,
+      marketAddress,
+      options,
+    );
   };
 
   const getSnapshots = async (
     marketAddresses: readonly Address[],
     options: SoothCoreSnapshotOptions = {},
   ): Promise<SoothCoreSnapshot[]> => {
-    if (mode === 'indexed' && requireIndexed().getSnapshots) {
+    if (mode === "indexed" && requireIndexed().getSnapshots) {
       return requireIndexed().getSnapshots!(marketAddresses, options);
     }
 
-    if (mode === 'rpc') {
+    if (mode === "rpc") {
       const rpc = requireRpc();
-      return readSoothCoreSnapshots(rpc.publicClient, rpc.contracts, marketAddresses, options);
+      return readSoothCoreSnapshots(
+        rpc.publicClient,
+        rpc.contracts,
+        marketAddresses,
+        options,
+      );
     }
 
-    return Promise.all(marketAddresses.map((marketAddress) => getSnapshot(marketAddress, options)));
+    return Promise.all(
+      marketAddresses.map((marketAddress) =>
+        getSnapshot(marketAddress, options),
+      ),
+    );
   };
 
-  const getQuote = async (marketAddress: Address, options: ReadSoothQuoteOptions): Promise<SoothQuote> => {
-    if (mode === 'indexed' && requireIndexed().getQuote && !options.snapshot) {
+  const getQuote = async (
+    marketAddress: Address,
+    options: ReadSoothQuoteOptions,
+  ): Promise<SoothQuote> => {
+    if (mode === "indexed" && requireIndexed().getQuote && !options.snapshot) {
       return requireIndexed().getQuote!(marketAddress, options);
     }
 
-    const snapshot = options.snapshot ?? await getSnapshot(marketAddress);
-    if (mode === 'indexed') {
+    const snapshot = options.snapshot ?? (await getSnapshot(marketAddress));
+    if (mode === "indexed") {
       if (!publicClient || !contracts) {
-        throw new Error('Quote fallback in indexed mode requires publicClient and contracts');
+        throw new Error(
+          "Quote fallback in indexed mode requires publicClient and contracts",
+        );
       }
-      return readSoothQuote(publicClient, contracts, marketAddress, { ...options, snapshot });
+      return readSoothQuote(publicClient, contracts, marketAddress, {
+        ...options,
+        snapshot,
+      });
     }
 
     const rpc = requireRpc();
-    return readSoothQuote(rpc.publicClient, rpc.contracts, marketAddress, { ...options, snapshot });
+    return readSoothQuote(rpc.publicClient, rpc.contracts, marketAddress, {
+      ...options,
+      snapshot,
+    });
   };
 
   const getAmmQuote = async (
@@ -1274,19 +1493,34 @@ export function createSoothCoreClient(config: CreateSoothCoreClientConfig): Soot
     options: ReadLaunchpadAmmQuoteFromSnapshotOptions,
   ): Promise<LaunchpadAmmQuote> => {
     const rpc = requireRpc();
-    return readLaunchpadAmmQuoteFromSnapshot(rpc.publicClient, rpc.contracts, snapshot, options);
+    return readLaunchpadAmmQuoteFromSnapshot(
+      rpc.publicClient,
+      rpc.contracts,
+      snapshot,
+      options,
+    );
   };
 
-  const getSoothBookQuote = async (marketAddress: Address, options: ReadSoothBookQuoteOptions): Promise<SoothBookQuote> => {
+  const getSoothBookQuote = async (
+    marketAddress: Address,
+    options: ReadSoothBookQuoteOptions,
+  ): Promise<SoothBookQuote> => {
     const rpc = requireRpc();
-    return readSoothBookQuote(rpc.publicClient, rpc.contracts, marketAddress, options);
+    return readSoothBookQuote(
+      rpc.publicClient,
+      rpc.contracts,
+      marketAddress,
+      options,
+    );
   };
 
   const listMarkets = async (): Promise<Address[]> => {
     if (requireIndexed().listMarkets) {
       return requireIndexed().listMarkets!();
     }
-    throw new Error('listMarkets is only available when an indexed provider implements it');
+    throw new Error(
+      "listMarkets is only available when an indexed provider implements it",
+    );
   };
 
   return {
@@ -1305,9 +1539,11 @@ export function createSoothCoreClient(config: CreateSoothCoreClientConfig): Soot
     buildSoothBookMint: buildSoothBookMintRequest,
     buildSoothBookMerge: buildSoothBookMergeRequest,
     buildSoothBookRedeem: buildSoothBookRedeemRequest,
-    buildClaim: (snapshot: SoothCoreSnapshot) => buildClaimRequest(snapshot, requireRpc().contracts),
+    buildClaim: (snapshot: SoothCoreSnapshot) =>
+      buildClaimRequest(snapshot, requireRpc().contracts),
     preflightTrade,
-    readApprovalRequest: (input: ReadApprovalRequestInput) => readApprovalRequest(requireRpc().publicClient, input),
+    readApprovalRequest: (input: ReadApprovalRequestInput) =>
+      readApprovalRequest(requireRpc().publicClient, input),
     buildApprovalRequest,
     listMarkets,
   };
@@ -1315,35 +1551,61 @@ export function createSoothCoreClient(config: CreateSoothCoreClientConfig): Soot
 
 export const createSoothClient = createSoothCoreClient;
 
-export function classifyTradeError(error: unknown): { code: string; message: string } {
-  const message = error instanceof Error ? error.message : String(error ?? 'Unknown trade error');
+export function classifyTradeError(error: unknown): {
+  code: string;
+  message: string;
+} {
+  const message =
+    error instanceof Error
+      ? error.message
+      : String(error ?? "Unknown trade error");
   const lower = message.toLowerCase();
 
-  if (lower.includes('insufficient') || lower.includes('erc20insufficientbalance')) {
-    return { code: 'insufficient_balance', message };
+  if (
+    lower.includes("insufficient") ||
+    lower.includes("erc20insufficientbalance")
+  ) {
+    return { code: "insufficient_balance", message };
   }
 
-  if (lower.includes('slippage') || lower.includes('maxcostorminproceeds') || lower.includes('cost exceeds')) {
-    return { code: 'slippage_exceeded', message };
+  if (
+    lower.includes("slippage") ||
+    lower.includes("maxcostorminproceeds") ||
+    lower.includes("cost exceeds")
+  ) {
+    return { code: "slippage_exceeded", message };
   }
 
-  if (lower.includes('settled') || lower.includes('resolved') || lower.includes('finalized')) {
-    return { code: 'market_settled', message };
+  if (
+    lower.includes("settled") ||
+    lower.includes("resolved") ||
+    lower.includes("finalized")
+  ) {
+    return { code: "market_settled", message };
   }
 
-  if (lower.includes('rejected') || lower.includes('denied') || lower.includes('4001')) {
-    return { code: 'user_rejected', message };
+  if (
+    lower.includes("rejected") ||
+    lower.includes("denied") ||
+    lower.includes("4001")
+  ) {
+    return { code: "user_rejected", message };
   }
 
-  if (lower.includes('timeout') || lower.includes('timed out')) {
-    return { code: 'network_timeout', message };
+  if (lower.includes("timeout") || lower.includes("timed out")) {
+    return { code: "network_timeout", message };
   }
 
-  return { code: 'unknown', message };
+  return { code: "unknown", message };
 }
 
-export function resolveDefaultApprovalToken(snapshot: SoothCoreSnapshot): Address | null {
-  if (snapshot.soothBook?.collateral && snapshot.soothBook.collateral !== ZERO_ADDRESS) {
+export function resolveDefaultApprovalToken(
+  snapshot: SoothCoreSnapshot,
+): Address | null {
+  if (
+    snapshot.soothBook?.collateral &&
+    snapshot.soothBook.collateral !== ZERO_ADDRESS
+  ) {
     return snapshot.soothBook.collateral;
   }
 
@@ -1357,8 +1619,8 @@ export function resolveDefaultApprovalToken(snapshot: SoothCoreSnapshot): Addres
 }
 
 export function getClaimAbiForRequest(request: ClaimTxRequest) {
-  if (request.functionName === 'claimRefund') return LaunchpadEngineABI;
-  if (request.functionName === 'settlePosition') return AMMEngineABI;
-  if (request.functionName === 'redeemOutcome') return CollateralizerABI;
+  if (request.functionName === "claimRefund") return LaunchpadEngineABI;
+  if (request.functionName === "settlePosition") return AMMEngineABI;
+  if (request.functionName === "redeemOutcome") return CollateralizerABI;
   return SoothBookABI;
 }
