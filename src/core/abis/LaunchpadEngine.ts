@@ -1,186 +1,24 @@
-// ⚠️ STALE ABI WARNING (v0.1.2)
+// LaunchpadEngine ABI — regenerated from deployed bytecode at
+// 0xEfe2D076f380649d7B6ACF7C20eEc5d5614D6E0b (Base Sepolia, chain 84532)
+// Generated: 2026-04-05 via `cast selectors`
 //
-// This ABI does NOT fully match the deployed LaunchpadEngine bytecode.
-// It was generated from an older compilation of sooth-core. Functions known
-// to be PHANTOM (present here but NOT in deployed bytecode) include:
-//
-//   - tradePositions → MOVED to AMMEngine in v0.1.2. REMOVED from this ABI.
-//     Use ABIS.AMMEngine + contracts.AMMEngine.
-//   - preGradFeeBps, postGradFeeBps, bBaseShareBps, lpYieldShareBps,
-//     protocolShareBps, graduationMultiplier → MOVED to FeeRouter.
-//   - claimRefund, dismissMarket, redeemLP, increaseBBase, getMarketState,
-//     getGraduationProgress, trialStates, userLockedCost, userTrialBalance,
-//     DEFAULT_TRIAL_PERIOD, collateralizer, defaultHook, orderbook, usdc,
-//     setDefaultHook, setFeeDistribution, setGraduationMultiplier,
-//     setPreGradFee, setPostGradFee → REMOVED or RENAMED in v0.1.2.
-//
-// Callers that still invoke the functions above on LaunchpadEngine will
-// revert on-chain. Regenerate this ABI from the sooth-core 0.1.2 source
-// to pick up the authoritative surface (or run `cast selectors <address>`).
-//
-// See docs/qa/bugs-2026-04-05.md (BUG-003).
+// 3 selectors could not be identified and are omitted:
+//   0x40790471 — view, no inputs, returns uint256 (604800 = 7 days)
+//   0xae1aa989 — nonpayable, takes uint64
+//   0xeb26a728 — view, takes (address,address,bytes,uint256,uint64,uint64)
 
 export const LaunchpadEngineABI = [
-  {
-    type: "constructor",
-    inputs: [
-      {
-        name: "_usdc",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "_ammEngine",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "_collateralizer",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "_orderbook",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "_protocolConfig",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "_protocolTreasury",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "_owner",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "DEFAULT_TRIAL_PERIOD",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "uint64",
-        internalType: "uint64",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "allMarkets",
-    inputs: [
-      {
-        name: "",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "ammEngine",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "address",
-        internalType: "contract IAMMEngine",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "bBaseShareBps",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "uint16",
-        internalType: "uint16",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "claimRefund",
-    inputs: [
-      {
-        name: "market",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [
-      {
-        name: "refundAmount",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "collateralizer",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "address",
-        internalType: "contract ICollateralizer",
-      },
-    ],
-    stateMutability: "view",
-  },
+  // ── Functions ──────────────────────────────────────────────────────
+
   {
     type: "function",
     name: "createMarket",
     inputs: [
-      {
-        name: "question",
-        type: "string",
-        internalType: "string",
-      },
-      {
-        name: "startTime",
-        type: "uint64",
-        internalType: "uint64",
-      },
-      {
-        name: "deadline",
-        type: "uint64",
-        internalType: "uint64",
-      },
-      {
-        name: "adjudicator",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "bBase",
-        type: "uint256",
-        internalType: "uint256",
-      },
+      { name: "question", type: "string", internalType: "string" },
+      { name: "startTime", type: "uint64", internalType: "uint64" },
+      { name: "deadline", type: "uint64", internalType: "uint64" },
+      { name: "adjudicator", type: "address", internalType: "address" },
+      { name: "bBase", type: "uint256", internalType: "uint256" },
       {
         name: "initialProbabilityWad",
         type: "uint256",
@@ -193,215 +31,68 @@ export const LaunchpadEngineABI = [
       },
     ],
     outputs: [
-      {
-        name: "market",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "lpToken",
-        type: "address",
-        internalType: "address",
-      },
+      { name: "market", type: "address", internalType: "address" },
+      { name: "lpToken", type: "address", internalType: "address" },
     ],
     stateMutability: "nonpayable",
   },
   {
     type: "function",
-    name: "defaultHook",
-    inputs: [],
+    name: "markets",
+    inputs: [{ name: "", type: "address", internalType: "address" }],
     outputs: [
+      { name: "creator", type: "address", internalType: "address" },
+      { name: "lpToken", type: "address", internalType: "address" },
+      { name: "bBase", type: "uint256", internalType: "uint256" },
       {
-        name: "",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "dismissMarket",
-    inputs: [
-      {
-        name: "market",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "isGraduated",
-    inputs: [
-      {
-        name: "market",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "bool",
-        internalType: "bool",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "isTrialExpiredWithoutGraduation",
-    inputs: [
-      {
-        name: "market",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "bool",
-        internalType: "bool",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "getLPToken",
-    inputs: [
-      {
-        name: "market",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "isPaused",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "bool",
-        internalType: "bool",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "getMarketCount",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
+        name: "creatorDeposit",
         type: "uint256",
         internalType: "uint256",
       },
+      { name: "graduatedAt", type: "uint64", internalType: "uint64" },
     ],
     stateMutability: "view",
   },
   {
     type: "function",
-    name: "getMarketState",
-    inputs: [
-      {
-        name: "market",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [
-      {
-        name: "creator",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "bBase",
-        type: "uint256",
-        internalType: "uint256",
-      },
-      {
-        name: "bCurrent",
-        type: "uint256",
-        internalType: "uint256",
-      },
-      {
-        name: "totalLPSupply",
-        type: "uint256",
-        internalType: "uint256",
-      },
-      {
-        name: "isGraduated",
-        type: "bool",
-        internalType: "bool",
-      },
-      {
-        name: "floorValue",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
+    name: "allMarkets",
+    inputs: [{ name: "", type: "uint256", internalType: "uint256" }],
+    outputs: [{ name: "", type: "address", internalType: "address" }],
     stateMutability: "view",
   },
   {
     type: "function",
     name: "getMarkets",
     inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "address[]",
-        internalType: "address[]",
-      },
-    ],
+    outputs: [{ name: "", type: "address[]", internalType: "address[]" }],
     stateMutability: "view",
   },
   {
     type: "function",
-    name: "preGradFeeBps",
+    name: "getMarketCount",
     inputs: [],
-    outputs: [{ name: "", type: "uint16", internalType: "uint16" }],
+    outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
     stateMutability: "view",
   },
   {
     type: "function",
-    name: "postGradFeeBps",
-    inputs: [],
-    outputs: [{ name: "", type: "uint16", internalType: "uint16" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "protocolShareBps",
-    inputs: [],
-    outputs: [{ name: "", type: "uint16", internalType: "uint16" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "getGraduationProgress",
+    name: "getLPToken",
     inputs: [{ name: "market", type: "address", internalType: "address" }],
-    outputs: [
-      { name: "feesAccrued", type: "uint256", internalType: "uint256" },
-      { name: "threshold", type: "uint256", internalType: "uint256" },
-      { name: "progressBps", type: "uint256", internalType: "uint256" },
-    ],
+    outputs: [{ name: "", type: "address", internalType: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "isGraduated",
+    inputs: [{ name: "market", type: "address", internalType: "address" }],
+    outputs: [{ name: "", type: "bool", internalType: "bool" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "isTrialExpiredWithoutGraduation",
+    inputs: [{ name: "market", type: "address", internalType: "address" }],
+    outputs: [{ name: "", type: "bool", internalType: "bool" }],
     stateMutability: "view",
   },
   {
@@ -413,6 +104,13 @@ export const LaunchpadEngineABI = [
   },
   {
     type: "function",
+    name: "creatorNonce",
+    inputs: [{ name: "creator", type: "address", internalType: "address" }],
+    outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "defaultTrialPeriod",
     inputs: [],
     outputs: [{ name: "", type: "uint64", internalType: "uint64" }],
@@ -420,88 +118,92 @@ export const LaunchpadEngineABI = [
   },
   {
     type: "function",
-    name: "redeemLP",
-    inputs: [
-      { name: "market", type: "address", internalType: "address" },
-      { name: "amount", type: "uint256", internalType: "uint256" },
-    ],
+    name: "isPaused",
+    inputs: [],
+    outputs: [{ name: "", type: "bool", internalType: "bool" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "notifyGraduation",
+    inputs: [{ name: "market", type: "address", internalType: "address" }],
     outputs: [],
     stateMutability: "nonpayable",
   },
   {
     type: "function",
-    name: "graduationMultiplier",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "uint16",
-        internalType: "uint16",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "increaseBBase",
-    inputs: [
-      {
-        name: "market",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "amount",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
+    name: "setDefaultTrialPeriod",
+    inputs: [{ name: "period", type: "uint64", internalType: "uint64" }],
     outputs: [],
     stateMutability: "nonpayable",
   },
   {
     type: "function",
-    name: "lpYieldShareBps",
+    name: "pause",
     inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "uint16",
-        internalType: "uint16",
-      },
-    ],
-    stateMutability: "view",
+    outputs: [],
+    stateMutability: "nonpayable",
   },
   {
     type: "function",
-    name: "markets",
-    inputs: [
-      {
-        name: "",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [
-      { name: "creator", type: "address", internalType: "address" },
-      { name: "lpToken", type: "address", internalType: "address" },
-      { name: "bBase", type: "uint256", internalType: "uint256" },
-      { name: "creatorDeposit", type: "uint256", internalType: "uint256" },
-      { name: "graduatedAt", type: "uint64", internalType: "uint64" },
-    ],
-    stateMutability: "view",
+    name: "unpause",
+    inputs: [],
+    outputs: [],
+    stateMutability: "nonpayable",
   },
+
+  // ── Immutables / Config ────────────────────────────────────────────
+
+  {
+    type: "function",
+    name: "ammEngine",
+    inputs: [],
+    outputs: [{ name: "", type: "address", internalType: "address" }],
+    stateMutability: "pure",
+  },
+  {
+    type: "function",
+    name: "feeRouter",
+    inputs: [],
+    outputs: [{ name: "", type: "address", internalType: "address" }],
+    stateMutability: "pure",
+  },
+  {
+    type: "function",
+    name: "truthMarketImpl",
+    inputs: [],
+    outputs: [{ name: "", type: "address", internalType: "address" }],
+    stateMutability: "pure",
+  },
+  {
+    type: "function",
+    name: "orderEngine",
+    inputs: [],
+    outputs: [{ name: "", type: "address", internalType: "address" }],
+    stateMutability: "pure",
+  },
+  {
+    type: "function",
+    name: "adjudicatorRegistry",
+    inputs: [],
+    outputs: [{ name: "", type: "address", internalType: "address" }],
+    stateMutability: "pure",
+  },
+  {
+    type: "function",
+    name: "baseToken",
+    inputs: [],
+    outputs: [{ name: "", type: "address", internalType: "address" }],
+    stateMutability: "pure",
+  },
+
+  // ── Ownable ────────────────────────────────────────────────────────
+
   {
     type: "function",
     name: "owner",
     inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "address",
-        internalType: "address",
-      },
-    ],
+    outputs: [{ name: "", type: "address", internalType: "address" }],
     stateMutability: "view",
   },
   {
@@ -513,169 +215,17 @@ export const LaunchpadEngineABI = [
   },
   {
     type: "function",
-    name: "setDefaultHook",
-    inputs: [
-      {
-        name: "hook",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "setFeeDistribution",
-    inputs: [
-      {
-        name: "bBaseBps",
-        type: "uint16",
-        internalType: "uint16",
-      },
-      {
-        name: "lpYieldBps",
-        type: "uint16",
-        internalType: "uint16",
-      },
-      {
-        name: "protocolBps",
-        type: "uint16",
-        internalType: "uint16",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "setGraduationMultiplier",
-    inputs: [
-      {
-        name: "multiplier",
-        type: "uint16",
-        internalType: "uint16",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "setPostGradFee",
-    inputs: [
-      {
-        name: "feeBps",
-        type: "uint16",
-        internalType: "uint16",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "setPreGradFee",
-    inputs: [
-      {
-        name: "feeBps",
-        type: "uint16",
-        internalType: "uint16",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "orderbook",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "address",
-        internalType: "contract IOrderbook",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
     name: "transferOwnership",
-    inputs: [
-      {
-        name: "newOwner",
-        type: "address",
-        internalType: "address",
-      },
-    ],
+    inputs: [{ name: "newOwner", type: "address", internalType: "address" }],
     outputs: [],
     stateMutability: "nonpayable",
   },
-  {
-    type: "function",
-    name: "usdc",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "address",
-        internalType: "contract IERC20",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "userLockedCost",
-    inputs: [
-      {
-        name: "",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "userTrialBalance",
-    inputs: [
-      {
-        name: "",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "int256",
-        internalType: "int256",
-      },
-    ],
-    stateMutability: "view",
-  },
+
+  // ── Events ─────────────────────────────────────────────────────────
+
   {
     type: "event",
-    name: "BaseLiquidityIncreased",
+    name: "MarketCreated",
     inputs: [
       {
         name: "market",
@@ -684,69 +234,49 @@ export const LaunchpadEngineABI = [
         internalType: "address",
       },
       {
-        name: "amountWad",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-      {
-        name: "newBBase",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-      {
-        name: "newBCurrent",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "DefaultHookUpdated",
-    inputs: [
-      {
-        name: "hook",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "FeeDistributedPostGrad",
-    inputs: [
-      {
-        name: "market",
+        name: "creator",
         type: "address",
         indexed: true,
         internalType: "address",
       },
       {
-        name: "totalFee",
+        name: "question",
+        type: "string",
+        indexed: false,
+        internalType: "string",
+      },
+      {
+        name: "startTime",
+        type: "uint64",
+        indexed: false,
+        internalType: "uint64",
+      },
+      {
+        name: "deadline",
+        type: "uint64",
+        indexed: false,
+        internalType: "uint64",
+      },
+      {
+        name: "bBase",
         type: "uint256",
         indexed: false,
         internalType: "uint256",
       },
       {
-        name: "toBBase",
-        type: "uint256",
+        name: "adjudicator",
+        type: "address",
         indexed: false,
-        internalType: "uint256",
+        internalType: "address",
       },
       {
-        name: "toLPYield",
-        type: "uint256",
+        name: "lpToken",
+        type: "address",
         indexed: false,
-        internalType: "uint256",
+        internalType: "address",
       },
       {
-        name: "toProtocol",
+        name: "nonce",
         type: "uint256",
         indexed: false,
         internalType: "uint256",
@@ -756,7 +286,7 @@ export const LaunchpadEngineABI = [
   },
   {
     type: "event",
-    name: "FeeDistributedPreGrad",
+    name: "MarketGraduated",
     inputs: [
       {
         name: "market",
@@ -765,181 +295,7 @@ export const LaunchpadEngineABI = [
         internalType: "address",
       },
       {
-        name: "totalFee",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-      {
-        name: "toBBase",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-      {
-        name: "lpTokensMinted",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-      {
-        name: "trader",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "FeeDistributionUpdated",
-    inputs: [
-      {
-        name: "bBaseBps",
-        type: "uint16",
-        indexed: false,
-        internalType: "uint16",
-      },
-      {
-        name: "lpYieldBps",
-        type: "uint16",
-        indexed: false,
-        internalType: "uint16",
-      },
-      {
-        name: "protocolBps",
-        type: "uint16",
-        indexed: false,
-        internalType: "uint16",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "FeesAccrued",
-    inputs: [
-      {
-        name: "market",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "amountUsdc",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-      {
-        name: "totalAccrued",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "GraduationMultiplierUpdated",
-    inputs: [
-      {
-        name: "multiplier",
-        type: "uint16",
-        indexed: false,
-        internalType: "uint16",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "GraduationProgressUpdated",
-    inputs: [
-      {
-        name: "market",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "feesAccruedWad",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-      {
-        name: "thresholdWad",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "LPBalanceUpdated",
-    inputs: [
-      {
-        name: "market",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "user",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "delta",
-        type: "int256",
-        indexed: false,
-        internalType: "int256",
-      },
-      {
-        name: "newBalance",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-      {
-        name: "totalSupply",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "LPRedeemed",
-    inputs: [
-      {
-        name: "user",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "market",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "lpAmount",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-      {
-        name: "usdcAmount",
+        name: "timestamp",
         type: "uint256",
         indexed: false,
         internalType: "uint256",
@@ -968,143 +324,13 @@ export const LaunchpadEngineABI = [
   },
   {
     type: "event",
-    name: "LPYieldPoolUpdated",
+    name: "DefaultTrialPeriodUpdated",
     inputs: [
       {
-        name: "market",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "amountUsdc",
-        type: "uint256",
+        name: "period",
+        type: "uint64",
         indexed: false,
-        internalType: "uint256",
-      },
-      {
-        name: "newTotal",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "LiquidityIncreased",
-    inputs: [
-      {
-        name: "market",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "creator",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "amount",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-      {
-        name: "lpTokens",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "MarketCreated",
-    inputs: [
-      {
-        name: "market",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "creator",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "initialLiquidity",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-      {
-        name: "deposit",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-      {
-        name: "lpTokens",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "MarketDismissed",
-    inputs: [
-      {
-        name: "market",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "creator",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "timestamp",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "MarketGraduated",
-    inputs: [
-      {
-        name: "market",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "totalFeesAccrued",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-      {
-        name: "timestamp",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
+        internalType: "uint64",
       },
     ],
     anonymous: false,
@@ -1128,121 +354,18 @@ export const LaunchpadEngineABI = [
     ],
     anonymous: false,
   },
-  {
-    type: "event",
-    name: "PositionTraded",
-    inputs: [
-      {
-        name: "trader",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "market",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "outcome",
-        type: "uint8",
-        indexed: false,
-        internalType: "uint8",
-      },
-      {
-        name: "deltaShares",
-        type: "int256",
-        indexed: false,
-        internalType: "int256",
-      },
-      {
-        name: "cost",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-      {
-        name: "fee",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "PostGradFeeUpdated",
-    inputs: [
-      {
-        name: "feeBps",
-        type: "uint16",
-        indexed: false,
-        internalType: "uint16",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "PreGradFeeUpdated",
-    inputs: [
-      {
-        name: "feeBps",
-        type: "uint16",
-        indexed: false,
-        internalType: "uint16",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "RefundClaimed",
-    inputs: [
-      {
-        name: "market",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "user",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "amount",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-    ],
-    anonymous: false,
-  },
+
+  // ── Errors ─────────────────────────────────────────────────────────
+
   {
     type: "error",
     name: "OwnableInvalidOwner",
-    inputs: [
-      {
-        name: "owner",
-        type: "address",
-        internalType: "address",
-      },
-    ],
+    inputs: [{ name: "owner", type: "address", internalType: "address" }],
   },
   {
     type: "error",
     name: "OwnableUnauthorizedAccount",
-    inputs: [
-      {
-        name: "account",
-        type: "address",
-        internalType: "address",
-      },
-    ],
+    inputs: [{ name: "account", type: "address", internalType: "address" }],
   },
   {
     type: "error",
@@ -1251,13 +374,22 @@ export const LaunchpadEngineABI = [
   },
   {
     type: "error",
+    name: "NotFeeRouter",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "AlreadyGraduated",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "ZeroAddress",
+    inputs: [],
+  },
+  {
+    type: "error",
     name: "SafeERC20FailedOperation",
-    inputs: [
-      {
-        name: "token",
-        type: "address",
-        internalType: "address",
-      },
-    ],
+    inputs: [{ name: "token", type: "address", internalType: "address" }],
   },
 ] as const;
