@@ -8,59 +8,66 @@
  *   3. Registry public RPC (default)
  */
 
-import type { Chain } from 'viem';
-import { getAllNodes, getNodeById, getChain } from '../../../registry/src/index';
-import type { SoothNode, ChainMeta } from '../../../registry/src/types';
-import { toViemChain } from '../../../registry/src/viem';
+import type { Chain } from "viem";
+import {
+  getAllNodes,
+  getNodeById,
+  getChain,
+} from "../../../registry/src/index";
+import type { SoothNode, ChainMeta } from "../../../registry/src/types";
+import { toViemChain } from "../../../registry/src/viem";
 
 // Chain definitions from registry (with extra Monad RPC fallbacks)
 export const monadTestnet: Chain = toViemChain(10143, [
-  'https://testnet-rpc.monad.xyz',
-  'https://rpc.ankr.com/monad_testnet',
-  'https://rpc-testnet.monadinfra.com',
+  "https://testnet-rpc.monad.xyz",
+  "https://rpc.ankr.com/monad_testnet",
+  "https://rpc-testnet.monadinfra.com",
 ]);
 
 export const arcTestnet: Chain = {
   id: 5042002,
-  name: 'Arc Testnet',
-  nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 },
+  name: "Arc Testnet",
+  nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 6 },
   rpcUrls: {
     default: {
-      http: ['https://rpc.testnet.arc.network'],
+      http: ["https://rpc.testnet.arc.network"],
     },
   },
   blockExplorers: {
-    default: { name: 'Arcscan', url: 'https://testnet.arcscan.app' },
+    default: { name: "Arcscan", url: "https://testnet.arcscan.app" },
   },
   testnet: true,
 };
 
 export const megaethTestnet: Chain = {
   id: 6343,
-  name: 'MegaETH Testnet',
-  nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+  name: "MegaETH Testnet",
+  nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
   rpcUrls: {
     default: {
-      http: ['https://carrot.megaeth.com/rpc'],
+      http: ["https://carrot.megaeth.com/rpc"],
     },
   },
   blockExplorers: {
-    default: { name: 'Blockscout', url: 'https://megaeth-testnet-v2.blockscout.com' },
+    default: {
+      name: "Blockscout",
+      url: "https://megaeth-testnet-v2.blockscout.com",
+    },
   },
   testnet: true,
 };
 
 export const hyperEvmTestnet: Chain = {
   id: 998,
-  name: 'HyperEVM Testnet',
-  nativeCurrency: { name: 'HYPE', symbol: 'HYPE', decimals: 18 },
+  name: "HyperEVM Testnet",
+  nativeCurrency: { name: "HYPE", symbol: "HYPE", decimals: 18 },
   rpcUrls: {
     default: {
-      http: ['https://rpc.hyperliquid-testnet.xyz/evm'],
+      http: ["https://rpc.hyperliquid-testnet.xyz/evm"],
     },
   },
   blockExplorers: {
-    default: { name: 'Purrsec', url: 'https://testnet.purrsec.com' },
+    default: { name: "Purrsec", url: "https://testnet.purrsec.com" },
   },
   testnet: true,
 };
@@ -78,7 +85,11 @@ function resolveNodeId(input: string): string {
 
   if (node) return nodeId;
 
-  throw new Error(`Unknown node ID: "${input}". Available: ${getAllNodes().map(n => n.id).join(', ')}`);
+  throw new Error(
+    `Unknown node ID: "${input}". Available: ${getAllNodes()
+      .map((n) => n.id)
+      .join(", ")}`,
+  );
 }
 
 export interface Deployment {
@@ -95,6 +106,12 @@ export interface Deployment {
     FeeRouter: string;
     AdjudicatorRegistry: string;
     [key: string]: string | undefined;
+  };
+  adjudicators?: {
+    default?: string;
+    manual?: string;
+    zkTLS?: string;
+    optimistic?: string;
   };
   markets: Array<{
     key: string;
@@ -120,8 +137,10 @@ function nodeToDeployment(node: SoothNode, chain: ChainMeta): Deployment {
       LaunchpadEngine: node.contracts.launchpadEngine,
       TruthMarket: node.contracts.truthMarket,
       FeeRouter: node.contracts.feeRouter,
+      DefaultAdjudicator: node.adjudicators?.default,
       AdjudicatorRegistry: node.contracts.adjudicatorRegistry,
     },
+    adjudicators: node.adjudicators,
     markets: [],
   };
 }
@@ -131,7 +150,7 @@ function getPostTxWait(chainId: number): number {
   return 0;
 }
 
-export const SDK_VERSION = '12.1.0';
+export const SDK_VERSION = "12.1.0";
 
 export interface InteractiveConfig {
   nodeId: string;
@@ -150,7 +169,9 @@ export function createConfig(nodeIdInput: string): InteractiveConfig {
   const nodeId = resolveNodeId(nodeIdInput);
   const node = getNodeById(nodeId);
   if (!node) {
-    throw new Error(`Node not found: "${nodeId}". Is it registered in nodes.json?`);
+    throw new Error(
+      `Node not found: "${nodeId}". Is it registered in nodes.json?`,
+    );
   }
   const chainMeta = getChain(node.chainId);
   if (!chainMeta) {
@@ -177,93 +198,362 @@ export function createConfig(nodeIdInput: string): InteractiveConfig {
 // Contract ABIs (minimal for interactive testing)
 export const ABIS = {
   BaseToken: [
-    { name: 'mint', type: 'function', inputs: [{ type: 'address', name: 'to' }, { type: 'uint256', name: 'amount' }], outputs: [], stateMutability: 'nonpayable' },
-    { name: 'approve', type: 'function', inputs: [{ type: 'address', name: 'spender' }, { type: 'uint256', name: 'amount' }], outputs: [{ type: 'bool' }], stateMutability: 'nonpayable' },
-    { name: 'balanceOf', type: 'function', inputs: [{ type: 'address', name: 'account' }], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
-    { name: 'allowance', type: 'function', inputs: [{ type: 'address', name: 'owner' }, { type: 'address', name: 'spender' }], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
-    { name: 'decimals', type: 'function', inputs: [], outputs: [{ type: 'uint8' }], stateMutability: 'view' },
-    { name: 'totalSupply', type: 'function', inputs: [], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
+    {
+      name: "mint",
+      type: "function",
+      inputs: [
+        { type: "address", name: "to" },
+        { type: "uint256", name: "amount" },
+      ],
+      outputs: [],
+      stateMutability: "nonpayable",
+    },
+    {
+      name: "approve",
+      type: "function",
+      inputs: [
+        { type: "address", name: "spender" },
+        { type: "uint256", name: "amount" },
+      ],
+      outputs: [{ type: "bool" }],
+      stateMutability: "nonpayable",
+    },
+    {
+      name: "balanceOf",
+      type: "function",
+      inputs: [{ type: "address", name: "account" }],
+      outputs: [{ type: "uint256" }],
+      stateMutability: "view",
+    },
+    {
+      name: "allowance",
+      type: "function",
+      inputs: [
+        { type: "address", name: "owner" },
+        { type: "address", name: "spender" },
+      ],
+      outputs: [{ type: "uint256" }],
+      stateMutability: "view",
+    },
+    {
+      name: "decimals",
+      type: "function",
+      inputs: [],
+      outputs: [{ type: "uint8" }],
+      stateMutability: "view",
+    },
+    {
+      name: "totalSupply",
+      type: "function",
+      inputs: [],
+      outputs: [{ type: "uint256" }],
+      stateMutability: "view",
+    },
   ],
 
   OutcomeToken: [
-    { name: 'balanceOf', type: 'function', inputs: [{ type: 'address', name: 'account' }], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
-    { name: 'approve', type: 'function', inputs: [{ type: 'address', name: 'spender' }, { type: 'uint256', name: 'amount' }], outputs: [{ type: 'bool' }], stateMutability: 'nonpayable' },
-    { name: 'allowance', type: 'function', inputs: [{ type: 'address', name: 'owner' }, { type: 'address', name: 'spender' }], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
-    { name: 'totalSupply', type: 'function', inputs: [], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
+    {
+      name: "balanceOf",
+      type: "function",
+      inputs: [{ type: "address", name: "account" }],
+      outputs: [{ type: "uint256" }],
+      stateMutability: "view",
+    },
+    {
+      name: "approve",
+      type: "function",
+      inputs: [
+        { type: "address", name: "spender" },
+        { type: "uint256", name: "amount" },
+      ],
+      outputs: [{ type: "bool" }],
+      stateMutability: "nonpayable",
+    },
+    {
+      name: "allowance",
+      type: "function",
+      inputs: [
+        { type: "address", name: "owner" },
+        { type: "address", name: "spender" },
+      ],
+      outputs: [{ type: "uint256" }],
+      stateMutability: "view",
+    },
+    {
+      name: "totalSupply",
+      type: "function",
+      inputs: [],
+      outputs: [{ type: "uint256" }],
+      stateMutability: "view",
+    },
   ],
 
   SoothBook: [
-    { name: 'buyYes', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }, { type: 'uint16', name: 'tick' }, { type: 'uint128', name: 'amount' }, { type: 'bool', name: 'escrow' }, { type: 'uint32', name: 'matchLimit' }], outputs: [], stateMutability: 'nonpayable' },
-    { name: 'buyNo', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }, { type: 'uint16', name: 'tick' }, { type: 'uint128', name: 'amount' }, { type: 'bool', name: 'escrow' }, { type: 'uint32', name: 'matchLimit' }], outputs: [], stateMutability: 'nonpayable' },
-    { name: 'mint', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }, { type: 'uint256', name: 'amount' }], outputs: [], stateMutability: 'nonpayable' },
-    { name: 'merge', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }, { type: 'uint256', name: 'amount' }], outputs: [], stateMutability: 'nonpayable' },
-    { name: 'cancel', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }, { type: 'uint8', name: 'side' }, { type: 'uint16', name: 'tick' }], outputs: [], stateMutability: 'nonpayable' },
-    { name: 'redeem', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }], outputs: [], stateMutability: 'nonpayable' },
-    { name: 'resolveMarket', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }, { type: 'uint8', name: 'outcome' }], outputs: [], stateMutability: 'nonpayable' },
-    { name: 'createMarket', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }, { type: 'address', name: 'collateral' }, { type: 'string', name: 'name' }], outputs: [{ type: 'address', name: 'yesToken' }, { type: 'address', name: 'noToken' }], stateMutability: 'nonpayable' },
-    { name: 'getBalance', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }, { type: 'address', name: 'user' }], outputs: [{ type: 'uint256', name: 'yes' }, { type: 'uint256', name: 'no' }], stateMutability: 'view' },
-    { name: 'getCollateralBacking', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
-    { name: 'getBestTick', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }, { type: 'uint8', name: 'side' }], outputs: [{ type: 'uint16' }], stateMutability: 'view' },
-    { name: 'getOrdersAtTick', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }, { type: 'uint8', name: 'side' }, { type: 'uint16', name: 'tick' }], outputs: [{ type: 'uint256', name: 'totalAmount' }, { type: 'uint256', name: 'orderCount' }], stateMutability: 'view' },
-    { name: 'getImpliedPrice', type: 'function', inputs: [{ type: 'bytes32', name: 'marketKey' }], outputs: [{ type: 'uint256', name: 'yesPrice' }, { type: 'uint256', name: 'noPrice' }], stateMutability: 'view' },
-    { name: 'markets', type: 'function', inputs: [{ type: 'bytes32', name: '' }], outputs: [{ type: 'address', name: 'collateral' }, { type: 'address', name: 'yesToken' }, { type: 'address', name: 'noToken' }, { type: 'bool', name: 'active' }, { type: 'bool', name: 'finalized' }, { type: 'uint8', name: 'outcome' }], stateMutability: 'view' },
-    { name: 'feeBps', type: 'function', inputs: [], outputs: [{ type: 'uint24' }], stateMutability: 'view' },
-    { name: 'feeRecipient', type: 'function', inputs: [], outputs: [{ type: 'address' }], stateMutability: 'view' },
-    { name: 'owner', type: 'function', inputs: [], outputs: [{ type: 'address' }], stateMutability: 'view' },
+    {
+      name: "buyYes",
+      type: "function",
+      inputs: [
+        { type: "bytes32", name: "marketKey" },
+        { type: "uint16", name: "tick" },
+        { type: "uint128", name: "amount" },
+        { type: "bool", name: "escrow" },
+        { type: "uint32", name: "matchLimit" },
+      ],
+      outputs: [],
+      stateMutability: "nonpayable",
+    },
+    {
+      name: "buyNo",
+      type: "function",
+      inputs: [
+        { type: "bytes32", name: "marketKey" },
+        { type: "uint16", name: "tick" },
+        { type: "uint128", name: "amount" },
+        { type: "bool", name: "escrow" },
+        { type: "uint32", name: "matchLimit" },
+      ],
+      outputs: [],
+      stateMutability: "nonpayable",
+    },
+    {
+      name: "mint",
+      type: "function",
+      inputs: [
+        { type: "bytes32", name: "marketKey" },
+        { type: "uint256", name: "amount" },
+      ],
+      outputs: [],
+      stateMutability: "nonpayable",
+    },
+    {
+      name: "merge",
+      type: "function",
+      inputs: [
+        { type: "bytes32", name: "marketKey" },
+        { type: "uint256", name: "amount" },
+      ],
+      outputs: [],
+      stateMutability: "nonpayable",
+    },
+    {
+      name: "cancel",
+      type: "function",
+      inputs: [
+        { type: "bytes32", name: "marketKey" },
+        { type: "uint8", name: "side" },
+        { type: "uint16", name: "tick" },
+      ],
+      outputs: [],
+      stateMutability: "nonpayable",
+    },
+    {
+      name: "redeem",
+      type: "function",
+      inputs: [{ type: "bytes32", name: "marketKey" }],
+      outputs: [],
+      stateMutability: "nonpayable",
+    },
+    {
+      name: "resolveMarket",
+      type: "function",
+      inputs: [
+        { type: "bytes32", name: "marketKey" },
+        { type: "uint8", name: "outcome" },
+      ],
+      outputs: [],
+      stateMutability: "nonpayable",
+    },
+    {
+      name: "createMarket",
+      type: "function",
+      inputs: [
+        { type: "bytes32", name: "marketKey" },
+        { type: "address", name: "collateral" },
+        { type: "string", name: "name" },
+      ],
+      outputs: [
+        { type: "address", name: "yesToken" },
+        { type: "address", name: "noToken" },
+      ],
+      stateMutability: "nonpayable",
+    },
+    {
+      name: "getBalance",
+      type: "function",
+      inputs: [
+        { type: "bytes32", name: "marketKey" },
+        { type: "address", name: "user" },
+      ],
+      outputs: [
+        { type: "uint256", name: "yes" },
+        { type: "uint256", name: "no" },
+      ],
+      stateMutability: "view",
+    },
+    {
+      name: "getCollateralBacking",
+      type: "function",
+      inputs: [{ type: "bytes32", name: "marketKey" }],
+      outputs: [{ type: "uint256" }],
+      stateMutability: "view",
+    },
+    {
+      name: "getBestTick",
+      type: "function",
+      inputs: [
+        { type: "bytes32", name: "marketKey" },
+        { type: "uint8", name: "side" },
+      ],
+      outputs: [{ type: "uint16" }],
+      stateMutability: "view",
+    },
+    {
+      name: "getOrdersAtTick",
+      type: "function",
+      inputs: [
+        { type: "bytes32", name: "marketKey" },
+        { type: "uint8", name: "side" },
+        { type: "uint16", name: "tick" },
+      ],
+      outputs: [
+        { type: "uint256", name: "totalAmount" },
+        { type: "uint256", name: "orderCount" },
+      ],
+      stateMutability: "view",
+    },
+    {
+      name: "getImpliedPrice",
+      type: "function",
+      inputs: [{ type: "bytes32", name: "marketKey" }],
+      outputs: [
+        { type: "uint256", name: "yesPrice" },
+        { type: "uint256", name: "noPrice" },
+      ],
+      stateMutability: "view",
+    },
+    {
+      name: "markets",
+      type: "function",
+      inputs: [{ type: "bytes32", name: "" }],
+      outputs: [
+        { type: "address", name: "collateral" },
+        { type: "address", name: "yesToken" },
+        { type: "address", name: "noToken" },
+        { type: "bool", name: "active" },
+        { type: "bool", name: "finalized" },
+        { type: "uint8", name: "outcome" },
+      ],
+      stateMutability: "view",
+    },
+    {
+      name: "feeBps",
+      type: "function",
+      inputs: [],
+      outputs: [{ type: "uint24" }],
+      stateMutability: "view",
+    },
+    {
+      name: "feeRecipient",
+      type: "function",
+      inputs: [],
+      outputs: [{ type: "address" }],
+      stateMutability: "view",
+    },
+    {
+      name: "owner",
+      type: "function",
+      inputs: [],
+      outputs: [{ type: "address" }],
+      stateMutability: "view",
+    },
   ],
 
   LaunchpadEngine: [
     {
       // v0.1.0: markets struct reduced to 5 fields
-      name: 'markets', type: 'function', inputs: [{ type: 'address', name: 'market' }],
+      name: "markets",
+      type: "function",
+      inputs: [{ type: "address", name: "market" }],
       outputs: [
-        { type: 'address', name: 'creator' },
-        { type: 'address', name: 'lpToken' },
-        { type: 'uint256', name: 'bBase' },
-        { type: 'uint256', name: 'creatorDeposit' },
-        { type: 'uint64', name: 'graduatedAt' },
-      ], stateMutability: 'view'
+        { type: "address", name: "creator" },
+        { type: "address", name: "lpToken" },
+        { type: "uint256", name: "bBase" },
+        { type: "uint256", name: "creatorDeposit" },
+        { type: "uint64", name: "graduatedAt" },
+      ],
+      stateMutability: "view",
     },
     {
-      name: 'isGraduated', type: 'function', inputs: [{ type: 'address', name: 'market' }],
-      outputs: [{ type: 'bool' }], stateMutability: 'view'
+      name: "isGraduated",
+      type: "function",
+      inputs: [{ type: "address", name: "market" }],
+      outputs: [{ type: "bool" }],
+      stateMutability: "view",
     },
     {
-      name: 'getMarkets', type: 'function', inputs: [],
-      outputs: [{ type: 'address[]' }], stateMutability: 'view'
+      name: "getMarkets",
+      type: "function",
+      inputs: [],
+      outputs: [{ type: "address[]" }],
+      stateMutability: "view",
     },
     {
-      name: 'getMarketCount', type: 'function', inputs: [],
-      outputs: [{ type: 'uint256' }], stateMutability: 'view'
+      name: "getMarketCount",
+      type: "function",
+      inputs: [],
+      outputs: [{ type: "uint256" }],
+      stateMutability: "view",
     },
   ],
 
   AMMEngine: [
     {
-      name: 'tradePositions', type: 'function', inputs: [
-        { type: 'address', name: 'market' },
-        { type: 'uint8', name: 'outcome' },
-        { type: 'int256', name: 'deltaShares' },
-        { type: 'uint256', name: 'maxCostOrMinProceeds' },
-      ], outputs: [{ type: 'uint256' }], stateMutability: 'nonpayable'
+      name: "tradePositions",
+      type: "function",
+      inputs: [
+        { type: "address", name: "market" },
+        { type: "uint8", name: "outcome" },
+        { type: "int256", name: "deltaShares" },
+        { type: "uint256", name: "maxCostOrMinProceeds" },
+      ],
+      outputs: [{ type: "uint256" }],
+      stateMutability: "nonpayable",
     },
     {
-      name: 'getPosition', type: 'function', inputs: [{ type: 'address', name: 'market' }, { type: 'address', name: 'user' }],
-      outputs: [{ type: 'uint256' }, { type: 'uint256' }], stateMutability: 'view'
+      name: "getPosition",
+      type: "function",
+      inputs: [
+        { type: "address", name: "market" },
+        { type: "address", name: "user" },
+      ],
+      outputs: [{ type: "uint256" }, { type: "uint256" }],
+      stateMutability: "view",
     },
     {
-      name: 'getBalances', type: 'function', inputs: [{ type: 'address', name: 'user' }],
-      outputs: [{ type: 'uint256', name: 'available' }, { type: 'uint256', name: 'locked' }], stateMutability: 'view'
+      name: "getBalances",
+      type: "function",
+      inputs: [{ type: "address", name: "user" }],
+      outputs: [
+        { type: "uint256", name: "available" },
+        { type: "uint256", name: "locked" },
+      ],
+      stateMutability: "view",
     },
     {
-      name: 'getMarketState', type: 'function', inputs: [{ type: 'address', name: 'market' }],
-      outputs: [{ type: 'uint256' }, { type: 'uint256' }, { type: 'uint256' }], stateMutability: 'view'
+      name: "getMarketState",
+      type: "function",
+      inputs: [{ type: "address", name: "market" }],
+      outputs: [{ type: "uint256" }, { type: "uint256" }, { type: "uint256" }],
+      stateMutability: "view",
     },
     {
-      name: 'protocolTreasury', type: 'function', inputs: [],
-      outputs: [{ type: 'address' }], stateMutability: 'view'
+      name: "protocolTreasury",
+      type: "function",
+      inputs: [],
+      outputs: [{ type: "address" }],
+      stateMutability: "view",
     },
   ],
 } as const;
 
-export { WAD, MAX_UINT256 } from '../core/types';
+export { WAD, MAX_UINT256 } from "../core/types";
