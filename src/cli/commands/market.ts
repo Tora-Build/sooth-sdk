@@ -175,8 +175,9 @@ export async function createmarket(
   Templates: ${Object.keys(MARKET_TEMPLATES).join(", ")}
 
   ${info("Examples:")}
-    createmarket alien 500                   Create ALIEN market with creator as adjudicator
-    createmarket alien 500 --adjudicator=david   Create ALIEN market with david as adjudicator
+    createmarket alien 500                        Use the chain's default contract adjudicator (from nodes.json)
+    createmarket alien 500 --adjudicator=david    Use david's EOA (only works on legacy v0.1.1 chains)
+    createmarket alien 500 --adjudicator=0x...    Use an explicit contract address
 
   ${dim("This will:")}
     1. Approve USDC
@@ -188,7 +189,15 @@ export async function createmarket(
   const templateName = args[0].toLowerCase();
   const template = MARKET_TEMPLATES[templateName];
 
-  let adjudicatorAddress = address;
+  // v0.1.2+ createMarket unconditionally calls IAdjudicator(adjudicator).configureMarket(),
+  // so the adjudicator MUST be a deployed contract. Default to the chain's
+  // registered contract adjudicator from nodes.json; fall back to the caller's
+  // EOA only if no default is configured (legacy v0.1.1 path).
+  const defaultAdjudicator = deployment.adjudicators?.default as
+    | `0x${string}`
+    | undefined;
+  let adjudicatorAddress: `0x${string}` =
+    (defaultAdjudicator as `0x${string}`) ?? address;
   const adjudicatorFlag = args.find((a) => a.startsWith("--adjudicator="));
   if (adjudicatorFlag) {
     const adjudicatorValue = adjudicatorFlag.split("=")[1];
@@ -237,14 +246,17 @@ export async function createmarket(
   console.log(`  Name:      ${template.name}`);
   console.log(`  Liquidity: ${formatWad(liquidityWad)} (b parameter)`);
   console.log(`  Deadline:  ${template.deadline}`);
-  if (adjudicatorAddress !== address) {
-    const adjName =
-      actorManager
-        .listActors()
-        .find((a) => a.account.address === adjudicatorAddress)?.name ||
-      "unknown";
+  {
+    const actorMatch = actorManager
+      .listActors()
+      .find((a) => a.account.address === adjudicatorAddress);
+    const label = actorMatch
+      ? actorMatch.name
+      : adjudicatorAddress === defaultAdjudicator
+        ? "default"
+        : "custom";
     console.log(
-      `  Adjudicator: ${adjName} (${shortAddress(adjudicatorAddress)})`,
+      `  Adjudicator: ${label} (${shortAddress(adjudicatorAddress)})`,
     );
   }
   console.log("");
@@ -310,37 +322,53 @@ export async function createmarket(
             ),
           );
 
-    // Build adjudicatorConfig: if adjudicator is a contract, encode (resolver, deadline, vetoPeriod, typeConfig)
-    // resolver = current user, vetoPeriod = 0 (no guardian), typeConfig = empty
-    const isContractAdjudicator = adjudicatorAddress !== address;
-    const adjConfig: `0x${string}` = isContractAdjudicator
-      ? encodeAbiParameters(
-          [
-            { type: "address" },
-            { type: "uint64" },
-            { type: "uint48" },
-            { type: "bytes" },
-          ],
-          [address, 0n, 0, "0x"],
-        )
-      : "0x";
+    // Build adjudicatorConfig. v0.1.2 AdjudicatorBase.configureMarket decodes
+    //   (address resolver, uint64 deadline, uint48 vetoPeriod, bytes typeConfig).
+    // resolver = current user, vetoPeriod = 0 (no guardian), typeConfig = empty.
+    // v0.1.2 createMarket always calls configureMarket, so we must encode
+    // even when the adjudicator is the caller's own address (legacy path).
+    const adjConfig: `0x${string}` = encodeAbiParameters(
+      [
+        { type: "address" },
+        { type: "uint64" },
+        { type: "uint48" },
+        { type: "bytes" },
+      ],
+      [address, deadline, 0, "0x"],
+    );
 
-    // Gas limits vary by chain. Base Sepolia limits ~15M, MegaETH needs ~30M for code deployment
-    const isMegaETH = ctx.config.chain.id === 6343;
-    const createGas = isMegaETH ? 30_000_000n : 10_000_000n;
+    // Gas: estimate live then apply a 1.3× safety multiplier. createMarket
+    // deploys two contracts (TruthMarket clone + LaunchpadLPToken) plus
+    // initializes the AMM, and gas accounting varies wildly by chain.
+    // Hardcoding caused regressions on MegaETH where actual cost is ~32M.
+    const createArgs = [
+      generateSQF(template.sqf),
+      startTime,
+      deadline,
+      adjudicatorAddress,
+      liquidityWad,
+      500000000000000000n,
+      adjConfig,
+    ] as const;
+    let createGas: bigint;
+    try {
+      const estimated = await publicClient.estimateContractGas({
+        account: address,
+        address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+        abi: LaunchpadEngineAbi,
+        functionName: "createMarket",
+        args: createArgs as never,
+      });
+      createGas = (estimated * 13n) / 10n;
+    } catch {
+      // Fallback if estimation fails (e.g., RPC quirks): use a generous cap.
+      createGas = ctx.config.chain.id === 6343 ? 50_000_000n : 10_000_000n;
+    }
     const createHash = await walletClient.writeContract({
       address: deployment.contracts.LaunchpadEngine as `0x${string}`,
       abi: LaunchpadEngineAbi,
       functionName: "createMarket",
-      args: [
-        generateSQF(template.sqf),
-        startTime,
-        deadline,
-        adjudicatorAddress,
-        liquidityWad,
-        500000000000000000n,
-        adjConfig,
-      ],
+      args: createArgs as never,
       gas: createGas,
     });
 
@@ -454,11 +482,65 @@ export async function graduate(
   // Parse number of steps (default 8)
   const numTrades = args[0] ? parseInt(args[0], 10) : 8;
 
-  // Use a reasonable default trade size (graduation details no longer queryable)
-  const tradeSize = 500n * WAD;
+  // Read graduation progress to size trades correctly. 500 shares × 8 trades
+  // empirically nets ~32% of threshold on a fresh market with bBase=500, so
+  // hardcoding 500 just stalls. Compute the size needed to clear the gap in
+  // `numTrades` steps with a 10% safety margin.
+  const FEE_ROUTER_ABI = [
+    {
+      type: "function",
+      name: "getGraduationProgress",
+      stateMutability: "view",
+      inputs: [{ name: "market", type: "address" }],
+      outputs: [
+        { name: "accrued", type: "uint256" },
+        { name: "threshold", type: "uint256" },
+        { name: "bps", type: "uint256" },
+      ],
+    },
+  ] as const;
+
+  let accrued = 0n;
+  let threshold = 0n;
+  try {
+    const result = (await publicClient.readContract({
+      address: deployment.contracts.FeeRouter as `0x${string}`,
+      abi: FEE_ROUTER_ABI,
+      functionName: "getGraduationProgress",
+      args: [marketAddress],
+    })) as readonly [bigint, bigint, bigint];
+    accrued = result[0];
+    threshold = result[1];
+  } catch {
+    // FeeRouter unavailable — fall through with zeros, formula will fall back to floor.
+  }
+
+  // Empirical: BUY size_shares + SELL size_shares/2 cycle pays fees
+  // ≈ 0.0375 × size_shares (in WAD), assuming pre-grad fee = 5% and price ≈ 0.5.
+  // Per trade (counting both legs of the cycle as separate trades) ≈ 0.01875 × size.
+  const PER_TRADE_FEE_PER_SHARE_WAD = 18_750_000_000_000_000n; // 0.01875 × WAD
+  const FLOOR_TRADE_SIZE = 500n * WAD;
+  let tradeSize = FLOOR_TRADE_SIZE;
+  if (threshold > 0n) {
+    const target = (threshold * 11n) / 10n;
+    const remaining = target > accrued ? target - accrued : 0n;
+    if (remaining > 0n) {
+      // tradeSize_wad × (PER_TRADE_FEE_PER_SHARE_WAD / WAD) × numTrades = remaining
+      // → tradeSize_wad = (remaining × WAD) / (PER_TRADE_FEE_PER_SHARE_WAD × numTrades)
+      const computed =
+        (remaining * WAD) / (PER_TRADE_FEE_PER_SHARE_WAD * BigInt(numTrades));
+      tradeSize = computed > FLOOR_TRADE_SIZE ? computed : FLOOR_TRADE_SIZE;
+    }
+  }
 
   console.log(`  Trade size:            ${formatWad(tradeSize)} shares`);
   console.log(`  Steps:                 ${numTrades}`);
+  if (threshold > 0n) {
+    const pct = (accrued * 10000n) / threshold;
+    console.log(
+      `  Progress:              ${formatWad(accrued)} / ${formatWad(threshold)} USDC (${Number(pct) / 100}%)`,
+    );
+  }
   console.log("");
 
   // Ensure sufficient USDC
