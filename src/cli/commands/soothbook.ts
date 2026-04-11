@@ -24,11 +24,12 @@ const CHAIN_SCAN_CHUNKS: Record<number, bigint> = {
 };
 
 const CHAIN_START_BLOCKS: Record<number, bigint> = {
-  84532: 36_399_046n,
+  84532: 39_474_167n,  // Base Sepolia — v0.1.2 deployment
   10143: 6_558_931n,
   5042002: 21_983_342n,
   6343: 8_855_921n,
   37111: 4_291_440n,
+  998: 50_251_573n,    // HyperEVM Testnet
 };
 
 const ORDER_PLACED = parseAbiItem(
