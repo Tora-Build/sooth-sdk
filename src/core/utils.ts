@@ -17,7 +17,7 @@ export function parseWad(value: string): bigint {
 }
 
 export function shortAddress(addr: string): string {
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
 export function shortTx(hash: string): string {
