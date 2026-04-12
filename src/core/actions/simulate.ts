@@ -135,6 +135,19 @@ export async function runSimulate(
   await publicClient.waitForTransactionReceipt({ hash: approveOEHash });
   report({ type: "success", message: "SoothBook + OrderEngine approved" });
 
+  // Pre-check: market must be active on SoothBook or all trades revert
+  const marketState = (await publicClient.readContract({
+    address: soothBook,
+    abi: SoothBookABI,
+    functionName: "markets",
+    args: [marketKey],
+  })) as readonly [boolean, boolean, number];
+  if (!marketState[0]) {
+    throw new Error(
+      `Market not active on SoothBook. The market must graduate from Launchpad first. Run 'graduate' before 'simulate'.`,
+    );
+  }
+
   let totalGas = 0n;
   let ordersPlaced = 0;
   let ordersCrossed = 0;
