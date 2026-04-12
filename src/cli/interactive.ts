@@ -353,7 +353,7 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
           currentMarketAddress = marketAddress as `0x${string}`;
           currentMarketKey = null;
           currentMarketName = marketName;
-          const symbol = marketAddress.slice(2, 10).toUpperCase();
+          const symbol = shortAddress(marketAddress);
           const displayName = marketName ? (marketName.length > 40 ? marketName.slice(0, 37) + '...' : marketName) : symbol;
           console.log(info(`  Market set (pre-graduation): [${symbol}] ${displayName}`));
           console.log(dim(`  Address: ${marketAddress}`));
@@ -373,7 +373,7 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
   }
 
   currentMarketAddress = marketAddress as `0x${string}`;
-  const symbol = marketAddress.slice(2, 10).toUpperCase();
+  const symbol = shortAddress(marketAddress);
   const displayName = currentMarketName || deployedMarket?.name || symbol;
   const truncatedName = displayName.length > 40 ? displayName.slice(0, 37) + '...' : displayName;
   console.log(success(`  Market set: [${symbol}] ${truncatedName}`));

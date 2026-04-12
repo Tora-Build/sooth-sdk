@@ -1,6 +1,7 @@
 import type { PublicClient, Address } from 'viem';
 import { LaunchpadEngineABI } from '../abis/LaunchpadEngine.js';
 import { TruthMarketABI } from '../abis/TruthMarket.js';
+import { shortAddress } from '../utils.js';
 
 export interface SdkMarket {
   address: Address;
@@ -59,7 +60,7 @@ export async function getMarketDetails(
       client.readContract({ address: marketAddress, abi: TruthMarketABI, functionName: 'winningOutcome' }).catch(() => null),
     ]);
 
-    const question = qHash ? (qHash as string).slice(0, 18) + '...' : marketAddress.slice(2, 10).toUpperCase();
+    const question = qHash ? (qHash as string).slice(0, 18) + '...' : shortAddress(marketAddress);
     const winningOutcome = (isSettled as boolean) && winOutcome !== null ? Number(winOutcome) : null;
 
     let stage: SdkMarket['stage'];
