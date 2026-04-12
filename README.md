@@ -10,10 +10,9 @@ Primary goals:
 
 This SDK layer is built from parity review across:
 
-- `apps/market` (primary SoothBook trading reference)
-- `apps/demo` (reference-heavy Launchpad/AMM surface)
-- `apps/lens` (adapter flow constraints)
-- `apps/telegram/webapp` (current live integration testbed / "white rat")
+- `apps/demo` (reference-heavy Launchpad/AMM surface + Geek terminal)
+- `apps/telegram/webapp` (current live integration testbed)
+- `apps/market` (market discovery surface)
 
 ## Phase Status
 
@@ -34,9 +33,19 @@ Implemented scope:
 
 ## Canonical Source Files
 
+**Public API (snapshot, quote, trade builders — consumed by app hooks):**
+
 - `packages/sdk/src/core/contracts/launchpadAmm.ts`
 - `packages/sdk/src/core/contracts/soothCore.ts`
 - `packages/sdk/src/core/contracts/index.ts`
+
+**Imperative actions (shared write logic — consumed by CLI + Geek terminal):**
+
+- `packages/sdk/src/core/actions/simulate.ts` — `runSimulate`
+- `packages/sdk/src/core/actions/writes.ts` — `runCreateMarket`, `runGraduate`, `runApprove`, `runMintUsdc`, `runRedeemLp`, `runTransferLp`, `runDismiss`, `runClaimRefund`, `runSoothBook{BuyYes,BuyNo,Mint,Merge,Cancel,Redeem}`
+- `packages/sdk/src/core/actions/types.ts` — `ActionContext`, `ActionEvent`, `ActionReporter`
+
+See `docs/specs/GEEK_CLI_ALIGNMENT.md` for the full alignment spec.
 
 ## Non-Negotiable Protocol Invariants
 
@@ -111,20 +120,20 @@ import {
   buildClaimRequest,
   readApprovalRequest,
   preflightTrade,
-} from '@sooth/sdk/core/contracts';
+} from "@sooth/sdk/core/contracts";
 ```
 
 ### 1) Pre-Bound Client Factory
 
 ```ts
 const sooth = createSoothClient({
-  mode: 'rpc',
+  mode: "rpc",
   publicClient,
   contracts: {
-    launchpadEngine: '0x...',
-    ammEngine: '0x...',
-    collateralizer: '0x...',
-    soothBook: '0x...',
+    launchpadEngine: "0x...",
+    ammEngine: "0x...",
+    collateralizer: "0x...",
+    soothBook: "0x...",
   },
 });
 
@@ -138,7 +147,7 @@ const snapshots = await sooth.getSnapshots([marketA, marketB, marketC]);
 
 ```ts
 const sooth = createSoothClient({
-  mode: 'indexed',
+  mode: "indexed",
   indexedProvider: {
     getSnapshot: async (market) => fetchSnapshot(market),
     getSnapshots: async (markets) => fetchSnapshots(markets),
@@ -158,17 +167,27 @@ This keeps app hooks stable while data source changes from direct RPC to indexer
 Single:
 
 ```ts
-const snapshot = await readSoothCoreSnapshot(publicClient, contracts, marketAddress, {
-  userAddress,
-});
+const snapshot = await readSoothCoreSnapshot(
+  publicClient,
+  contracts,
+  marketAddress,
+  {
+    userAddress,
+  },
+);
 ```
 
 Batch:
 
 ```ts
-const snapshots = await readSoothCoreSnapshots(publicClient, contracts, marketAddresses, {
-  userAddress,
-});
+const snapshots = await readSoothCoreSnapshots(
+  publicClient,
+  contracts,
+  marketAddresses,
+  {
+    userAddress,
+  },
+);
 ```
 
 AMM user positions are included in snapshot when `userAddress` is provided:
@@ -182,7 +201,7 @@ AMM user positions are included in snapshot when `userAddress` is provided:
 
 ```ts
 const quote = await sooth.getAmmQuote(snapshot.launchpadAmm, {
-  action: 'buy',
+  action: "buy",
   outcome: 1,
   shares: 5n * 10n ** 18n,
 });
@@ -192,7 +211,7 @@ const quote = await sooth.getAmmQuote(snapshot.launchpadAmm, {
 
 ```ts
 const quote = await readSoothBookQuote(publicClient, contracts, marketAddress, {
-  action: 'buy',
+  action: "buy",
   outcome: 1,
   shares: 5n * 10n ** 18n,
 });
@@ -203,7 +222,7 @@ const quote = await readSoothBookQuote(publicClient, contracts, marketAddress, {
 
 ```ts
 const quote = await readSoothQuote(publicClient, contracts, marketAddress, {
-  action: 'buy',
+  action: "buy",
   outcome: 1,
   shares: 5n * 10n ** 18n,
 });
@@ -218,7 +237,7 @@ Unified:
 ```ts
 const request = buildTradeRequest({
   marketAddress,
-  action: 'buy',
+  action: "buy",
   outcome: 1,
   shares,
   maxCostOrMinProceeds,
@@ -231,7 +250,7 @@ AMM-only:
 ```ts
 const request = buildLaunchpadTradeRequest({
   marketAddress,
-  action: 'sell',
+  action: "sell",
   outcome: 0,
   shares,
   maxCostOrMinProceeds,
@@ -256,7 +275,7 @@ SoothBook sell/cancel/mint/merge/redeem:
 const sell = buildSoothBookSellRequest({
   marketAddress,
   outcome: 1, // selling YES
-  tick: 460,  // opposite-side tick
+  tick: 460, // opposite-side tick
   amount: shares,
 });
 
@@ -304,7 +323,7 @@ if (plan) {
 
 ```ts
 const preflight = preflightTrade(snapshot, {
-  action: 'buy',
+  action: "buy",
   outcome: 1,
   shares,
   userBalance: usdcBalance,
