@@ -15,6 +15,11 @@ import {
   type ActionReporter,
   noopReporter,
 } from "./types.js";
+import {
+  isMegaethChain,
+  getMegaethNativeRpcUrl,
+  writeContractRealtime,
+} from "../megaeth.js";
 
 const ERC20_ABI = parseAbi([
   "function balanceOf(address owner) view returns (uint256)",
@@ -27,6 +32,7 @@ export interface SimulateParams {
   numOrders: number;
   avgSize: bigint;
   seed: number;
+  realtimeMode?: boolean;
 }
 
 export interface SimulateResult {
@@ -34,6 +40,14 @@ export interface SimulateResult {
   ordersCrossed: number;
   totalGas: bigint;
   stoppedEarly: boolean;
+  latency?: {
+    avg: number;
+    p50: number;
+    p95: number;
+    min: number;
+    max: number;
+    mode: 'standard' | 'realtime';
+  };
 }
 
 const WAD = 10n ** 18n;
@@ -68,6 +82,8 @@ export async function runSimulate(
   if (!walletClient.account) throw new Error("walletClient has no account");
 
   const { marketKey, numOrders, avgSize, seed } = params;
+  const useRealtime = params.realtimeMode && isMegaethChain(ctx.chainId);
+  const realtimeRpcUrl = useRealtime ? getMegaethNativeRpcUrl(ctx.chainId) : undefined;
   if (!Number.isInteger(numOrders) || numOrders <= 0) {
     throw new Error("numOrders must be a positive integer");
   }
@@ -77,8 +93,8 @@ export async function runSimulate(
 
   report({
     type: "info",
-    message: `Simulate start: orders=${numOrders} avgSize=${formatWad(avgSize)} seed=${seed}`,
-    data: { numOrders, avgSize, seed },
+    message: `Simulate start: orders=${numOrders} avgSize=${formatWad(avgSize)} seed=${seed}${useRealtime ? ' [realtime]' : ''}`,
+    data: { numOrders, avgSize, seed, useRealtime },
   });
 
   // Ensure USDC balance
@@ -153,6 +169,7 @@ export async function runSimulate(
   let ordersCrossed = 0;
   let consecutiveFailures = 0;
   let stoppedEarly = false;
+  const orderTimings: number[] = [];
 
   for (let i = 0; i < numOrders; i++) {
     const r = rng();
@@ -168,7 +185,8 @@ export async function runSimulate(
 
     try {
       let likelyCross = false;
-      let hash: `0x${string}`;
+      let fnName: string;
+      let fnArgs: readonly unknown[];
 
       if (action === "buyyes") {
         const bestNoTick = (await publicClient.readContract({
@@ -178,14 +196,8 @@ export async function runSimulate(
           args: [marketKey, 0],
         })) as number;
         likelyCross = bestNoTick > 0 && tick + bestNoTick >= 1000;
-        hash = await walletClient.writeContract({
-          address: soothBook,
-          abi: SoothBookABI,
-          functionName: "buyYes",
-          args: [marketKey, tick, amount, false, 0],
-          account: walletClient.account,
-          chain: null,
-        });
+        fnName = "buyYes";
+        fnArgs = [marketKey, tick, amount, false, 0];
       } else if (action === "buyno") {
         const bestYesTick = (await publicClient.readContract({
           address: soothBook,
@@ -194,23 +206,11 @@ export async function runSimulate(
           args: [marketKey, 1],
         })) as number;
         likelyCross = bestYesTick > 0 && tick + bestYesTick >= 1000;
-        hash = await walletClient.writeContract({
-          address: soothBook,
-          abi: SoothBookABI,
-          functionName: "buyNo",
-          args: [marketKey, tick, amount, false, 0],
-          account: walletClient.account,
-          chain: null,
-        });
+        fnName = "buyNo";
+        fnArgs = [marketKey, tick, amount, false, 0];
       } else if (action === "mint") {
-        hash = await walletClient.writeContract({
-          address: soothBook,
-          abi: SoothBookABI,
-          functionName: "mint",
-          args: [marketKey, amount],
-          account: walletClient.account,
-          chain: null,
-        });
+        fnName = "mint";
+        fnArgs = [marketKey, amount];
       } else {
         const balances = (await publicClient.readContract({
           address: soothBook,
@@ -227,26 +227,57 @@ export async function runSimulate(
           });
           continue;
         }
-        hash = await walletClient.writeContract({
+        fnName = "merge";
+        fnArgs = [marketKey, mergeAmount < amount ? mergeAmount : amount];
+      }
+
+      if (useRealtime && realtimeRpcUrl && walletClient.account) {
+        const { receipt, sendMs, prepareMs } = await writeContractRealtime({
+          rpcUrl: realtimeRpcUrl,
+          publicClient,
+          account: walletClient.account as any,
+          chainId: ctx.chainId,
+          request: {
+            address: soothBook,
+            abi: SoothBookABI as any,
+            functionName: fnName,
+            args: fnArgs,
+          },
+        });
+        totalGas += receipt.gasUsed;
+        ordersPlaced++;
+        if (likelyCross) ordersCrossed++;
+        orderTimings.push(sendMs);
+        consecutiveFailures = 0;
+        report({
+          type: "success",
+          message: `[${i + 1}/${numOrders}] ${action.toUpperCase()} (gas: ${receipt.gasUsed}, ${prepareMs}ms prep, ${sendMs}ms realtime)`,
+          data: { i, action, gasUsed: receipt.gasUsed, likelyCross, orderMs: sendMs, prepareMs },
+        });
+      } else {
+        const hash = await walletClient.writeContract({
           address: soothBook,
           abi: SoothBookABI,
-          functionName: "merge",
-          args: [marketKey, mergeAmount < amount ? mergeAmount : amount],
+          functionName: fnName as any,
+          args: fnArgs as any,
           account: walletClient.account,
           chain: null,
         });
-      }
 
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
-      totalGas += receipt.gasUsed;
-      ordersPlaced++;
-      if (likelyCross) ordersCrossed++;
-      consecutiveFailures = 0;
-      report({
-        type: "success",
-        message: `[${i + 1}/${numOrders}] ${action.toUpperCase()} (gas: ${receipt.gasUsed})`,
-        data: { i, action, gasUsed: receipt.gasUsed, likelyCross },
-      });
+        const orderStart = performance.now();
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        const orderMs = Number((performance.now() - orderStart).toFixed(1));
+        totalGas += receipt.gasUsed;
+        ordersPlaced++;
+        if (likelyCross) ordersCrossed++;
+        orderTimings.push(orderMs);
+        consecutiveFailures = 0;
+        report({
+          type: "success",
+          message: `[${i + 1}/${numOrders}] ${action.toUpperCase()} (gas: ${receipt.gasUsed}, ${orderMs}ms)`,
+          data: { i, action, gasUsed: receipt.gasUsed, likelyCross, orderMs },
+        });
+      }
     } catch (err) {
       const msg = (err as Error).message.slice(0, 120);
       report({
@@ -265,5 +296,19 @@ export async function runSimulate(
     }
   }
 
-  return { ordersPlaced, ordersCrossed, totalGas, stoppedEarly };
+  let latency: SimulateResult['latency'];
+  if (orderTimings.length > 0) {
+    const sorted = [...orderTimings].sort((a, b) => a - b);
+    const avg = sorted.reduce((a, b) => a + b, 0) / sorted.length;
+    latency = {
+      avg: Math.round(avg),
+      p50: Math.round(sorted[Math.floor(sorted.length * 0.5)]),
+      p95: Math.round(sorted[Math.floor(sorted.length * 0.95)]),
+      min: Math.round(sorted[0]),
+      max: Math.round(sorted[sorted.length - 1]),
+      mode: useRealtime ? 'realtime' : 'standard',
+    };
+  }
+
+  return { ordersPlaced, ordersCrossed, totalGas, stoppedEarly, latency };
 }

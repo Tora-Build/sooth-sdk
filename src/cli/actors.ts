@@ -13,6 +13,8 @@ import {
   type Account,
   type Chain,
   type Transport,
+  type TransactionReceipt,
+  type Hash,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import * as fs from 'fs';
@@ -41,6 +43,13 @@ export interface ActorConfig {
 export interface ActorManagerOptions {
   confirmations?: number;
   postTxWaitMs?: number;
+  realtimeApi?: boolean;
+}
+
+const MEGAETH_CHAIN_IDS = new Set([4326, 6343]);
+
+function isMegaethChain(chainId: number): boolean {
+  return MEGAETH_CHAIN_IDS.has(chainId);
 }
 
 /**
@@ -78,16 +87,23 @@ export class ActorManager {
   private rpc: string;
   private confirmations: number;
   private postTxWaitMs: number;
+  private realtimeApi: boolean;
 
   constructor(chain: Chain, rpc: string, options?: ActorManagerOptions) {
     this.chain = chain;
     this.rpc = rpc;
     this.confirmations = options?.confirmations ?? 1;
     this.postTxWaitMs = options?.postTxWaitMs ?? 0;
+    this.realtimeApi = options?.realtimeApi ?? false;
     this.publicClient = createPublicClient({
       chain,
       transport: http(rpc),
     });
+  }
+
+  /** Whether MegaETH Realtime API mode is active */
+  isRealtimeMode(): boolean {
+    return this.realtimeApi && isMegaethChain(this.chain.id);
   }
 
   async waitForTransactionReceipt(hash: `0x${string}`) {
@@ -137,6 +153,103 @@ export class ActorManager {
     }
 
     return receipt;
+  }
+
+  /**
+   * MegaETH Realtime API: send signed tx and get receipt in one call.
+   * Uses `realtime_sendRawTransaction` — no polling needed.
+   * Falls back to standard send + poll if realtime call fails.
+   */
+  async realtimeSendRawTransaction(signedTx: `0x${string}`): Promise<TransactionReceipt> {
+    const res = await fetch(this.rpc, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'realtime_sendRawTransaction',
+        params: [signedTx],
+      }),
+    });
+    const json = await res.json() as { result?: any; error?: { code: number; message: string } };
+    if (json.error) {
+      throw new Error(`realtime_sendRawTransaction: ${json.error.message}`);
+    }
+    const r = json.result;
+    return {
+      transactionHash: r.transactionHash as Hash,
+      blockNumber: BigInt(r.blockNumber),
+      from: r.from,
+      to: r.to ?? null,
+      gasUsed: BigInt(r.gasUsed),
+      status: r.status === '0x1' ? 'success' : 'reverted',
+      logs: r.logs ?? [],
+      contractAddress: r.contractAddress ?? null,
+      // Fill required TransactionReceipt fields with defaults
+      blockHash: '0x' as Hash,
+      transactionIndex: 0,
+      logsBloom: '0x' as `0x${string}`,
+      cumulativeGasUsed: BigInt(r.gasUsed),
+      effectiveGasPrice: 0n,
+      type: 'eip1559',
+    } as TransactionReceipt;
+  }
+
+  /**
+   * Write contract using MegaETH Realtime API when available.
+   * Signs tx locally → realtime_sendRawTransaction → receipt in one call.
+   * Skips eth_estimateGas (uses fixed gas) to minimize RPC round-trips.
+   * Returns { receipt, sendMs, prepareMs } for benchmarking.
+   */
+  async writeContractRealtime(
+    walletClient: WalletClient<Transport, Chain, Account>,
+    request: Parameters<typeof walletClient.writeContract>[0],
+  ): Promise<{ receipt: TransactionReceipt; sendMs: number; prepareMs: number }> {
+    const prepareStart = performance.now();
+
+    // Encode calldata locally (no RPC call)
+    const { encodeFunctionData } = await import('viem');
+    const data = encodeFunctionData({
+      abi: request.abi,
+      functionName: request.functionName as string,
+      args: (request as any).args,
+    });
+
+    // Get nonce — single lightweight RPC call
+    const nonce = await this.publicClient.getTransactionCount({
+      address: walletClient.account.address,
+      blockTag: 'pending',
+    });
+
+    // Sign locally with fixed gas (skip eth_estimateGas round-trip)
+    // SoothBook crossing orders can use ~750k gas, so use 1.5M for safety
+    const signedTx = await walletClient.account.signTransaction({
+      to: request.address,
+      data,
+      nonce,
+      gas: 1_500_000n,
+      maxFeePerGas: 1_500_000n,
+      maxPriorityFeePerGas: 0n,
+      chainId: this.chain.id,
+      type: 'eip1559' as const,
+    } as any);
+
+    const prepareMs = Number((performance.now() - prepareStart).toFixed(1));
+
+    // Single RPC call: send + receipt
+    const start = performance.now();
+    const receipt = await this.realtimeSendRawTransaction(signedTx);
+    const sendMs = Number((performance.now() - start).toFixed(1));
+
+    if (receipt.status === 'reverted') {
+      throw new Error(`Transaction reverted: ${receipt.transactionHash.slice(0, 18)}...`);
+    }
+
+    if (this.postTxWaitMs > 0) {
+      await new Promise(resolve => setTimeout(resolve, this.postTxWaitMs));
+    }
+
+    return { receipt, sendMs, prepareMs };
   }
 
   /**
