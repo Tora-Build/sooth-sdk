@@ -601,6 +601,7 @@ export async function graduate(
     let attempts = 0;
     const maxAttempts = 3;
     const isMegaETH = ctx.config.chain.id === 6343;
+    const skipSimulation = isMegaETH || ctx.config.chain.id === 998; // HyperEVM RPC also breaks viem simulation
 
     while (!success_trade && attempts < maxAttempts) {
       attempts++;
@@ -610,31 +611,29 @@ export async function graduate(
         const maxCostOrMinProceeds = isBuy ? MAX_UINT256 : 0n;
 
         // Determine gas limit
-        const gasLimit = isMegaETH ? 60_000_000n : 10_000_000n;
+        const gasLimit = isMegaETH ? 60_000_000n : 1_000_000n;
 
         // Check if already graduated before trading
-        if (!isMegaETH) {
-          const graduated = (await publicClient.readContract({
-            address: deployment.contracts.LaunchpadEngine as `0x${string}`,
-            abi: LaunchpadEngineAbi,
-            functionName: "isGraduated",
-            args: [marketAddress],
-          })) as boolean;
+        const graduated = (await publicClient.readContract({
+          address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+          abi: LaunchpadEngineAbi,
+          functionName: "isGraduated",
+          args: [marketAddress],
+        })) as boolean;
 
-          if (graduated) {
-            spinner.succeed(
-              `Trade ${i + 1}: ${isBuy ? "BUY" : "SELL"} skipped (already graduated)`,
-            );
-            console.log(
-              `\n  ${success("MARKET GRADUATED!")} after ${tradesExecuted} trades\n`,
-            );
-            return { success: true, data: { tradesExecuted, totalGas } };
-          }
+        if (graduated) {
+          spinner.succeed(
+            `Trade ${i + 1}: ${isBuy ? "BUY" : "SELL"} skipped (already graduated)`,
+          );
+          console.log(
+            `\n  ${success("MARKET GRADUATED!")} after ${tradesExecuted} trades\n`,
+          );
+          return { success: true, data: { tradesExecuted, totalGas } };
         }
 
+        // Use raw sendTransaction to bypass viem simulation (MegaETH + HyperEVM RPCs break eth_call simulation)
         let hash: `0x${string}`;
-        if (isMegaETH) {
-          // MegaETH: use raw sendTransaction to bypass viem simulation
+        if (skipSimulation) {
           const data = encodeFunctionData({
             abi: AMMEngineAbi,
             functionName: "tradePositions",
@@ -669,13 +668,13 @@ export async function graduate(
           await sleep(2000);
         }
         // Always check isGraduated flag directly
-        const graduated = (await publicClient.readContract({
+        const graduatedAfter = (await publicClient.readContract({
           address: deployment.contracts.LaunchpadEngine as `0x${string}`,
           abi: LaunchpadEngineAbi,
           functionName: "isGraduated",
           args: [marketAddress],
         })) as boolean;
-        if (graduated) {
+        if (graduatedAfter) {
           console.log(
             `\n  ${success("MARKET GRADUATED!")} after ${tradesExecuted} trades\n`,
           );
@@ -807,12 +806,18 @@ export async function simulate(
   }
 
   const rng = mulberry32(seed);
+  const useRealtime = actorManager.isRealtimeMode();
 
   console.log(`\n  ${bold("Orderbook Simulation")}`);
   console.log("  " + "─".repeat(40));
   console.log(`  Orders:   ${numOrders}`);
   console.log(`  Avg Size: ${formatWad(avgSize)}`);
   console.log(`  Seed:     ${seed}`);
+  if (useRealtime) {
+    console.log(`  Mode:     ${bold("MegaETH Realtime API")} (realtime_sendRawTransaction)`);
+  } else {
+    console.log(`  Mode:     ${dim("Standard")} (sendRawTransaction + poll)`);
+  }
   console.log(`  ${dim("Press Enter to stop early")}`);
 
   const estimatedUsdcNeeded = avgSize * BigInt(numOrders) * 2n;
@@ -875,6 +880,7 @@ export async function simulate(
   let ordersPlaced = 0;
   let ordersCrossed = 0;
   let consecutiveFailures = 0;
+  const orderTimings: number[] = [];
 
   try {
     for (let i = 0; i < numOrders; i++) {
@@ -913,6 +919,7 @@ export async function simulate(
         try {
           let likelyCross = false;
           let hash: `0x${string}`;
+          const orderStart = performance.now();
 
           if (action === "buyyes") {
             const bestNoTick = await readContractWithRpcFallback<number>(
@@ -926,6 +933,29 @@ export async function simulate(
               },
             );
             likelyCross = bestNoTick > 0 && tick + bestNoTick >= 1000;
+
+            if (useRealtime) {
+              const { receipt: rtReceipt, sendMs, prepareMs } = await actorManager.writeContractRealtime(
+                walletClient,
+                {
+                  address: soothBook,
+                  abi: ABIS.SoothBook,
+                  functionName: "buyYes",
+                  args: [marketKey, tick, amount, false, 0],
+                },
+              );
+              totalGas += rtReceipt.gasUsed;
+              ordersPlaced++;
+              if (likelyCross) ordersCrossed++;
+              orderTimings.push(sendMs);
+              spinner.succeed(
+                `Order ${i + 1}: BUYYES ${dim(`(gas: ${rtReceipt.gasUsed}, ${prepareMs}ms prep, ${sendMs}ms realtime)`)}`,
+              );
+              successOrder = true;
+              consecutiveFailures = 0;
+              break;
+            }
+
             hash = await walletClient.writeContract({
               address: soothBook,
               abi: ABIS.SoothBook,
@@ -944,6 +974,29 @@ export async function simulate(
               },
             );
             likelyCross = bestYesTick > 0 && tick + bestYesTick >= 1000;
+
+            if (useRealtime) {
+              const { receipt: rtReceipt, sendMs, prepareMs } = await actorManager.writeContractRealtime(
+                walletClient,
+                {
+                  address: soothBook,
+                  abi: ABIS.SoothBook,
+                  functionName: "buyNo",
+                  args: [marketKey, tick, amount, false, 0],
+                },
+              );
+              totalGas += rtReceipt.gasUsed;
+              ordersPlaced++;
+              if (likelyCross) ordersCrossed++;
+              orderTimings.push(sendMs);
+              spinner.succeed(
+                `Order ${i + 1}: BUYNO ${dim(`(gas: ${rtReceipt.gasUsed}, ${prepareMs}ms prep, ${sendMs}ms realtime)`)}`,
+              );
+              successOrder = true;
+              consecutiveFailures = 0;
+              break;
+            }
+
             hash = await walletClient.writeContract({
               address: soothBook,
               abi: ABIS.SoothBook,
@@ -951,6 +1004,27 @@ export async function simulate(
               args: [marketKey, tick, amount, false, 0],
             });
           } else if (action === "mint") {
+            if (useRealtime) {
+              const { receipt: rtReceipt, sendMs, prepareMs } = await actorManager.writeContractRealtime(
+                walletClient,
+                {
+                  address: soothBook,
+                  abi: ABIS.SoothBook,
+                  functionName: "mint",
+                  args: [marketKey, amount],
+                },
+              );
+              totalGas += rtReceipt.gasUsed;
+              ordersPlaced++;
+              orderTimings.push(sendMs);
+              spinner.succeed(
+                `Order ${i + 1}: MINT ${dim(`(gas: ${rtReceipt.gasUsed}, ${prepareMs}ms prep, ${sendMs}ms realtime)`)}`,
+              );
+              successOrder = true;
+              consecutiveFailures = 0;
+              break;
+            }
+
             hash = await walletClient.writeContract({
               address: soothBook,
               abi: ABIS.SoothBook,
@@ -976,6 +1050,28 @@ export async function simulate(
               consecutiveFailures = 0;
               break;
             }
+
+            if (useRealtime) {
+              const { receipt: rtReceipt, sendMs, prepareMs } = await actorManager.writeContractRealtime(
+                walletClient,
+                {
+                  address: soothBook,
+                  abi: ABIS.SoothBook,
+                  functionName: "merge",
+                  args: [marketKey, mergeAmount < amount ? mergeAmount : amount],
+                },
+              );
+              totalGas += rtReceipt.gasUsed;
+              ordersPlaced++;
+              orderTimings.push(sendMs);
+              spinner.succeed(
+                `Order ${i + 1}: MERGE ${dim(`(gas: ${rtReceipt.gasUsed}, ${prepareMs}ms prep, ${sendMs}ms realtime)`)}`,
+              );
+              successOrder = true;
+              consecutiveFailures = 0;
+              break;
+            }
+
             hash = await walletClient.writeContract({
               address: soothBook,
               abi: ABIS.SoothBook,
@@ -984,14 +1080,18 @@ export async function simulate(
             });
           }
 
+          const receiptStart = performance.now();
           const receipt = await actorManager.waitForTransactionReceipt(hash);
+          const totalMs = Number((performance.now() - orderStart).toFixed(1));
+          const receiptMs = Number((performance.now() - receiptStart).toFixed(1));
           totalGas += receipt.gasUsed;
           ordersPlaced++;
           if (likelyCross) {
             ordersCrossed++;
           }
+          orderTimings.push(totalMs);
           spinner.succeed(
-            `Order ${i + 1}: ${action.toUpperCase()} ${dim(`(gas: ${receipt.gasUsed})`)}`,
+            `Order ${i + 1}: ${action.toUpperCase()} ${dim(`(gas: ${receipt.gasUsed}, ${totalMs}ms total, ${receiptMs}ms receipt)`)}`,
           );
           successOrder = true;
           consecutiveFailures = 0;
@@ -1030,6 +1130,17 @@ export async function simulate(
   console.log(`  Orders placed: ${ordersPlaced}`);
   console.log(`  Orders crossed: ${ordersCrossed}`);
   console.log(`  Total gas used: ${totalGas.toString()}`);
+  if (orderTimings.length > 0) {
+    const sorted = [...orderTimings].sort((a, b) => a - b);
+    const avg = sorted.reduce((a, b) => a + b, 0) / sorted.length;
+    const p50 = sorted[Math.floor(sorted.length * 0.5)];
+    const p95 = sorted[Math.floor(sorted.length * 0.95)];
+    const min = sorted[0];
+    const max = sorted[sorted.length - 1];
+    console.log(`  ${bold("Latency (ms)")}:`);
+    console.log(`    avg=${avg.toFixed(0)}  p50=${p50.toFixed(0)}  p95=${p95.toFixed(0)}  min=${min.toFixed(0)}  max=${max.toFixed(0)}`);
+    console.log(`    mode: ${useRealtime ? 'realtime_sendRawTransaction' : 'sendRawTransaction + poll'}`);
+  }
   console.log("");
 
   return {

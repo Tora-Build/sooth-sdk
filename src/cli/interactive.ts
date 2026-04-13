@@ -61,6 +61,7 @@ const nodeIdArg = positionalArg;
 const marketArg = args.find(a => a.startsWith('--market='))?.split('=')[1];
 const rpcArg = args.find(a => a.startsWith('--rpc='))?.split('=')[1];
 const scenarioArg = args.find(a => a.startsWith('--scenario='))?.split('=')[1];
+const realtimeFlag = args.includes('--realtime');
 
 // Global state
 let config: InteractiveConfig;
@@ -886,6 +887,7 @@ async function main(): Promise<void> {
     actorManager = createActorManager(config.chain, config.rpc, undefined, {
       confirmations: config.confirmations,
       postTxWaitMs: config.postTxWaitMs,
+      realtimeApi: realtimeFlag,
     });
     scenarioEngine = new ScenarioEngine(actorManager, handleCommand);
   } catch (err) {
@@ -916,6 +918,9 @@ async function main(): Promise<void> {
     `Node: ${config.nodeId} · ${config.chainName} · Core ${config.coreVersion}`,
     `RPC: ${config.rpc}`,
   ];
+  if (realtimeFlag) {
+    headerLines.push(`Mode: MegaETH Realtime API (--realtime)`);
+  }
   if (currentMarketAddress) {
     headerLines.push(`Market: ${currentMarketName || shortAddress(currentMarketAddress)}`);
   }
