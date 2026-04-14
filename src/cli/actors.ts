@@ -15,17 +15,23 @@ import {
   type Transport,
   type TransactionReceipt,
   type Hash,
-} from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import * as fs from 'fs';
-import * as path from 'path';
-import { fileURLToPath } from 'url';
-import { shortAddress, error, success, info } from './cli-utils';
+} from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import * as fs from "fs";
+import * as path from "path";
+import { fileURLToPath } from "url";
+import { shortAddress, error, success, info } from "./cli-utils";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export type ActorRole = 'creator' | 'amm' | 'trader' | 'adjudicator' | 'keeper' | 'admin';
+export type ActorRole =
+  | "creator"
+  | "amm"
+  | "trader"
+  | "adjudicator"
+  | "keeper"
+  | "admin";
 
 export interface Actor {
   name: string;
@@ -52,26 +58,35 @@ function isMegaethChain(chainId: number): boolean {
   return MEGAETH_CHAIN_IDS.has(chainId);
 }
 
+const MEGAETH_NATIVE_RPC: Record<number, string> = {
+  4326: "https://mainnet.megaeth.com/rpc",
+  6343: "https://carrot.megaeth.com/rpc",
+};
+
+function getMegaethNativeRpcUrl(chainId: number): string | undefined {
+  return MEGAETH_NATIVE_RPC[chainId];
+}
+
 /**
  * Load actor configs from actors.yaml (cwd, then fallback locations).
  * Returns empty array if no file found.
  */
 function loadActorConfigs(): ActorConfig[] {
-  const yaml = require('yaml') as typeof import('yaml');
+  const yaml = require("yaml") as typeof import("yaml");
   const candidates = [
-    path.join(process.cwd(), 'actors.yaml'),
-    path.join(process.cwd(), '..', 'actors.yaml'),
-    path.join(process.cwd(), '..', '..', 'actors.yaml'),
-    path.join(__dirname, '..', '..', 'actors.yaml'),
+    path.join(process.cwd(), "actors.yaml"),
+    path.join(process.cwd(), "..", "actors.yaml"),
+    path.join(process.cwd(), "..", "..", "actors.yaml"),
+    path.join(__dirname, "..", "..", "actors.yaml"),
   ];
   for (const p of candidates) {
     if (fs.existsSync(p)) {
-      const raw = yaml.parse(fs.readFileSync(p, 'utf-8'));
+      const raw = yaml.parse(fs.readFileSync(p, "utf-8"));
       if (Array.isArray(raw?.actors)) {
         return raw.actors.map((a: any) => ({
           name: String(a.name),
           envKey: String(a.envKey),
-          role: (a.role ?? 'trader') as ActorRole,
+          role: (a.role ?? "trader") as ActorRole,
         }));
       }
     }
@@ -81,7 +96,7 @@ function loadActorConfigs(): ActorConfig[] {
 
 export class ActorManager {
   private actors: Map<string, Actor> = new Map();
-  private currentActorName: string = '';
+  private currentActorName: string = "";
   private publicClient: PublicClient;
   private chain: Chain;
   private rpc: string;
@@ -113,9 +128,9 @@ export class ActorManager {
     });
 
     // Check if transaction reverted
-    if (receipt.status === 'reverted') {
+    if (receipt.status === "reverted") {
       // Try to get revert reason by replaying the transaction
-      let revertReason = '';
+      let revertReason = "";
       try {
         const tx = await this.publicClient.getTransaction({ hash });
         if (tx) {
@@ -128,10 +143,11 @@ export class ActorManager {
             });
           } catch (callErr: any) {
             // Extract revert reason from call error
-            const errStr = callErr?.message || callErr?.toString() || '';
-            const match = errStr.match(/reverted with.*?["']([^"']+)["']/i)
-              || errStr.match(/reason:\s*([^\n]+)/i)
-              || errStr.match(/execution reverted:\s*([^\n]+)/i);
+            const errStr = callErr?.message || callErr?.toString() || "";
+            const match =
+              errStr.match(/reverted with.*?["']([^"']+)["']/i) ||
+              errStr.match(/reason:\s*([^\n]+)/i) ||
+              errStr.match(/execution reverted:\s*([^\n]+)/i);
             if (match) {
               revertReason = match[1];
             } else if (errStr.length < 200) {
@@ -143,13 +159,15 @@ export class ActorManager {
         // Ignore errors getting revert reason
       }
 
-      throw new Error(revertReason
-        ? `Reverted: ${revertReason}`
-        : `Transaction reverted: ${hash.slice(0, 18)}...`);
+      throw new Error(
+        revertReason
+          ? `Reverted: ${revertReason}`
+          : `Transaction reverted: ${hash.slice(0, 18)}...`,
+      );
     }
 
     if (this.postTxWaitMs > 0) {
-      await new Promise(resolve => setTimeout(resolve, this.postTxWaitMs));
+      await new Promise((resolve) => setTimeout(resolve, this.postTxWaitMs));
     }
 
     return receipt;
@@ -158,20 +176,32 @@ export class ActorManager {
   /**
    * MegaETH Realtime API: send signed tx and get receipt in one call.
    * Uses `realtime_sendRawTransaction` — no polling needed.
-   * Falls back to standard send + poll if realtime call fails.
+   *
+   * Routes the request directly to MegaETH's native RPC endpoint when the
+   * active chain is MegaETH, bypassing the Sooth RPC proxy. The proxy
+   * whitelists JSON-RPC methods and may not have `realtime_sendRawTransaction`
+   * deployed yet — going native guarantees the call works as long as the
+   * upstream MegaETH node honors the method.
    */
-  async realtimeSendRawTransaction(signedTx: `0x${string}`): Promise<TransactionReceipt> {
-    const res = await fetch(this.rpc, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
+  async realtimeSendRawTransaction(
+    signedTx: `0x${string}`,
+  ): Promise<TransactionReceipt> {
+    const nativeUrl = getMegaethNativeRpcUrl(this.chain.id);
+    const targetUrl = nativeUrl ?? this.rpc;
+    const res = await fetch(targetUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        jsonrpc: '2.0',
+        jsonrpc: "2.0",
         id: 1,
-        method: 'realtime_sendRawTransaction',
+        method: "realtime_sendRawTransaction",
         params: [signedTx],
       }),
     });
-    const json = await res.json() as { result?: any; error?: { code: number; message: string } };
+    const json = (await res.json()) as {
+      result?: any;
+      error?: { code: number; message: string };
+    };
     if (json.error) {
       throw new Error(`realtime_sendRawTransaction: ${json.error.message}`);
     }
@@ -182,16 +212,16 @@ export class ActorManager {
       from: r.from,
       to: r.to ?? null,
       gasUsed: BigInt(r.gasUsed),
-      status: r.status === '0x1' ? 'success' : 'reverted',
+      status: r.status === "0x1" ? "success" : "reverted",
       logs: r.logs ?? [],
       contractAddress: r.contractAddress ?? null,
       // Fill required TransactionReceipt fields with defaults
-      blockHash: '0x' as Hash,
+      blockHash: "0x" as Hash,
       transactionIndex: 0,
-      logsBloom: '0x' as `0x${string}`,
+      logsBloom: "0x" as `0x${string}`,
       cumulativeGasUsed: BigInt(r.gasUsed),
       effectiveGasPrice: 0n,
-      type: 'eip1559',
+      type: "eip1559",
     } as TransactionReceipt;
   }
 
@@ -204,11 +234,15 @@ export class ActorManager {
   async writeContractRealtime(
     walletClient: WalletClient<Transport, Chain, Account>,
     request: Parameters<typeof walletClient.writeContract>[0],
-  ): Promise<{ receipt: TransactionReceipt; sendMs: number; prepareMs: number }> {
+  ): Promise<{
+    receipt: TransactionReceipt;
+    sendMs: number;
+    prepareMs: number;
+  }> {
     const prepareStart = performance.now();
 
     // Encode calldata locally (no RPC call)
-    const { encodeFunctionData } = await import('viem');
+    const { encodeFunctionData } = await import("viem");
     const data = encodeFunctionData({
       abi: request.abi,
       functionName: request.functionName as string,
@@ -218,7 +252,7 @@ export class ActorManager {
     // Get nonce — single lightweight RPC call
     const nonce = await this.publicClient.getTransactionCount({
       address: walletClient.account.address,
-      blockTag: 'pending',
+      blockTag: "pending",
     });
 
     // Sign locally with fixed gas (skip eth_estimateGas round-trip)
@@ -231,7 +265,7 @@ export class ActorManager {
       maxFeePerGas: 1_500_000n,
       maxPriorityFeePerGas: 0n,
       chainId: this.chain.id,
-      type: 'eip1559' as const,
+      type: "eip1559" as const,
     } as any);
 
     const prepareMs = Number((performance.now() - prepareStart).toFixed(1));
@@ -241,12 +275,14 @@ export class ActorManager {
     const receipt = await this.realtimeSendRawTransaction(signedTx);
     const sendMs = Number((performance.now() - start).toFixed(1));
 
-    if (receipt.status === 'reverted') {
-      throw new Error(`Transaction reverted: ${receipt.transactionHash.slice(0, 18)}...`);
+    if (receipt.status === "reverted") {
+      throw new Error(
+        `Transaction reverted: ${receipt.transactionHash.slice(0, 18)}...`,
+      );
     }
 
     if (this.postTxWaitMs > 0) {
-      await new Promise(resolve => setTimeout(resolve, this.postTxWaitMs));
+      await new Promise((resolve) => setTimeout(resolve, this.postTxWaitMs));
     }
 
     return { receipt, sendMs, prepareMs };
@@ -259,22 +295,22 @@ export class ActorManager {
     // Try multiple .env locations
     const possiblePaths = [
       envPath,
-      path.join(process.cwd(), '.env'),
-      path.join(process.cwd(), '..', '.env'),
-      path.join(process.cwd(), '..', '..', '.env'),
-      path.join(__dirname, '..', '..', '.env'),
-      path.join(__dirname, '..', '..', '..', '.env'),
-      path.join(__dirname, '..', '..', '..', '..', '.env'),
+      path.join(process.cwd(), ".env"),
+      path.join(process.cwd(), "..", ".env"),
+      path.join(process.cwd(), "..", "..", ".env"),
+      path.join(__dirname, "..", "..", ".env"),
+      path.join(__dirname, "..", "..", "..", ".env"),
+      path.join(__dirname, "..", "..", "..", "..", ".env"),
     ].filter(Boolean) as string[];
 
     let envLoaded = false;
     for (const envFile of possiblePaths) {
       if (fs.existsSync(envFile)) {
-        const envContent = fs.readFileSync(envFile, 'utf-8');
-        for (const line of envContent.split('\n')) {
+        const envContent = fs.readFileSync(envFile, "utf-8");
+        for (const line of envContent.split("\n")) {
           const trimmed = line.trim();
-          if (trimmed && !trimmed.startsWith('#')) {
-            const eqIndex = trimmed.indexOf('=');
+          if (trimmed && !trimmed.startsWith("#")) {
+            const eqIndex = trimmed.indexOf("=");
             if (eqIndex > 0) {
               const key = trimmed.slice(0, eqIndex);
               const value = trimmed.slice(eqIndex + 1);
@@ -294,7 +330,7 @@ export class ActorManager {
     if (configs.length === 0) {
       // No actors.yaml — fall back to PRIVATE_KEY only
       const pk = process.env.PRIVATE_KEY;
-      if (pk) this.addActor('default', pk, 'admin');
+      if (pk) this.addActor("default", pk, "admin");
     } else {
       for (const cfg of configs) {
         const privateKey = process.env[cfg.envKey];
@@ -312,9 +348,9 @@ export class ActorManager {
   /**
    * Add an actor manually
    */
-  addActor(name: string, privateKey: string, role: ActorRole = 'amm'): void {
+  addActor(name: string, privateKey: string, role: ActorRole = "amm"): void {
     // Ensure private key has 0x prefix
-    const key = privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`;
+    const key = privateKey.startsWith("0x") ? privateKey : `0x${privateKey}`;
 
     try {
       const account = privateKeyToAccount(key as `0x${string}`);
@@ -331,7 +367,9 @@ export class ActorManager {
         walletClient,
       });
     } catch (err) {
-      console.error(error(`Failed to add actor ${name}: ${(err as Error).message}`));
+      console.error(
+        error(`Failed to add actor ${name}: ${(err as Error).message}`),
+      );
     }
   }
 
@@ -417,19 +455,21 @@ export class ActorManager {
    * Print actor status
    */
   printStatus(): void {
-    console.log('\nAvailable Actors:');
-    console.log('─'.repeat(50));
+    console.log("\nAvailable Actors:");
+    console.log("─".repeat(50));
 
     for (const actor of this.actors.values()) {
       const isCurrent = actor.name === this.currentActorName;
-      const marker = isCurrent ? success('→') : ' ';
-      const name = isCurrent ? success(actor.name.padEnd(10)) : actor.name.padEnd(10);
+      const marker = isCurrent ? success("→") : " ";
+      const name = isCurrent
+        ? success(actor.name.padEnd(10))
+        : actor.name.padEnd(10);
       const addr = shortAddress(actor.account.address);
       const roleStr = info(actor.role.padEnd(12));
 
       console.log(`${marker} ${name} ${addr}  ${roleStr}`);
     }
-    console.log('');
+    console.log("");
   }
 
   /**
@@ -447,7 +487,7 @@ export function createActorManager(
   chain: Chain,
   rpc: string,
   envPath?: string,
-  options?: ActorManagerOptions
+  options?: ActorManagerOptions,
 ): ActorManager {
   const manager = new ActorManager(chain, rpc, options);
   manager.loadFromEnv(envPath);
