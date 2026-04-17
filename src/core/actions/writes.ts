@@ -343,62 +343,84 @@ export async function runGraduate(
   let totalGas = 0n;
   let tradesExecuted = 0;
   let consecutiveFailures = 0;
+  const NOT_LIVE_WAIT_MS = 4000;
+  const NOT_LIVE_MAX_RETRIES = 3;
 
-  for (let i = 0; i < numTrades; i++) {
+  outer: for (let i = 0; i < numTrades; i++) {
     const isBuy = i % 2 === 0;
     const outcome = 1; // YES
     const delta = isBuy ? tradeSize : -tradeSize / 2n;
     const limit = isBuy ? maxUint256 : 0n;
     const label = isBuy ? "BUY" : "SELL";
 
-    try {
-      const hash = await ctx.walletClient.writeContract({
-        address: ctx.contracts.AMMEngine,
-        abi: AMMEngineABI,
-        functionName: "tradePositions",
-        args: [marketAddress, outcome, delta, limit],
-        account,
-        chain: null,
-      });
-      const receipt = await ctx.publicClient.waitForTransactionReceipt({
-        hash,
-      });
-      totalGas += receipt.gasUsed;
-      tradesExecuted++;
-      consecutiveFailures = 0;
-      report({
-        type: "success",
-        message: `[${i + 1}/${numTrades}] ${label} ${formatWad(
-          delta > 0n ? delta : -delta,
-        )} (gas: ${receipt.gasUsed})`,
-      });
-
-      const graduated = (await ctx.publicClient.readContract({
-        address: ctx.contracts.LaunchpadEngine,
-        abi: LaunchpadEngineABI,
-        functionName: "isGraduated",
-        args: [marketAddress],
-      })) as boolean;
-      if (graduated) {
+    let notLiveRetries = 0;
+    while (true) {
+      try {
+        const hash = await ctx.walletClient.writeContract({
+          address: ctx.contracts.AMMEngine,
+          abi: AMMEngineABI,
+          functionName: "tradePositions",
+          args: [marketAddress, outcome, delta, limit],
+          account,
+          chain: null,
+        });
+        const receipt = await ctx.publicClient.waitForTransactionReceipt({
+          hash,
+        });
+        totalGas += receipt.gasUsed;
+        tradesExecuted++;
+        consecutiveFailures = 0;
         report({
           type: "success",
-          message: `MARKET GRADUATED after ${tradesExecuted} trades`,
+          message: `[${i + 1}/${numTrades}] ${label} ${formatWad(
+            delta > 0n ? delta : -delta,
+          )} (gas: ${receipt.gasUsed})`,
         });
-        return { tradesExecuted, totalGas, graduated: true };
-      }
-    } catch (err) {
-      const msg = (err as Error).message.slice(0, 120);
-      report({
-        type: "error",
-        message: `[${i + 1}/${numTrades}] ${label} failed: ${msg}`,
-      });
-      consecutiveFailures++;
-      if (consecutiveFailures >= 3) {
+
+        const graduated = (await ctx.publicClient.readContract({
+          address: ctx.contracts.LaunchpadEngine,
+          abi: LaunchpadEngineABI,
+          functionName: "isGraduated",
+          args: [marketAddress],
+        })) as boolean;
+        if (graduated) {
+          report({
+            type: "success",
+            message: `MARKET GRADUATED after ${tradesExecuted} trades`,
+          });
+          return { tradesExecuted, totalGas, graduated: true };
+        }
+        break; // trade succeeded, advance to next i
+      } catch (err) {
+        const fullMsg = (err as Error).message ?? "";
+        // startTime boundary race: freshly created markets briefly report
+        // !isLive() because eth_call sees a block just before creation. Wait
+        // one block interval and retry the same trade. Matches the E2E
+        // helper in apps/demo/e2e/specs/lakers-rockets-e2e.spec.ts.
+        const isNotLive =
+          fullMsg.includes("MarketNotLive") || fullMsg.includes("3f22bf08");
+        if (isNotLive && notLiveRetries < NOT_LIVE_MAX_RETRIES) {
+          notLiveRetries++;
+          report({
+            type: "warn",
+            message: `[${i + 1}/${numTrades}] ${label} MarketNotLive — retry ${notLiveRetries}/${NOT_LIVE_MAX_RETRIES} in ${NOT_LIVE_WAIT_MS / 1000}s`,
+          });
+          await new Promise((r) => setTimeout(r, NOT_LIVE_WAIT_MS));
+          continue;
+        }
         report({
-          type: "warn",
-          message: "Stopping after 3 consecutive failures",
+          type: "error",
+          message: `[${i + 1}/${numTrades}] ${label} failed: ${fullMsg.slice(0, 120)}`,
         });
-        break;
+        consecutiveFailures++;
+        if (consecutiveFailures >= 3) {
+          report({
+            type: "warn",
+            message: "Stopping after 3 consecutive failures",
+          });
+          break outer;
+        }
+        break; // advance to next i
       }
     }
   }
