@@ -589,10 +589,14 @@ export async function readCollateralizerSnapshot(
   client: PublicClient,
   collateralizer: Address,
   marketAddress: Address,
-  userAddress?: Address,
+  _userAddress?: Address,
 ): Promise<SoothCollateralizerSnapshot> {
-  // Quick check: if market isn't registered on this contract, skip all other calls.
-  // v0.1.2 OrderEngine has isMarketRegistered but not the other Collateralizer functions.
+  // v0.1.2 replaced Collateralizer with OrderEngine. OrderEngine exposes
+  // isMarketRegistered, but not isMarketSettled / getTotalCollateral /
+  // getOutcomeTokens / getBalances — firing those wastes an RPC roundtrip
+  // per market. Keep the single registration probe; callers that need
+  // settlement, collateral, tokens, or balances should read from OrderEngine
+  // / TruthMarket directly.
   const isRegistered = await readWithFallback(
     () =>
       client.readContract({
@@ -604,72 +608,14 @@ export async function readCollateralizerSnapshot(
     false,
   );
 
-  if (!isRegistered) {
-    return {
-      isRegistered: false,
-      isSettled: false,
-      totalCollateral: 0n,
-      yesToken: ZERO_ADDRESS,
-      noToken: ZERO_ADDRESS,
-      userYesBalance: 0n,
-      userNoBalance: 0n,
-    };
-  }
-
-  const [isSettled, totalCollateral, outcomeTokens, balances] =
-    await Promise.all([
-      readWithFallback(
-        () =>
-          client.readContract({
-            address: collateralizer,
-            abi: CollateralizerABI,
-            functionName: "isMarketSettled",
-            args: [marketAddress],
-          }) as Promise<boolean>,
-        false,
-      ),
-      readWithFallback(
-        () =>
-          client.readContract({
-            address: collateralizer,
-            abi: CollateralizerABI,
-            functionName: "getTotalCollateral",
-            args: [marketAddress],
-          }) as Promise<bigint>,
-        0n,
-      ),
-      readWithFallback(
-        () =>
-          client.readContract({
-            address: collateralizer,
-            abi: CollateralizerABI,
-            functionName: "getOutcomeTokens",
-            args: [marketAddress],
-          }) as Promise<readonly [Address, Address]>,
-        [ZERO_ADDRESS, ZERO_ADDRESS] as const,
-      ),
-      userAddress
-        ? readWithFallback(
-            () =>
-              client.readContract({
-                address: collateralizer,
-                abi: CollateralizerABI,
-                functionName: "getBalances",
-                args: [marketAddress, userAddress],
-              }) as Promise<readonly [bigint, bigint]>,
-            [0n, 0n] as const,
-          )
-        : Promise.resolve([0n, 0n] as const),
-    ]);
-
   return {
     isRegistered,
-    isSettled,
-    totalCollateral,
-    yesToken: outcomeTokens[0],
-    noToken: outcomeTokens[1],
-    userYesBalance: balances[0],
-    userNoBalance: balances[1],
+    isSettled: false,
+    totalCollateral: 0n,
+    yesToken: ZERO_ADDRESS,
+    noToken: ZERO_ADDRESS,
+    userYesBalance: 0n,
+    userNoBalance: 0n,
   };
 }
 
