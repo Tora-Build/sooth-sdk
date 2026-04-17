@@ -28,8 +28,26 @@ import {
   parseAbi,
   encodeFunctionData,
   encodeAbiParameters,
+  type PublicClient,
+  type EstimateContractGasParameters,
 } from "viem";
 import { generateSQF, type SQFData } from "../../lib/sqf";
+
+// Estimate gas for a contract call and apply a 1.3× buffer. Falls back to
+// the provided cap when estimation throws (some testnet RPCs — notably
+// MegaETH and HyperEVM — break viem's internal eth_call simulation).
+async function gasWithBuffer(
+  client: PublicClient,
+  params: EstimateContractGasParameters,
+  fallback: bigint,
+): Promise<bigint> {
+  try {
+    const estimated = await client.estimateContractGas(params);
+    return (estimated * 13n) / 10n;
+  } catch {
+    return fallback;
+  }
+}
 
 const TruthMarketAbi = parseAbi([
   "function question() view returns (string)",
@@ -282,12 +300,16 @@ export async function createmarket(
       console.log(
         warn(`  Insufficient USDC. Minting ${formatWad(required)} USDC...`),
       );
-      const mintHash = await walletClient.writeContract({
+      const mintParams = {
+        account: address,
         address: deployment.contracts.BaseToken as `0x${string}`,
         abi: ABIS.BaseToken,
         functionName: "mint",
         args: [address, required * 2n],
-        gas: 500000n,
+      } as const;
+      const mintHash = await walletClient.writeContract({
+        ...mintParams,
+        gas: await gasWithBuffer(publicClient, mintParams as never, 2_000_000n),
       });
       await actorManager.waitForTransactionReceipt(mintHash);
       console.log(success("  Minted USDC"));
@@ -296,7 +318,8 @@ export async function createmarket(
     const spinner1 = new Spinner("[1/2] Approving USDC...");
     spinner1.start();
 
-    const approveHash = await walletClient.writeContract({
+    const approveParams = {
+      account: address,
       address: deployment.contracts.BaseToken as `0x${string}`,
       abi: ABIS.BaseToken,
       functionName: "approve",
@@ -304,7 +327,14 @@ export async function createmarket(
         deployment.contracts.LaunchpadEngine as `0x${string}`,
         MAX_UINT256,
       ],
-      gas: 500000n,
+    } as const;
+    const approveHash = await walletClient.writeContract({
+      ...approveParams,
+      gas: await gasWithBuffer(
+        publicClient,
+        approveParams as never,
+        2_000_000n,
+      ),
     });
     await actorManager.waitForTransactionReceipt(approveHash);
     spinner1.succeed("USDC approved");
@@ -558,24 +588,32 @@ export async function graduate(
 
   if (usdcBalance < requiredUsdc) {
     console.log(warn(`  Low USDC balance. Minting more...`));
-    const mintHash = await walletClient.writeContract({
+    const mintParams = {
+      account: address,
       address: deployment.contracts.BaseToken as `0x${string}`,
       abi: ABIS.BaseToken,
       functionName: "mint",
       args: [address, requiredUsdc * 2n],
-      gas: 500000n, // High gas for Monad testnet
+    } as const;
+    const mintHash = await walletClient.writeContract({
+      ...mintParams,
+      gas: await gasWithBuffer(publicClient, mintParams as never, 2_000_000n),
     });
     await actorManager.waitForTransactionReceipt(mintHash);
     console.log(success("  Minted USDC"));
   }
 
   // Approve AMMEngine (tradePositions moved to AMMEngine in v0.1.0)
-  const approveHash = await walletClient.writeContract({
+  const approveParams = {
+    account: address,
     address: deployment.contracts.BaseToken as `0x${string}`,
     abi: ABIS.BaseToken,
     functionName: "approve",
     args: [deployment.contracts.AMMEngine as `0x${string}`, MAX_UINT256],
-    gas: 500000n, // High gas for Monad testnet
+  } as const;
+  const approveHash = await walletClient.writeContract({
+    ...approveParams,
+    gas: await gasWithBuffer(publicClient, approveParams as never, 2_000_000n),
   });
   await actorManager.waitForTransactionReceipt(approveHash);
 
@@ -610,8 +648,24 @@ export async function graduate(
         // For SELL (negative delta): maxCost = 0 (accept any proceeds, i.e., min proceeds = 0)
         const maxCostOrMinProceeds = isBuy ? MAX_UINT256 : 0n;
 
-        // Determine gas limit
-        const gasLimit = isMegaETH ? 60_000_000n : 1_000_000n;
+        // Gas: estimate live with a 1.3× buffer. MegaETH/HyperEVM RPCs break
+        // viem simulation so estimateContractGas throws — use a generous
+        // chain-specific fallback in that case (MegaETH needs the full 60M
+        // block limit).
+        const tradeFallback = isMegaETH ? 60_000_000n : 5_000_000n;
+        const gasLimit = skipSimulation
+          ? tradeFallback
+          : await gasWithBuffer(
+              publicClient,
+              {
+                account: address,
+                address: deployment.contracts.AMMEngine as `0x${string}`,
+                abi: AMMEngineAbi,
+                functionName: "tradePositions",
+                args: [marketAddress, outcome, delta, maxCostOrMinProceeds],
+              } as never,
+              tradeFallback,
+            );
 
         // Check if already graduated before trading
         const graduated = (await publicClient.readContract({
@@ -814,7 +868,9 @@ export async function simulate(
   console.log(`  Avg Size: ${formatWad(avgSize)}`);
   console.log(`  Seed:     ${seed}`);
   if (useRealtime) {
-    console.log(`  Mode:     ${bold("MegaETH Realtime API")} (realtime_sendRawTransaction)`);
+    console.log(
+      `  Mode:     ${bold("MegaETH Realtime API")} (realtime_sendRawTransaction)`,
+    );
   } else {
     console.log(`  Mode:     ${dim("Standard")} (sendRawTransaction + poll)`);
   }
@@ -935,15 +991,16 @@ export async function simulate(
             likelyCross = bestNoTick > 0 && tick + bestNoTick >= 1000;
 
             if (useRealtime) {
-              const { receipt: rtReceipt, sendMs, prepareMs } = await actorManager.writeContractRealtime(
-                walletClient,
-                {
-                  address: soothBook,
-                  abi: ABIS.SoothBook,
-                  functionName: "buyYes",
-                  args: [marketKey, tick, amount, false, 0],
-                },
-              );
+              const {
+                receipt: rtReceipt,
+                sendMs,
+                prepareMs,
+              } = await actorManager.writeContractRealtime(walletClient, {
+                address: soothBook,
+                abi: ABIS.SoothBook,
+                functionName: "buyYes",
+                args: [marketKey, tick, amount, false, 0],
+              });
               totalGas += rtReceipt.gasUsed;
               ordersPlaced++;
               if (likelyCross) ordersCrossed++;
@@ -976,15 +1033,16 @@ export async function simulate(
             likelyCross = bestYesTick > 0 && tick + bestYesTick >= 1000;
 
             if (useRealtime) {
-              const { receipt: rtReceipt, sendMs, prepareMs } = await actorManager.writeContractRealtime(
-                walletClient,
-                {
-                  address: soothBook,
-                  abi: ABIS.SoothBook,
-                  functionName: "buyNo",
-                  args: [marketKey, tick, amount, false, 0],
-                },
-              );
+              const {
+                receipt: rtReceipt,
+                sendMs,
+                prepareMs,
+              } = await actorManager.writeContractRealtime(walletClient, {
+                address: soothBook,
+                abi: ABIS.SoothBook,
+                functionName: "buyNo",
+                args: [marketKey, tick, amount, false, 0],
+              });
               totalGas += rtReceipt.gasUsed;
               ordersPlaced++;
               if (likelyCross) ordersCrossed++;
@@ -1005,15 +1063,16 @@ export async function simulate(
             });
           } else if (action === "mint") {
             if (useRealtime) {
-              const { receipt: rtReceipt, sendMs, prepareMs } = await actorManager.writeContractRealtime(
-                walletClient,
-                {
-                  address: soothBook,
-                  abi: ABIS.SoothBook,
-                  functionName: "mint",
-                  args: [marketKey, amount],
-                },
-              );
+              const {
+                receipt: rtReceipt,
+                sendMs,
+                prepareMs,
+              } = await actorManager.writeContractRealtime(walletClient, {
+                address: soothBook,
+                abi: ABIS.SoothBook,
+                functionName: "mint",
+                args: [marketKey, amount],
+              });
               totalGas += rtReceipt.gasUsed;
               ordersPlaced++;
               orderTimings.push(sendMs);
@@ -1052,15 +1111,16 @@ export async function simulate(
             }
 
             if (useRealtime) {
-              const { receipt: rtReceipt, sendMs, prepareMs } = await actorManager.writeContractRealtime(
-                walletClient,
-                {
-                  address: soothBook,
-                  abi: ABIS.SoothBook,
-                  functionName: "merge",
-                  args: [marketKey, mergeAmount < amount ? mergeAmount : amount],
-                },
-              );
+              const {
+                receipt: rtReceipt,
+                sendMs,
+                prepareMs,
+              } = await actorManager.writeContractRealtime(walletClient, {
+                address: soothBook,
+                abi: ABIS.SoothBook,
+                functionName: "merge",
+                args: [marketKey, mergeAmount < amount ? mergeAmount : amount],
+              });
               totalGas += rtReceipt.gasUsed;
               ordersPlaced++;
               orderTimings.push(sendMs);
@@ -1083,7 +1143,9 @@ export async function simulate(
           const receiptStart = performance.now();
           const receipt = await actorManager.waitForTransactionReceipt(hash);
           const totalMs = Number((performance.now() - orderStart).toFixed(1));
-          const receiptMs = Number((performance.now() - receiptStart).toFixed(1));
+          const receiptMs = Number(
+            (performance.now() - receiptStart).toFixed(1),
+          );
           totalGas += receipt.gasUsed;
           ordersPlaced++;
           if (likelyCross) {
@@ -1138,8 +1200,12 @@ export async function simulate(
     const min = sorted[0];
     const max = sorted[sorted.length - 1];
     console.log(`  ${bold("Latency (ms)")}:`);
-    console.log(`    avg=${avg.toFixed(0)}  p50=${p50.toFixed(0)}  p95=${p95.toFixed(0)}  min=${min.toFixed(0)}  max=${max.toFixed(0)}`);
-    console.log(`    mode: ${useRealtime ? 'realtime_sendRawTransaction' : 'sendRawTransaction + poll'}`);
+    console.log(
+      `    avg=${avg.toFixed(0)}  p50=${p50.toFixed(0)}  p95=${p95.toFixed(0)}  min=${min.toFixed(0)}  max=${max.toFixed(0)}`,
+    );
+    console.log(
+      `    mode: ${useRealtime ? "realtime_sendRawTransaction" : "sendRawTransaction + poll"}`,
+    );
   }
   console.log("");
 
