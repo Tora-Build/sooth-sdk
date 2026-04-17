@@ -392,4 +392,28 @@ export const LaunchpadEngineABI = [
     name: "SafeERC20FailedOperation",
     inputs: [{ name: "token", type: "address", internalType: "address" }],
   },
+  {
+    type: "function",
+    name: "dismissMarket",
+    inputs: [{ name: "market", type: "address", internalType: "address" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "claimRefund",
+    inputs: [{ name: "market", type: "address", internalType: "address" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "event",
+    name: "LPRedeemed",
+    inputs: [
+      { name: "market", type: "address", indexed: true, internalType: "address" },
+      { name: "user", type: "address", indexed: true, internalType: "address" },
+      { name: "usdcAmount", type: "uint256", indexed: false, internalType: "uint256" },
+    ],
+    anonymous: false,
+  }
 ] as const;

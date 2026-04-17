@@ -238,7 +238,7 @@ export async function runCreateMarket(
         topics: log.topics,
       });
       if (decoded.eventName === "MarketCreated") {
-        marketAddress = (decoded.args as { market: Address }).market;
+        marketAddress = (decoded.args as unknown as { market: Address }).market;
         break;
       }
     } catch {

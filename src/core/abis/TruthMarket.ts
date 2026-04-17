@@ -221,4 +221,12 @@ export const TruthMarketABI = [
     ],
     "anonymous": false
   }
+,
+  {
+    "type": "function",
+    "name": "guardian",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "address", "internalType": "address" }],
+    "stateMutability": "view"
+  }
 ] as const;
