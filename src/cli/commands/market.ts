@@ -301,7 +301,6 @@ export async function createmarket(
         warn(`  Insufficient USDC. Minting ${formatWad(required)} USDC...`),
       );
       const mintParams = {
-        account: address,
         address: deployment.contracts.BaseToken as `0x${string}`,
         abi: ABIS.BaseToken,
         functionName: "mint",
@@ -319,7 +318,6 @@ export async function createmarket(
     spinner1.start();
 
     const approveParams = {
-      account: address,
       address: deployment.contracts.BaseToken as `0x${string}`,
       abi: ABIS.BaseToken,
       functionName: "approve",
@@ -379,7 +377,6 @@ export async function createmarket(
     let createGas: bigint;
     try {
       const estimated = await publicClient.estimateContractGas({
-        account: address,
         address: deployment.contracts.LaunchpadEngine as `0x${string}`,
         abi: LaunchpadEngineAbi,
         functionName: "createMarket",
@@ -585,7 +582,6 @@ export async function graduate(
   if (usdcBalance < requiredUsdc) {
     console.log(warn(`  Low USDC balance. Minting more...`));
     const mintParams = {
-      account: address,
       address: deployment.contracts.BaseToken as `0x${string}`,
       abi: ABIS.BaseToken,
       functionName: "mint",
@@ -601,7 +597,6 @@ export async function graduate(
 
   // Approve AMMEngine (tradePositions moved to AMMEngine in v0.1.0)
   const approveParams = {
-    account: address,
     address: deployment.contracts.BaseToken as `0x${string}`,
     abi: ABIS.BaseToken,
     functionName: "approve",
@@ -654,7 +649,6 @@ export async function graduate(
           : await gasWithBuffer(
               publicClient,
               {
-                account: address,
                 address: deployment.contracts.AMMEngine as `0x${string}`,
                 abi: AMMEngineAbi,
                 functionName: "tradePositions",
