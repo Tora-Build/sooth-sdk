@@ -352,19 +352,15 @@ export async function createmarket(
             ),
           );
 
-    // Build adjudicatorConfig. v0.1.2 AdjudicatorBase.configureMarket decodes
-    //   (address resolver, uint64 deadline, uint48 vetoPeriod, bytes typeConfig).
-    // resolver = current user, vetoPeriod = 0 (no guardian), typeConfig = empty.
-    // v0.1.2 createMarket always calls configureMarket, so we must encode
-    // even when the adjudicator is the caller's own address (legacy path).
+    // Build adjudicatorConfig. v0.2.0 AdjudicatorBase.configureMarket decodes
+    //   (address resolver, uint64 deadline, bytes typeConfig).
+    // v0.1.2 used a 4-field variant with uint48 vetoPeriod; that format
+    // reverts with Panic(65) on v0.2.0 because the extra uint48 is parsed
+    // as the typeConfig length prefix. Verified empirically on Base
+    // Sepolia v0.2.0 (2026-04-23). resolver = current user, typeConfig = 0x.
     const adjConfig: `0x${string}` = encodeAbiParameters(
-      [
-        { type: "address" },
-        { type: "uint64" },
-        { type: "uint48" },
-        { type: "bytes" },
-      ],
-      [address, deadline, 0, "0x"],
+      [{ type: "address" }, { type: "uint64" }, { type: "bytes" }],
+      [address, deadline, "0x"],
     );
 
     // Gas: estimate live then apply a 1.3× safety multiplier. createMarket

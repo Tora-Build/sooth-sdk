@@ -162,7 +162,7 @@ export interface CreateMarketParams {
   bBase: bigint;
   /** 0 < p < 1e18 — v0.1.2 rejects 0 and 1e18 */
   initialProbabilityWad: bigint;
-  /** encoded (resolver, deadline, vetoPeriod, typeConfig); pass null to build a default from the caller's address + deadline */
+  /** encoded (resolver, deadline, typeConfig) per v0.2.0 AdjudicatorBase.configureMarket; pass null to build a default from the caller's address + deadline */
   adjudicatorConfig?: `0x${string}`;
 }
 
@@ -195,16 +195,13 @@ export async function runCreateMarket(
 
   await runApprove(ctx, { targets: ["launchpad"] }, report);
 
+  // v0.2.0 AdjudicatorBase.configureMarket decodes (address, uint64, bytes).
+  // The old 4-field (uint48 vetoPeriod) encoding reverts Panic(65).
   const adjConfig: `0x${string}` =
     params.adjudicatorConfig ??
     encodeAbiParameters(
-      [
-        { type: "address" },
-        { type: "uint64" },
-        { type: "uint48" },
-        { type: "bytes" },
-      ],
-      [ctx.address, params.deadline, 0, "0x"],
+      [{ type: "address" }, { type: "uint64" }, { type: "bytes" }],
+      [ctx.address, params.deadline, "0x"],
     );
 
   report({ type: "info", message: "Creating market in LaunchpadEngine..." });
