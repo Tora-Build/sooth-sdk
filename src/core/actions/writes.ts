@@ -365,6 +365,15 @@ export async function runGraduate(
           hash,
         });
         totalGas += receipt.gasUsed;
+        if (receipt.status !== "success") {
+          // viem returns receipts for reverted txs without throwing. Without
+          // this guard the Geek page printed "[3/8] BUY 5081.99 (gas: 230229)"
+          // for a revert, and the next SELL then hit InsufficientYesShares
+          // because position.yesShares was never credited on-chain.
+          throw new Error(
+            `tradePositions reverted on-chain (hash: ${hash}, gas: ${receipt.gasUsed})`,
+          );
+        }
         tradesExecuted++;
         consecutiveFailures = 0;
         report({
