@@ -700,6 +700,14 @@ export async function graduate(
 
         const receipt = await actorManager.waitForTransactionReceipt(hash);
         totalGas += receipt.gasUsed;
+        if (receipt.status !== "success") {
+          // viem returns receipts for reverted txs without throwing — printing
+          // "BUY <size> (gas: <n>)" for a reverted BUY leaves zero yesShares on
+          // chain, which cascades into the next SELL's InsufficientYesShares.
+          throw new Error(
+            `tradePositions tx reverted on-chain (hash: ${hash}, gas: ${receipt.gasUsed})`,
+          );
+        }
         tradesExecuted++;
         success_trade = true;
 
