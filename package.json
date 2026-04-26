@@ -1,6 +1,6 @@
 {
   "name": "@sooth/sdk",
-  "version": "12.1.0",
+  "version": "0.2.0",
   "description": "Sooth Protocol SDK — programmatic access, core utilities, and CLI for prediction markets",
   "type": "module",
   "main": "./dist/index.js",

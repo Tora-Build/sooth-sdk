@@ -67,14 +67,17 @@ const TruthMarketAbi = parseAbi([
   "function resolve(uint8 outcome, uint64 tStar) external",
   "function attest() external",
   "function settle() external",
+  "function finalize() external",
   "function veto() external",
   "event MarketCreated(address indexed market, bytes32 questionHash, string question, uint64 startTime, uint64 deadline)",
 ]);
 
 const OrderEngineAbi = parseAbi([
   "function getPosition(address market, address user) view returns (uint256 yesShares, uint256 noShares)",
+  "function getBalances(address market, address user) view returns (uint256 yesBalance, uint256 noBalance)",
   "function isMarketRegistered(address market) view returns (bool)",
   "function getCollateralBacking(address market) view returns (uint256)",
+  "function redeem(address market, uint256 amount) external",
 ]);
 
 const ERC20Abi = parseAbi([
@@ -1488,28 +1491,33 @@ export async function settle(
   }
 
   const spinner = new Spinner(
-    `Settling market as ${["NO", "YES", "INVALID"][outcome]}...`,
+    `Resolving market as ${["NO", "YES", "INVALID"][outcome]}...`,
   );
   spinner.start();
 
+  const tStar = BigInt(Math.floor(Date.now() / 1000));
+
   try {
-    const settleHash = await walletClient.writeContract({
+    const resolveHash = await walletClient.writeContract({
       address: marketAddress,
       abi: TruthMarketAbi,
-      functionName: "settle",
-      args: [outcome, 0n],
+      functionName: "resolve",
+      args: [outcome, tStar],
       gas: 500000n,
     });
-    await actorManager.waitForTransactionReceipt(settleHash);
+    await actorManager.waitForTransactionReceipt(resolveHash);
     spinner.succeed(
-      `Market settled as ${["NO", "YES", "INVALID"][outcome]} ${dim(`(tx: ${settleHash.slice(0, 10)}...)`)}`,
+      `Market resolved as ${["NO", "YES", "INVALID"][outcome]} ${dim(`(tx: ${resolveHash.slice(0, 10)}...)`)}`,
     );
-    return { success: true, txHash: settleHash };
+    console.log(
+      `  ${dim("Next steps: run `attest`, then `finalize` (or `settle`) after veto window.")}`,
+    );
+    return { success: true, txHash: resolveHash };
   } catch (err) {
-    spinner.fail(`Settlement failed`);
+    spinner.fail(`Resolution failed`);
     return {
       success: false,
-      message: `Settlement failed: ${(err as Error).message}`,
+      message: `Resolution failed: ${(err as Error).message}`,
     };
   }
 }
@@ -1588,10 +1596,9 @@ export async function redeem(
   }
 
   const isSettled = await publicClient.readContract({
-    address: deployment.contracts.OrderEngine as `0x${string}`,
-    abi: OrderEngineAbi,
-    functionName: "isMarketSettled",
-    args: [marketAddress],
+    address: marketAddress,
+    abi: TruthMarketAbi,
+    functionName: "isSettled",
   });
 
   if (!isSettled) {

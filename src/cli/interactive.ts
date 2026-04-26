@@ -1,7 +1,12 @@
 #!/usr/bin/env bun
 import * as readline from "readline";
 import { keccak256, encodePacked } from "viem";
-import { createConfig, SDK_VERSION, type InteractiveConfig } from "./config";
+import {
+  createConfig,
+  SDK_VERSION,
+  SUPPORTED_CORE_VERSION,
+  type InteractiveConfig,
+} from "./config";
 import { createActorManager, type ActorManager } from "./actors";
 import {
   parseCommand,
@@ -32,13 +37,17 @@ const args = process.argv.slice(2);
 if (args.includes("--list")) {
   const { getAllNodes, getChain } = await import("../../../registry/src/index");
   const nodes = getAllNodes();
-  console.log(`\n  ${bold("Available Sooth Nodes")}\n`);
-  console.log("  ID          Chain              Core");
-  console.log("  ────────    ─────────────────  ────");
+  console.log(`\n  ${bold("Available Sooth Nodes")}`);
+  console.log(
+    `  ${dim(`CLI supports core v${SUPPORTED_CORE_VERSION} only`)}\n`,
+  );
+  console.log("  ID          Chain              Core   Compat");
+  console.log("  ────────    ─────────────────  ────   ──────");
   for (const n of nodes) {
     const chain = getChain(n.chainId);
+    const compat = n.coreVersion === SUPPORTED_CORE_VERSION ? "✓" : "✗";
     console.log(
-      `  ${n.id}    ${(chain?.name ?? `chain:${n.chainId}`).padEnd(17)}  ${n.coreVersion}`,
+      `  ${n.id}    ${(chain?.name ?? `chain:${n.chainId}`).padEnd(17)}  ${n.coreVersion}  ${compat}`,
     );
   }
   console.log("");
@@ -535,7 +544,6 @@ function printHelp(): void {
     rpc                  Show RPC status and test connection
     rpc set <url>        Override RPC endpoint
     rpc reset            Reset RPC to registry default
-    call <contract> <fn> Raw contract call for debugging
 
   ${info("Other:")}
     help                 Show this help
@@ -863,7 +871,11 @@ async function handleCommand(input: string): Promise<void> {
         break;
 
       case "sbcreate":
-        await run(soothbookCommands.createmarket(ctx, args));
+        console.log(
+          warn(
+            "  sbcreate is not supported in v0.2.0 — SoothBook markets are auto-registered via OrderEngine on graduation",
+          ),
+        );
         break;
 
       // Scenario commands
@@ -955,6 +967,16 @@ async function main(): Promise<void> {
   // Initialize
   try {
     config = createConfig(nodeIdArg);
+    if (config.coreVersion !== SUPPORTED_CORE_VERSION) {
+      console.error(
+        error(
+          `\n  Unsupported node coreVersion: ${config.coreVersion}\n` +
+            `  This CLI only supports sooth-core v${SUPPORTED_CORE_VERSION}.\n` +
+            `  Run \`soothcli --list\` to find a compatible node.`,
+        ),
+      );
+      process.exit(1);
+    }
     if (rpcArg) config.rpc = rpcArg;
     actorManager = createActorManager(config.chain, config.rpc, undefined, {
       confirmations: config.confirmations,
