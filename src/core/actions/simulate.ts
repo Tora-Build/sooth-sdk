@@ -46,7 +46,7 @@ export interface SimulateResult {
     p95: number;
     min: number;
     max: number;
-    mode: 'standard' | 'realtime';
+    mode: "standard" | "realtime";
   };
 }
 
@@ -83,7 +83,9 @@ export async function runSimulate(
 
   const { marketKey, numOrders, avgSize, seed } = params;
   const useRealtime = params.realtimeMode && isMegaethChain(ctx.chainId);
-  const realtimeRpcUrl = useRealtime ? getMegaethNativeRpcUrl(ctx.chainId) : undefined;
+  const realtimeRpcUrl = useRealtime
+    ? getMegaethNativeRpcUrl(ctx.chainId)
+    : undefined;
   if (!Number.isInteger(numOrders) || numOrders <= 0) {
     throw new Error("numOrders must be a positive integer");
   }
@@ -93,7 +95,7 @@ export async function runSimulate(
 
   report({
     type: "info",
-    message: `Simulate start: orders=${numOrders} avgSize=${formatWad(avgSize)} seed=${seed}${useRealtime ? ' [realtime]' : ''}`,
+    message: `Simulate start: orders=${numOrders} avgSize=${formatWad(avgSize)} seed=${seed}${useRealtime ? " [realtime]" : ""}`,
     data: { numOrders, avgSize, seed, useRealtime },
   });
 
@@ -221,14 +223,29 @@ export async function runSimulate(
         const mergeAmount =
           balances[0] < balances[1] ? balances[0] : balances[1];
         if (mergeAmount <= 0n) {
+          // Don't waste an iteration when MERGE has nothing to merge —
+          // fall through to a buyyes (the default productive action).
+          // Otherwise N=10 runs that randomly pick MERGE early end with
+          // "Partial M/N" and the user can't tell whether the simulator
+          // hit a real failure or just unlucky RNG.
           report({
             type: "info",
-            message: `[${i + 1}/${numOrders}] MERGE skipped (no complete sets)`,
+            message: `[${i + 1}/${numOrders}] MERGE skipped (no complete sets) — falling through to BUYYES`,
           });
-          continue;
+          action = "buyyes";
+          const bestNoTick = (await publicClient.readContract({
+            address: soothBook,
+            abi: SoothBookABI,
+            functionName: "getBestTick",
+            args: [marketKey, 0],
+          })) as number;
+          likelyCross = bestNoTick > 0 && tick + bestNoTick >= 1000;
+          fnName = "buyYes";
+          fnArgs = [marketKey, tick, amount, false, 0];
+        } else {
+          fnName = "merge";
+          fnArgs = [marketKey, mergeAmount < amount ? mergeAmount : amount];
         }
-        fnName = "merge";
-        fnArgs = [marketKey, mergeAmount < amount ? mergeAmount : amount];
       }
 
       if (useRealtime && realtimeRpcUrl && walletClient.account) {
@@ -252,7 +269,14 @@ export async function runSimulate(
         report({
           type: "success",
           message: `[${i + 1}/${numOrders}] ${action.toUpperCase()} (gas: ${receipt.gasUsed}, ${prepareMs}ms prep, ${sendMs}ms realtime)`,
-          data: { i, action, gasUsed: receipt.gasUsed, likelyCross, orderMs: sendMs, prepareMs },
+          data: {
+            i,
+            action,
+            gasUsed: receipt.gasUsed,
+            likelyCross,
+            orderMs: sendMs,
+            prepareMs,
+          },
         });
       } else {
         const hash = await walletClient.writeContract({
@@ -296,7 +320,7 @@ export async function runSimulate(
     }
   }
 
-  let latency: SimulateResult['latency'];
+  let latency: SimulateResult["latency"];
   if (orderTimings.length > 0) {
     const sorted = [...orderTimings].sort((a, b) => a - b);
     const avg = sorted.reduce((a, b) => a + b, 0) / sorted.length;
@@ -306,7 +330,7 @@ export async function runSimulate(
       p95: Math.round(sorted[Math.floor(sorted.length * 0.95)]),
       min: Math.round(sorted[0]),
       max: Math.round(sorted[sorted.length - 1]),
-      mode: useRealtime ? 'realtime' : 'standard',
+      mode: useRealtime ? "realtime" : "standard",
     };
   }
 

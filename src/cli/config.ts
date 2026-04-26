@@ -150,7 +150,15 @@ function getPostTxWait(chainId: number): number {
   return 0;
 }
 
-export const SDK_VERSION = "12.1.0";
+// CLI is hardcoded against this sooth-core version's ABIs and call flow.
+// Connecting to a node with a different coreVersion produces ABI mismatches
+// (e.g. settle() arity, isMarketSettled vs isSettled). Refuse to start.
+export const SUPPORTED_CORE_VERSION = "0.2.0";
+
+// SDK version tracks the contract version it speaks. Bump both together.
+// If we ever need a patch release without a contract change, append `-N`
+// (e.g. "0.2.0-1") so the major.minor.patch still encodes contract compat.
+export const SDK_VERSION = SUPPORTED_CORE_VERSION;
 
 export interface InteractiveConfig {
   nodeId: string;

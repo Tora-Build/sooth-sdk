@@ -351,6 +351,9 @@ export async function runGraduate(
     const label = isBuy ? "BUY" : "SELL";
 
     let notLiveRetries = 0;
+    let insufficientShareRetries = 0;
+    const INSUFFICIENT_SHARES_MAX_RETRIES = 3;
+    const INSUFFICIENT_SHARES_WAIT_MS = 1500;
     while (true) {
       try {
         const hash = await ctx.walletClient.writeContract({
@@ -376,6 +379,32 @@ export async function runGraduate(
         }
         tradesExecuted++;
         consecutiveFailures = 0;
+        // After a successful BUY, the read RPC may still report stale
+        // yesShares for a brief window (Alchemy vs sooth-proxy can desync
+        // by 1-2 blocks on Base Sepolia). Poll the user's position from
+        // the SAME publicClient until it reflects the post-trade balance,
+        // then it's safe for the next SELL leg to hit AMMEngine without
+        // tripping `InsufficientYesShares()`.
+        if (isBuy && i + 1 < numTrades) {
+          const POSITION_SETTLE_TIMEOUT_MS = 6_000;
+          const POSITION_POLL_MS = 400;
+          const startTs = Date.now();
+          while (Date.now() - startTs < POSITION_SETTLE_TIMEOUT_MS) {
+            try {
+              const pos = (await ctx.publicClient.readContract({
+                address: ctx.contracts.AMMEngine,
+                abi: AMMEngineABI,
+                functionName: "getPosition",
+                args: [marketAddress, ctx.address],
+              })) as readonly [bigint, bigint];
+              const yesShares = pos[0];
+              if (yesShares >= -delta || yesShares >= delta) break;
+            } catch {
+              // ignore — proceed to wait + retry
+            }
+            await new Promise((r) => setTimeout(r, POSITION_POLL_MS));
+          }
+        }
         report({
           type: "success",
           message: `[${i + 1}/${numTrades}] ${label} ${formatWad(
@@ -412,6 +441,28 @@ export async function runGraduate(
             message: `[${i + 1}/${numTrades}] ${label} MarketNotLive — retry ${notLiveRetries}/${NOT_LIVE_MAX_RETRIES} in ${NOT_LIVE_WAIT_MS / 1000}s`,
           });
           await new Promise((r) => setTimeout(r, NOT_LIVE_WAIT_MS));
+          continue;
+        }
+        // SELL leg can race the post-BUY position credit when the wagmi
+        // wallet's RPC is different from the read RPC (Alchemy ↔ sooth
+        // proxy). The contract reverts InsufficientYesShares() because
+        // its view of `position.yesShares` is one block behind. Wait then
+        // retry the same trade.
+        const isInsufficientShares =
+          fullMsg.includes("InsufficientYesShares") ||
+          fullMsg.includes("InsufficientNoShares") ||
+          // 4-byte selector for InsufficientYesShares()
+          fullMsg.includes("0x09bde339");
+        if (
+          isInsufficientShares &&
+          insufficientShareRetries < INSUFFICIENT_SHARES_MAX_RETRIES
+        ) {
+          insufficientShareRetries++;
+          report({
+            type: "warn",
+            message: `[${i + 1}/${numTrades}] ${label} InsufficientShares — retry ${insufficientShareRetries}/${INSUFFICIENT_SHARES_MAX_RETRIES} after ${INSUFFICIENT_SHARES_WAIT_MS}ms (RPC desync)`,
+          });
+          await new Promise((r) => setTimeout(r, INSUFFICIENT_SHARES_WAIT_MS));
           continue;
         }
         report({
