@@ -108,6 +108,12 @@ export interface ComputeLaunchpadAmmQuoteInput {
   newPriceYesWad: bigint;
   feeBps: bigint;
   currentYesPrice?: number;
+  /**
+   * Optional fee returned by AMMEngine.getPositionQuote (2nd return value).
+   * When provided, this is used verbatim — it's authoritative and removes
+   * the need to guess feeBps. Without it, fee is recomputed from feeBps.
+   */
+  contractFee?: bigint;
 }
 
 export interface ReadLaunchpadAmmQuoteOptions {
@@ -237,7 +243,10 @@ export function computeLaunchpadAmmQuote(
   input: ComputeLaunchpadAmmQuoteInput,
 ): LaunchpadAmmQuote {
   const deltaShares = input.action === "buy" ? input.shares : -input.shares;
-  const fee = (input.rawQuote * input.feeBps) / BPS_DENOMINATOR;
+  // Prefer the contract-reported fee when caller supplies it (matches the
+  // exact value tradePositions will charge). Fall back to feeBps math.
+  const fee =
+    input.contractFee ?? (input.rawQuote * input.feeBps) / BPS_DENOMINATOR;
   const proceeds = input.rawQuote > fee ? input.rawQuote - fee : 0n;
   const total = input.action === "buy" ? input.rawQuote + fee : proceeds;
 
@@ -458,7 +467,14 @@ export async function readLaunchpadAmmQuote(
 
   const deltaShares =
     options.action === "buy" ? options.shares : -options.shares;
-  const [rawQuote, , , newPriceYesWad] = (await client.readContract({
+  // getPositionQuote returns (cost, fee, netAmount, newPrice). The
+  // contract-reported `fee` is authoritative — it's exactly what
+  // tradePositions will charge. Earlier code discarded it and
+  // recomputed fee from a guessed feeBps default; if the deployed
+  // FeeRouter's actual rate differs, the preview's `total` ends up
+  // below the contract's required maxCost and the trade reverts with
+  // "slippage exceeded" even on near-zero-impact trades.
+  const [rawQuote, contractFee, , newPriceYesWad] = (await client.readContract({
     address: contracts.ammEngine,
     abi: AMMEngineABI,
     functionName: "getPositionQuote",
@@ -498,6 +514,7 @@ export async function readLaunchpadAmmQuote(
     newPriceYesWad,
     feeBps,
     currentYesPrice: options.currentYesPrice,
+    contractFee,
   });
 }
 

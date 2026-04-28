@@ -104,7 +104,19 @@ export interface BuildSoothBookBuyRequestInput {
   tick: number;
   amount: bigint;
   escrow?: boolean;
-  maxCost: bigint;
+  /**
+   * Slippage guard — accepted for back-compat but no longer encoded into
+   * the calldata. The deployed v0.2.0 SoothBook ABI's 5th arg is
+   * `uint32 matchLimit`, not maxCost. Callers wanting cost protection
+   * should rely on the per-fill tick clamp (the order won't pay above
+   * its tick) plus `matchLimit`.
+   */
+  maxCost?: bigint;
+  /**
+   * Maximum number of resting orders to consume per call. Defaults to
+   * 100, matching the apps/market hook. Must fit in uint32.
+   */
+  matchLimit?: number;
 }
 
 export interface BuildSoothBookSellRequestInput {
@@ -112,7 +124,10 @@ export interface BuildSoothBookSellRequestInput {
   outcome: BinaryOutcome;
   tick: number;
   amount: bigint;
+  /** Back-compat slippage hint; not encoded — see BuildSoothBookBuyRequestInput.maxCost. */
   maxCost?: bigint;
+  /** Default 100; uint32 cap on per-call matches. */
+  matchLimit?: number;
 }
 
 export interface BuildSoothBookCancelRequestInput {
@@ -931,6 +946,10 @@ export function buildSoothBookBuyRequest(
 
   const marketKey = computeSoothMarketKey(input.marketAddress);
   const tick = normalizeTick(input.tick);
+  // 5th arg is uint32 matchLimit on v0.2.0 SoothBook (NOT maxCost). The
+  // earlier shape passed input.maxCost here, which encoded a 1e16-scale
+  // bigint into a uint32 slot and reverted at viem's range check.
+  const matchLimit = BigInt(input.matchLimit ?? 100);
   return {
     marketKey,
     functionName: input.outcome === OUTCOME.YES ? "buyYes" : "buyNo",
@@ -939,7 +958,7 @@ export function buildSoothBookBuyRequest(
       tick,
       input.amount,
       input.escrow ?? false,
-      input.maxCost,
+      matchLimit,
     ] as const,
   };
 }
@@ -986,10 +1005,12 @@ export function buildSoothBookSellRequest(
   const oppositeFunction = input.outcome === OUTCOME.YES ? "buyNo" : "buyYes";
 
   // Sell path in SoothBook is modeled as escrow buy on opposite side.
+  // 5th arg is uint32 matchLimit (not maxCost) — same fix as the buy path.
+  const matchLimit = BigInt(input.matchLimit ?? 100);
   return {
     marketKey,
     functionName: oppositeFunction,
-    args: [marketKey, tick, input.amount, true, input.maxCost ?? 0n] as const,
+    args: [marketKey, tick, input.amount, true, matchLimit] as const,
   };
 }
 
