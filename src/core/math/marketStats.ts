@@ -31,8 +31,8 @@ export interface MarketStatsInput {
   qNo: bigint;
   /** Locked proceeds in AMMEngine (token units) */
   lockedProceeds?: bigint;
-  /** BaseToken decimals from on-chain `decimals()`. Required — no default. */
-  usdcDecimals: number;
+  /** BaseToken decimals. Optional for legacy compat; pass on-chain `decimals()` for correctness. */
+  usdcDecimals?: number;
 }
 
 export interface MarketStats {
@@ -85,7 +85,7 @@ export function calculateMarketStatsCost(qYes: bigint, qNo: bigint, b: bigint): 
  * Pure function — no React dependencies.
  */
 export function computeMarketStats(input: MarketStatsInput): MarketStats {
-  const usdcDecimals = input.usdcDecimals;
+  const usdcDecimals = input.usdcDecimals ?? 18;
   const usdcFactor = BigInt(10 ** usdcDecimals);
   const wad = 1_000_000_000_000_000_000n;
 
