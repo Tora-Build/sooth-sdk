@@ -275,7 +275,7 @@ SoothBook sell/cancel/mint/merge/redeem:
 const sell = buildSoothBookSellRequest({
   marketAddress,
   outcome: 1, // selling YES
-  tick: 460, // opposite-side tick
+  tick: 540, // YES-side desired price; SDK inverts to NO-buy at 1000−540
   amount: shares,
 });
 

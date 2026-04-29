@@ -122,6 +122,13 @@ export interface BuildSoothBookBuyRequestInput {
 export interface BuildSoothBookSellRequestInput {
   marketAddress: Address;
   outcome: BinaryOutcome;
+  /**
+   * SAME-SIDE desired price in thousandths (1..999) — the price the
+   * caller wants to receive for `outcome` shares. The SDK inverts to
+   * place an opposite-side escrow buy at `1000 − tick`, since SoothBook
+   * crossing is `YES_tick + NO_tick ≥ 1000`. Pre-RR1 the tick was
+   * passed through unchanged, posting on the wrong price level.
+   */
   tick: number;
   amount: bigint;
   /** Back-compat slippage hint; not encoded — see BuildSoothBookBuyRequestInput.maxCost. */
@@ -1000,8 +1007,18 @@ export function buildSoothBookSellRequest(
     );
   }
 
+  // SoothBook crossing rule (.claude/rules/lessons.md):
+  //   YES tick T  = buyer pays T/1000 for YES
+  //   NO  tick T  = buyer pays T/1000 for NO  = seller accepts (1000-T)/1000 for YES
+  //   Crossing:  YES_tick + NO_tick >= 1000
+  // So "sell YES at tick T" must rest on the NO side at tick (1000 - T)
+  // (and symmetrically sell NO at tick T → YES side at 1000 - T). Codex
+  // re-review #RR1: previously the tick was passed through unchanged,
+  // putting the sell on the wrong side of the book — inverted price,
+  // immediate self-cross or wrong fill.
   const marketKey = computeSoothMarketKey(input.marketAddress);
-  const tick = normalizeTick(input.tick);
+  const requestedTick = normalizeTick(input.tick);
+  const oppositeTick = normalizeTick(1000 - requestedTick);
   const oppositeFunction = input.outcome === OUTCOME.YES ? "buyNo" : "buyYes";
 
   // Sell path in SoothBook is modeled as escrow buy on opposite side.
@@ -1010,7 +1027,7 @@ export function buildSoothBookSellRequest(
   return {
     marketKey,
     functionName: oppositeFunction,
-    args: [marketKey, tick, input.amount, true, matchLimit] as const,
+    args: [marketKey, oppositeTick, input.amount, true, matchLimit] as const,
   };
 }
 
