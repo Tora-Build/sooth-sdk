@@ -31,7 +31,7 @@ export interface MarketStatsInput {
   qNo: bigint;
   /** Locked proceeds in AMMEngine (token units) */
   lockedProceeds?: bigint;
-  /** Token decimals (default 18) */
+  /** BaseToken decimals. Optional for legacy compat; pass on-chain `decimals()` for correctness. */
   usdcDecimals?: number;
 }
 
