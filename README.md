@@ -1,3 +1,47 @@
+# sooth-sdk
+
+TypeScript SDK and `soothcli` REPL for the Sooth Protocol. Extracted from `Tora-Build/sooth-alpha` on 2026-04-30 (full git history preserved). Pairs with `Tora-Build/sooth-core` (Solidity contracts).
+
+This repo:
+
+- Ships `@sooth/sdk` (npm) — programmatic access to LaunchpadEngine, AMMEngine, SoothBook, OrderEngine, TruthMarket, FeeRouter.
+- Ships `soothcli` — interactive REPL for Sooth nodes (`soothcli <nodeId>`, `soothcli --list`).
+- Versioning is locked to the contract version it speaks. v0.2.0 of this SDK targets sooth-core v0.2.0; the CLI rejects nodes whose `coreVersion` doesn't match (see `src/cli/config.ts:SUPPORTED_CORE_VERSION` and ADR-094 in sooth-alpha's `DECISIONS.md`).
+- Migration playbook: `.claude/skills/cli-migration/` (covers ABI drift, parseAbi audits, per-chain RPC config, multi-chain test sweeps).
+
+## Consumed by
+
+- `Tora-Build/sooth-alpha` — apps/demo, apps/telegram, packages/indexer. Vendored back as a git submodule at `packages/sdk` (preserves all `@sooth/sdk` import paths byte-for-byte).
+- Anyone integrating Sooth markets via `npm install @sooth/sdk`.
+
+## Registry data
+
+The SDK reads registry node/chain metadata via `src/registry-loader.ts`. Order of preference:
+
+1. Injected manifest (`setManifest()` / `setManifestProvider()`) — sooth-alpha contributors wire this with the live `packages/registry/nodes.json` for instant feedback.
+2. HTTP fetch from `registry.sooth.market` (2 s timeout) — the freshness path, picks up newly registered nodes between SDK releases.
+3. Embedded snapshot at `data/nodes.snapshot.json` — last-known-good, ships with each release. Drives offline boot and CI.
+
+The embedded snapshot is the source of truth for SDK builds; sooth-alpha enforces freshness via a CI guard that fails if `packages/registry/nodes.json` and the SDK's snapshot diverge.
+
+## Develop locally
+
+```bash
+pnpm install
+pnpm build           # tsc + chmod the bin
+pnpm dev             # tsc --watch
+bun src/cli/interactive.ts --list
+bun src/cli/interactive.ts c30c6b15
+```
+
+## Local dev inside sooth-alpha
+
+When developing in the parent monorepo, `packages/sdk/` is a submodule pointing at this repo. Edit normally, commit, push to this repo's `main`, then bump the submodule pointer in sooth-alpha (`git -C packages/sdk pull --ff-only` from the sooth-alpha working copy).
+
+The sooth-alpha CLI launcher injects `packages/registry/nodes.json` via `setManifestProvider()` so registry edits don't require re-vendoring `data/nodes.snapshot.json` for local dev.
+
+---
+
 # Sooth SDK Core Unified Layer
 
 Single canonical protocol interaction layer for Launchpad + AMM + SoothBook + settlement flows.
