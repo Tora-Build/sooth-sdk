@@ -25,7 +25,7 @@ export interface SdkMarket {
  */
 export async function getMarketAddresses(
   client: PublicClient,
-  launchpadEngine: Address
+  launchpadEngine: Address,
 ): Promise<Address[]> {
   const result = await client.readContract({
     address: launchpadEngine,
@@ -41,27 +41,45 @@ export async function getMarketAddresses(
 export async function getMarketDetails(
   client: PublicClient,
   launchpadEngine: Address,
-  marketAddress: Address
+  marketAddress: Address,
 ): Promise<SdkMarket | null> {
   try {
-    const marketsMapping = await client.readContract({
+    const marketsMapping = (await client.readContract({
       address: launchpadEngine,
       abi: LaunchpadEngineABI,
       functionName: 'markets',
       args: [marketAddress],
-    }) as readonly [Address, Address, bigint, bigint, bigint];
+    })) as readonly [Address, Address, bigint, bigint, bigint];
 
     const [creator, lpToken, bBase, creatorDeposit] = marketsMapping;
 
     const [qHash, isSettled, isGraduated, winOutcome] = await Promise.all([
-      client.readContract({ address: marketAddress, abi: TruthMarketABI, functionName: 'questionHash' }).catch(() => null),
-      client.readContract({ address: marketAddress, abi: TruthMarketABI, functionName: 'isSettled' }).catch(() => false),
-      client.readContract({ address: launchpadEngine, abi: LaunchpadEngineABI, functionName: 'isGraduated', args: [marketAddress] }).catch(() => false),
-      client.readContract({ address: marketAddress, abi: TruthMarketABI, functionName: 'winningOutcome' }).catch(() => null),
+      client
+        .readContract({ address: marketAddress, abi: TruthMarketABI, functionName: 'questionHash' })
+        .catch(() => null),
+      client
+        .readContract({ address: marketAddress, abi: TruthMarketABI, functionName: 'isSettled' })
+        .catch(() => false),
+      client
+        .readContract({
+          address: launchpadEngine,
+          abi: LaunchpadEngineABI,
+          functionName: 'isGraduated',
+          args: [marketAddress],
+        })
+        .catch(() => false),
+      client
+        .readContract({
+          address: marketAddress,
+          abi: TruthMarketABI,
+          functionName: 'winningOutcome',
+        })
+        .catch(() => null),
     ]);
 
     const question = qHash ? (qHash as string).slice(0, 18) + '...' : shortAddress(marketAddress);
-    const winningOutcome = (isSettled as boolean) && winOutcome !== null ? Number(winOutcome) : null;
+    const winningOutcome =
+      (isSettled as boolean) && winOutcome !== null ? Number(winOutcome) : null;
 
     let stage: SdkMarket['stage'];
     if (isSettled as boolean) stage = 'settled';
@@ -94,11 +112,11 @@ export async function getMarketDetails(
  */
 export async function getAllMarkets(
   client: PublicClient,
-  launchpadEngine: Address
+  launchpadEngine: Address,
 ): Promise<SdkMarket[]> {
   const addresses = await getMarketAddresses(client, launchpadEngine);
   const results = await Promise.all(
-    addresses.map(addr => getMarketDetails(client, launchpadEngine, addr))
+    addresses.map((addr) => getMarketDetails(client, launchpadEngine, addr)),
   );
   return results.filter((m): m is SdkMarket => m !== null);
 }

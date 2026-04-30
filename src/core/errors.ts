@@ -86,8 +86,7 @@ export function decodeErrorHex(hex: string): string {
       const stringData = data.slice(128, 128 + stringLength * 2);
       const decoded = hexToString(stringData);
       return `Error: "${decoded}"`;
-    } catch {
-    }
+    } catch {}
   }
 
   return `Unknown error [${selector}]: 0x${data.slice(0, 40)}${data.length > 40 ? '...' : ''}`;
@@ -105,9 +104,10 @@ export function decodeError(errorData: string | Error): string {
       }
     }
 
-    const revertMatch = msg.match(/reverted with.*?["']([^"']+)["']/i)
-      || msg.match(/reason:\s*([^\n]+)/i)
-      || msg.match(/Error:\s*([^\n]+)/i);
+    const revertMatch =
+      msg.match(/reverted with.*?["']([^"']+)["']/i) ||
+      msg.match(/reason:\s*([^\n]+)/i) ||
+      msg.match(/Error:\s*([^\n]+)/i);
     if (revertMatch) {
       return revertMatch[1].slice(0, 100);
     }
@@ -128,7 +128,8 @@ export function isUnknownSelectorError(error: Error): boolean {
 
 export function isTransientError(error: Error): boolean {
   const msg = error.message.toLowerCase();
-  return msg.includes('timeout') ||
+  return (
+    msg.includes('timeout') ||
     msg.includes('network') ||
     msg.includes('nonce') ||
     msg.includes('already known') ||
@@ -139,17 +140,20 @@ export function isTransientError(error: Error): boolean {
     msg.includes('rate limit') ||
     msg.includes('429') ||
     msg.includes('returned no data ("0x")') ||
-    isUnknownSelectorError(error);
+    isUnknownSelectorError(error)
+  );
 }
 
 export function isContractError(error: Error): boolean {
   const msg = error.message.toLowerCase();
-  return msg.includes('revert') ||
+  return (
+    msg.includes('revert') ||
     msg.includes('overflow') ||
     msg.includes('underflow') ||
     msg.includes('insufficient') ||
     msg.includes('panic') ||
-    msg.includes('execution reverted');
+    msg.includes('execution reverted')
+  );
 }
 
 export function isNoDataError(error: Error): boolean {

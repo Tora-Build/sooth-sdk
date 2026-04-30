@@ -85,7 +85,10 @@ const AmmAbi = [
     name: 'getBalances',
     type: 'function',
     inputs: [{ type: 'address', name: 'user' }],
-    outputs: [{ type: 'uint256', name: 'available' }, { type: 'uint256', name: 'locked' }],
+    outputs: [
+      { type: 'uint256', name: 'available' },
+      { type: 'uint256', name: 'locked' },
+    ],
     stateMutability: 'view',
   },
 ] as const;
@@ -146,10 +149,7 @@ export class Markets {
   }
 
   /** Get AMM position for a user */
-  async getPosition(
-    market: `0x${string}`,
-    user: `0x${string}`,
-  ): Promise<Position> {
+  async getPosition(market: `0x${string}`, user: `0x${string}`): Promise<Position> {
     const result = (await this.client.publicClient.readContract({
       address: this.client.contracts.ammEngine,
       abi: AmmAbi,
@@ -160,10 +160,7 @@ export class Markets {
   }
 
   /** Buy or sell shares. outcome: 'yes'=1, 'no'=0. Positive deltaShares = buy, negative = sell. */
-  async trade(
-    market: `0x${string}`,
-    params: TradeParams,
-  ): Promise<`0x${string}`> {
+  async trade(market: `0x${string}`, params: TradeParams): Promise<`0x${string}`> {
     const outcome = params.outcome === 'yes' ? 1 : 0;
     const shares = parseUnits(params.shares, 18);
     const maxCost = parseUnits(params.maxCost, 18);

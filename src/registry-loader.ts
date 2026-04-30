@@ -19,13 +19,13 @@
  * sooth-sdk submodule and bump the submodule pointer in sooth-alpha.
  */
 
-import { defineChain, type Chain } from "viem";
-import type { ChainMeta, NodesManifest, SoothNode } from "./registry-types";
+import { defineChain, type Chain } from 'viem';
+import type { ChainMeta, NodesManifest, SoothNode } from './registry-types';
 // Embedded snapshot — shipped with every SDK release as the offline fallback.
 // Must be re-vendored whenever packages/registry/nodes.json changes (CI guard).
-import embeddedSnapshot from "../data/nodes.snapshot.json" with { type: "json" };
+import embeddedSnapshot from '../data/nodes.snapshot.json' with { type: 'json' };
 
-const DEFAULT_REGISTRY_URL = "https://registry.sooth.market";
+const DEFAULT_REGISTRY_URL = 'https://registry.sooth.market';
 const HTTP_TIMEOUT_MS = 2_000;
 
 type ManifestProvider = () => NodesManifest | Promise<NodesManifest>;
@@ -69,9 +69,7 @@ export async function loadManifest(opts?: {
   }
 
   if (!opts?.offline) {
-    const fresh = await fetchManifestWithTimeout(
-      opts?.registryUrl ?? DEFAULT_REGISTRY_URL,
-    );
+    const fresh = await fetchManifestWithTimeout(opts?.registryUrl ?? DEFAULT_REGISTRY_URL);
     if (fresh) {
       cachedManifest = fresh;
       return cachedManifest;
@@ -85,14 +83,10 @@ export async function loadManifest(opts?: {
 /** Kick off a non-blocking HTTP refresh in the background. The next call to
  *  loadManifest()/sync helpers picks up the fresh data. Safe to call from
  *  CLI startup so users get up-to-date nodes without a startup delay. */
-export function refreshManifestInBackground(opts?: {
-  registryUrl?: string;
-}): Promise<void> {
+export function refreshManifestInBackground(opts?: { registryUrl?: string }): Promise<void> {
   if (httpRefreshPromise) return httpRefreshPromise;
   httpRefreshPromise = (async () => {
-    const fresh = await fetchManifestWithTimeout(
-      opts?.registryUrl ?? DEFAULT_REGISTRY_URL,
-    );
+    const fresh = await fetchManifestWithTimeout(opts?.registryUrl ?? DEFAULT_REGISTRY_URL);
     if (fresh) cachedManifest = fresh;
   })().finally(() => {
     httpRefreshPromise = null;
@@ -100,9 +94,7 @@ export function refreshManifestInBackground(opts?: {
   return httpRefreshPromise;
 }
 
-async function fetchManifestWithTimeout(
-  registryUrl: string,
-): Promise<NodesManifest | null> {
+async function fetchManifestWithTimeout(registryUrl: string): Promise<NodesManifest | null> {
   try {
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), HTTP_TIMEOUT_MS);
@@ -125,8 +117,8 @@ async function fetchManifestWithTimeout(
 function requireManifest(): NodesManifest {
   if (!cachedManifest) {
     throw new Error(
-      "Registry manifest not loaded. Call `await loadManifest()` (or " +
-        "`setManifest(...)`) before using sync registry accessors.",
+      'Registry manifest not loaded. Call `await loadManifest()` (or ' +
+        '`setManifest(...)`) before using sync registry accessors.',
     );
   }
   return cachedManifest;
