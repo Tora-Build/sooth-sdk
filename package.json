@@ -1,6 +1,6 @@
 {
   "name": "@sooth/sdk",
-  "version": "0.2.1",
+  "version": "0.2.0",
   "description": "Sooth Protocol SDK — programmatic access, core utilities, and CLI for prediction markets",
   "type": "module",
   "main": "./dist/index.js",
@@ -57,15 +57,32 @@
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "interactive": "bun run src/cli/interactive.ts",
-    "test": "vitest run"
+    "lint": "eslint 'src/**/*.ts'",
+    "lint:check": "eslint 'src/**/*.ts'",
+    "fmt": "prettier --write 'src/**/*.ts'",
+    "fmt:check": "prettier --check 'src/**/*.ts'",
+    "typecheck": "tsc --noEmit",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.ts": [
+      "eslint",
+      "prettier --check"
+    ]
   },
   "dependencies": {
     "viem": "^2.21.0",
     "yaml": "^2.3.4"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.5.3",
+    "@commitlint/config-conventional": "^20.5.3",
     "@types/node": "^20.0.0",
+    "eslint": "^10.2.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.3",
     "typescript": "^5.0.0",
-    "vitest": "^1.6.0"
+    "typescript-eslint": "^8.59.1"
   }
 }
