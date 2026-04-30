@@ -32,12 +32,13 @@ import { runAllInvariants, printInvariantResults } from "./assertions";
 
 // Parse CLI arguments
 const args = process.argv.slice(2);
+const offlineRegistry = args.includes("--offline-registry");
 
 // --list: show available nodes and exit
 if (args.includes("--list")) {
   const { loadManifest, getAllNodes, getChain } =
     await import("../registry-loader");
-  await loadManifest();
+  await loadManifest({ offline: offlineRegistry });
   const nodes = getAllNodes();
   console.log(`\n  ${bold("Available Sooth Nodes")}`);
   console.log(
@@ -60,8 +61,8 @@ if (args.includes("--list")) {
 const positionalArg = args.find((a) => !a.startsWith("--"));
 if (!positionalArg) {
   console.log(`\n  ${bold(`soothcli v${SDK_VERSION}`)}`);
-  console.log(`\n  Usage: soothcli <nodeId> [--rpc=<url>] [--market=<addr>]`);
-  console.log(`         soothcli --list\n`);
+  console.log(`\n  Usage: soothcli <nodeId> [--rpc=<url>] [--market=<addr>] [--offline-registry]`);
+  console.log(`         soothcli --list [--offline-registry]\n`);
   process.exit(0);
 }
 
@@ -971,7 +972,7 @@ async function main(): Promise<void> {
     // Load registry manifest before any sync registry accessors run.
     // Tries HTTP first (with short timeout), falls back to embedded snapshot.
     const { loadManifest } = await import("../registry-loader");
-    await loadManifest();
+    await loadManifest({ offline: offlineRegistry });
     config = createConfig(nodeIdArg);
     if (config.coreVersion !== SUPPORTED_CORE_VERSION) {
       console.error(

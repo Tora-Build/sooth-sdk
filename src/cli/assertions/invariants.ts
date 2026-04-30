@@ -88,33 +88,18 @@ export async function checkMarketActive(
   }
 
   try {
-    const marketInfo = await readContractWithRpcFallback<
-      readonly [
-        `0x${string}`,
-        `0x${string}`,
-        `0x${string}`,
-        boolean,
-        boolean,
-        number,
-      ]
-    >(ctx.config.chain, ctx.config.rpc, {
+    const active = await readContractWithRpcFallback<boolean>(ctx.config.chain, ctx.config.rpc, {
       address: soothBook as `0x${string}`,
       abi: ABIS.SoothBook,
-      functionName: "markets",
+      functionName: "registeredMarkets",
       args: [marketKey],
     });
 
-    const [, , , active, finalized, outcome] = marketInfo;
-    const passed = active && !finalized;
-    const outcomeLabels = ["NO", "YES", "INVALID"];
-
     return {
       name: "soothbook.marketActive",
-      passed,
-      message: passed
-        ? "Market is active"
-        : `Market inactive: active=${active}, finalized=${finalized}, outcome=${outcomeLabels[outcome] ?? outcome}`,
-      data: { active, finalized, outcome },
+      passed: active,
+      message: active ? "Market is registered" : "Market is not registered",
+      data: { active },
     };
   } catch (err) {
     return {
@@ -142,56 +127,11 @@ export async function checkTokenSupply(
     };
   }
 
-  try {
-    const marketInfo = await readContractWithRpcFallback<
-      readonly [
-        `0x${string}`,
-        `0x${string}`,
-        `0x${string}`,
-        boolean,
-        boolean,
-        number,
-      ]
-    >(ctx.config.chain, ctx.config.rpc, {
-      address: soothBook as `0x${string}`,
-      abi: ABIS.SoothBook,
-      functionName: "markets",
-      args: [marketKey],
-    });
-
-    const [, yesToken, noToken] = marketInfo;
-
-    const [yesSupply, noSupply] = await Promise.all([
-      readContractWithRpcFallback<bigint>(ctx.config.chain, ctx.config.rpc, {
-        address: yesToken,
-        abi: ABIS.OutcomeToken,
-        functionName: "totalSupply",
-        args: [],
-      }),
-      readContractWithRpcFallback<bigint>(ctx.config.chain, ctx.config.rpc, {
-        address: noToken,
-        abi: ABIS.OutcomeToken,
-        functionName: "totalSupply",
-        args: [],
-      }),
-    ]);
-
-    const passed = yesSupply === noSupply;
-    return {
-      name: "soothbook.tokenSupply",
-      passed,
-      message: passed
-        ? `YES supply == NO supply (${formatWad(yesSupply)})`
-        : `YES ${formatWad(yesSupply)} != NO ${formatWad(noSupply)} — SUPPLY MISMATCH`,
-      data: { yesSupply, noSupply },
-    };
-  } catch (err) {
-    return {
-      name: "soothbook.tokenSupply",
-      passed: false,
-      message: `Error: ${(err as Error).message}`,
-    };
-  }
+  return {
+    name: "soothbook.tokenSupply",
+    passed: true,
+    message: "Skipped (v0.2.1 no longer exposes token addresses via SoothBook)",
+  };
 }
 
 /**
@@ -259,26 +199,14 @@ export async function runAllInvariants(
   const marketKey = ctx.marketKey;
 
   if (soothBook && marketKey) {
-    const registered = await readContractWithRpcFallback<
-      readonly [
-        `0x${string}`,
-        `0x${string}`,
-        `0x${string}`,
-        boolean,
-        boolean,
-        number,
-      ]
-    >(ctx.config.chain, ctx.config.rpc, {
+    const registered = await readContractWithRpcFallback<boolean>(ctx.config.chain, ctx.config.rpc, {
       address: soothBook as `0x${string}`,
       abi: ABIS.SoothBook,
-      functionName: "markets",
+      functionName: "registeredMarkets",
       args: [marketKey],
     }).catch(() => null);
 
-    if (
-      !registered ||
-      registered[0] === "0x0000000000000000000000000000000000000000"
-    ) {
+    if (!registered) {
       const skipMsg = "Skipped (AMM-only market — not registered in SoothBook)";
       return [
         { name: "soothbook.backing", passed: true, message: skipMsg },

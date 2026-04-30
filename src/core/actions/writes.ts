@@ -825,21 +825,10 @@ export async function runSoothBookCancel(
 }
 
 export async function runSoothBookRedeem(
-  ctx: ActionContext,
-  params: { marketKey: `0x${string}` },
+  _ctx: ActionContext,
+  _params: { marketKey: `0x${string}` },
   report: ActionReporter = noopReporter,
 ): Promise<`0x${string}`> {
-  const account = requireWallet(ctx);
-  const soothBook = requireSoothBook(ctx);
-  report({ type: "info", message: "sb.redeem" });
-  const hash = await ctx.walletClient.writeContract({
-    address: soothBook,
-    abi: SoothBookABI,
-    functionName: "redeem",
-    args: [params.marketKey],
-    account,
-    chain: null,
-  });
-  await ctx.publicClient.waitForTransactionReceipt({ hash });
-  return hash;
+  report({ type: "warn", message: "sb.redeem removed in sooth-core v0.2.1" });
+  throw new Error("SoothBook.redeem was removed in sooth-core v0.2.1");
 }

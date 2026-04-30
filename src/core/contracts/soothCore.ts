@@ -157,10 +157,6 @@ export interface BuildSoothBookMergeRequestInput {
   amount: bigint;
 }
 
-export interface BuildSoothBookRedeemRequestInput {
-  marketAddress: Address;
-}
-
 export interface ComputeSoothBookMaxCostInput {
   tick: number;
   amount: bigint;
@@ -211,7 +207,6 @@ export interface SoothQuote {
 
 export type ClaimRoute =
   | "dismissed_refund"
-  | "soothbook_redeem"
   | "collateral_redeem"
   | "amm_settle";
 
@@ -221,12 +216,6 @@ export type ClaimTxRequest =
       contract: Address;
       functionName: "claimRefund";
       args: readonly [Address];
-    }
-  | {
-      route: "soothbook_redeem";
-      contract: Address;
-      functionName: "redeem";
-      args: readonly [`0x${string}`];
     }
   | {
       route: "collateral_redeem";
@@ -358,9 +347,6 @@ export interface SoothCoreClient {
   buildSoothBookMerge: (
     input: BuildSoothBookMergeRequestInput,
   ) => ReturnType<typeof buildSoothBookMergeRequest>;
-  buildSoothBookRedeem: (
-    input: BuildSoothBookRedeemRequestInput,
-  ) => ReturnType<typeof buildSoothBookRedeemRequest>;
   buildClaim: (snapshot: SoothCoreSnapshot) => ClaimRequestPlan | null;
   preflightTrade: (
     snapshot: SoothCoreSnapshot,
@@ -404,8 +390,7 @@ export type SoothBookWriteRequest =
   | ReturnType<typeof buildSoothBookCancelRequest>
   | ReturnType<typeof buildSoothBookCancelByIdRequest>
   | ReturnType<typeof buildSoothBookMintRequest>
-  | ReturnType<typeof buildSoothBookMergeRequest>
-  | ReturnType<typeof buildSoothBookRedeemRequest>;
+  | ReturnType<typeof buildSoothBookMergeRequest>;
 
 export type CreateSoothCoreClientConfig =
   | {
@@ -420,11 +405,6 @@ export type CreateSoothCoreClientConfig =
       publicClient?: PublicClient;
       contracts?: SoothCoreContracts;
     };
-
-// Deployed v0.1.2 SoothBook.markets(bytes32) returns only the 3 state flags;
-// collateral/YES/NO token addresses live on the deployment manifest and on
-// the market contract itself, NOT in this tuple.
-type SoothBookMarketTuple = readonly [boolean, boolean, number];
 
 function clampProbability(value: number): number {
   if (!Number.isFinite(value)) return 0.5;
@@ -648,14 +628,9 @@ export async function readSoothBookMarketSnapshot(
   userAddress?: Address,
 ): Promise<SoothBookMarketSnapshot | null> {
   const marketKey = computeSoothMarketKey(marketAddress);
-  const emptyMarket: SoothBookMarketTuple = [
-    false,
-    false,
-    Number(OUTCOME.INVALID),
-  ];
 
   const [
-    marketTuple,
+    isRegistered,
     impliedPrice,
     bestYesTickRaw,
     bestNoTickRaw,
@@ -668,17 +643,17 @@ export async function readSoothBookMarketSnapshot(
         client.readContract({
           address: soothBook,
           abi: SoothBookABI,
-          functionName: "markets",
+          functionName: "registeredMarkets",
           args: [marketKey],
-        }) as Promise<SoothBookMarketTuple>,
-      emptyMarket,
+        }) as Promise<boolean>,
+      false,
     ),
     readWithFallback(
       () =>
         client.readContract({
           address: soothBook,
           abi: SoothBookABI,
-          functionName: "getImpliedPrice",
+          functionName: "getImpliedPriceByKey",
           args: [marketKey],
         }) as Promise<readonly [bigint, bigint]>,
       [WAD / 2n, WAD / 2n] as const,
@@ -736,13 +711,7 @@ export async function readSoothBookMarketSnapshot(
       : Promise.resolve([0n, 0n] as const),
   ]);
 
-  const [isActive, isFinalized, outcome] = marketTuple;
-  // Deployed SoothBook.markets() no longer returns collateral/YES/NO token
-  // addresses. Treat "registered" as "has non-zero backing OR any state flag
-  // set". Token addresses would need a separate read against the market
-  // itself if a caller needs them.
-  const exists = backing > 0n || isActive || isFinalized;
-  if (!exists) {
+  if (!isRegistered) {
     return null;
   }
   const collateral = ZERO_ADDRESS;
@@ -756,13 +725,13 @@ export async function readSoothBookMarketSnapshot(
 
   return {
     marketKey,
-    exists,
+    exists: true,
     collateral,
     yesToken,
     noToken,
-    isActive,
-    isFinalized,
-    outcome: Number(outcome),
+    isActive: isRegistered,
+    isFinalized: false,
+    outcome: Number(OUTCOME.INVALID),
     backing,
     yesPriceWad,
     noPriceWad,
@@ -1088,21 +1057,6 @@ export function buildSoothBookMergeRequest(
   };
 }
 
-export function buildSoothBookRedeemRequest(
-  input: BuildSoothBookRedeemRequestInput,
-): {
-  marketKey: `0x${string}`;
-  functionName: "redeem";
-  args: readonly [`0x${string}`];
-} {
-  const marketKey = computeSoothMarketKey(input.marketAddress);
-  return {
-    marketKey,
-    functionName: "redeem",
-    args: [marketKey] as const,
-  };
-}
-
 export function buildTradeRequest(
   input: BuildTradeRequestInput,
 ): SoothTradeRequest {
@@ -1183,23 +1137,6 @@ export function buildClaimRequest(
 
   if (!snapshot.truth.isSettled && !snapshot.truth.isFinalized) {
     return null;
-  }
-
-  const soothBookYes = snapshot.soothBook?.userYesBalance ?? 0n;
-  const soothBookNo = snapshot.soothBook?.userNoBalance ?? 0n;
-  const hasSoothBookPosition = soothBookYes > 0n || soothBookNo > 0n;
-  if (snapshot.soothBook?.isFinalized && hasSoothBookPosition) {
-    return {
-      route: "soothbook_redeem",
-      requests: [
-        {
-          route: "soothbook_redeem",
-          contract: assertAddress("soothBook", contracts.soothBook),
-          functionName: "redeem",
-          args: [snapshot.marketKey] as const,
-        },
-      ] as const,
-    };
   }
 
   if (snapshot.launchpadAmm.launchpad.isGraduated) {
@@ -1522,7 +1459,6 @@ export function createSoothCoreClient(
     buildSoothBookCancelById: buildSoothBookCancelByIdRequest,
     buildSoothBookMint: buildSoothBookMintRequest,
     buildSoothBookMerge: buildSoothBookMergeRequest,
-    buildSoothBookRedeem: buildSoothBookRedeemRequest,
     buildClaim: (snapshot: SoothCoreSnapshot) =>
       buildClaimRequest(snapshot, requireRpc().contracts),
     preflightTrade,
