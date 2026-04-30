@@ -1,6 +1,6 @@
 {
   "name": "@sooth/sdk",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Sooth Protocol SDK — programmatic access, core utilities, and CLI for prediction markets",
   "type": "module",
   "main": "./dist/index.js",
@@ -56,7 +56,8 @@
     "build": "tsc && chmod +x bin/soothcli.js",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
-    "interactive": "bun run src/cli/interactive.ts"
+    "interactive": "bun run src/cli/interactive.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "viem": "^2.21.0",
@@ -64,6 +65,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^1.6.0"
   }
 }

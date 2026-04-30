@@ -23,6 +23,7 @@ const CHAIN_SCAN_CHUNKS: Record<number, bigint> = {
   37111: 10_000n, // Lens: conservative
   998: 9_000n, // HyperEVM Testnet: 10k cap
   6343: 9_000n, // MegaETH Testnet: 10k cap
+  11155111: 9_000n, // Eth Sepolia: conservative 10k cap
 };
 
 const CHAIN_START_BLOCKS: Record<number, bigint> = {
@@ -32,25 +33,17 @@ const CHAIN_START_BLOCKS: Record<number, bigint> = {
   6343: 8_855_921n,
   37111: 4_291_440n,
   998: 50_251_573n, // HyperEVM Testnet
+  11155111: 10_749_016n, // Eth Sepolia — v0.2.1 deployment
 };
 
 const ORDER_PLACED = parseAbiItem(
-  "event OrderPlaced(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount, bool escrow)",
-);
-const ORDER_PLACED_V2 = parseAbiItem(
-  "event OrderPlacedV2(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount, bool escrow, uint64 orderId)",
+  "event OrderPlaced(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount, bool escrow, uint64 orderId)",
 );
 const ORDER_FILLED = parseAbiItem(
-  "event OrderFilled(bytes32 indexed marketKey, uint8 takerSide, uint16 yesTick, uint16 noTick, address indexed taker, address indexed maker, uint128 amount, uint256 surplus)",
-);
-const ORDER_FILLED_V2 = parseAbiItem(
-  "event OrderFilledV2(bytes32 indexed marketKey, uint8 takerSide, uint16 yesTick, uint16 noTick, address indexed taker, address indexed maker, uint128 amount, uint256 surplus, uint64 makerOrderId)",
+  "event OrderFilled(bytes32 indexed marketKey, uint8 takerSide, uint16 yesTick, uint16 noTick, address indexed taker, address indexed maker, uint128 amount, uint256 surplus, uint64 makerOrderId)",
 );
 const ORDER_CANCELLED = parseAbiItem(
-  "event OrderCancelled(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount)",
-);
-const ORDER_CANCELLED_V2 = parseAbiItem(
-  "event OrderCancelledV2(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount, uint64 orderId)",
+  "event OrderCancelled(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount, uint64 orderId)",
 );
 
 type HistoryFeedItem = {
@@ -88,6 +81,33 @@ function requireSoothBook(ctx: CommandContext): `0x${string}` | null {
 
 function requireMarketKey(ctx: CommandContext): `0x${string}` | null {
   return ctx.marketKey;
+}
+
+async function isMarketRegisteredInSoothBook(
+  ctx: CommandContext,
+  soothBook: `0x${string}`,
+  marketKey: `0x${string}`,
+): Promise<boolean> {
+  return readContractWithRpcFallback<boolean>(ctx.config.chain, ctx.config.rpc, {
+    address: soothBook,
+    abi: ABIS.SoothBook,
+    functionName: "registeredMarkets",
+    args: [marketKey],
+  }).catch((err) => {
+    const msg = (err as Error).message.toLowerCase();
+    if (msg.includes("no data") || msg.includes("returned address")) {
+      return false;
+    }
+    throw err;
+  });
+}
+
+function notRegisteredResult(): CommandResult {
+  return {
+    success: false,
+    message:
+      "Market not registered in SoothBook (orderbook). This is an AMM-only market — try: marketstatus",
+  };
 }
 
 function parseTickValue(input: string): number {
@@ -288,22 +308,15 @@ async function fetchUserHistoryFeed(
   const ranges = getScanRanges(startBlock, latest, chunkSize);
 
   const placed: Array<any> = [];
-  const placedV2: Array<any> = [];
   const filled: Array<any> = [];
-  const filledV2: Array<any> = [];
   const cancelled: Array<any> = [];
-  const cancelledV2: Array<any> = [];
 
   for (const range of ranges) {
     const [
       chunkPlaced,
-      chunkPlacedV2,
       chunkFilledAsTaker,
-      chunkFilledV2AsTaker,
       chunkFilledAsMaker,
-      chunkFilledV2AsMaker,
       chunkCancelled,
-      chunkCancelledV2,
     ] = await Promise.all([
       publicClient.getLogs({
         address: soothBook,
@@ -314,13 +327,6 @@ async function fetchUserHistoryFeed(
       }),
       publicClient.getLogs({
         address: soothBook,
-        event: ORDER_PLACED_V2,
-        args: { marketKey, maker: owner },
-        fromBlock: range.from,
-        toBlock: range.to,
-      }),
-      publicClient.getLogs({
-        address: soothBook,
         event: ORDER_FILLED,
         args: { marketKey, taker: owner },
         fromBlock: range.from,
@@ -328,21 +334,7 @@ async function fetchUserHistoryFeed(
       }),
       publicClient.getLogs({
         address: soothBook,
-        event: ORDER_FILLED_V2,
-        args: { marketKey, taker: owner },
-        fromBlock: range.from,
-        toBlock: range.to,
-      }),
-      publicClient.getLogs({
-        address: soothBook,
         event: ORDER_FILLED,
-        args: { marketKey, maker: owner },
-        fromBlock: range.from,
-        toBlock: range.to,
-      }),
-      publicClient.getLogs({
-        address: soothBook,
-        event: ORDER_FILLED_V2,
         args: { marketKey, maker: owner },
         fromBlock: range.from,
         toBlock: range.to,
@@ -354,21 +346,11 @@ async function fetchUserHistoryFeed(
         fromBlock: range.from,
         toBlock: range.to,
       }),
-      publicClient.getLogs({
-        address: soothBook,
-        event: ORDER_CANCELLED_V2,
-        args: { marketKey, maker: owner },
-        fromBlock: range.from,
-        toBlock: range.to,
-      }),
     ]);
 
     placed.push(...chunkPlaced);
-    placedV2.push(...chunkPlacedV2);
     filled.push(...chunkFilledAsTaker, ...chunkFilledAsMaker);
-    filledV2.push(...chunkFilledV2AsTaker, ...chunkFilledV2AsMaker);
     cancelled.push(...chunkCancelled);
-    cancelledV2.push(...chunkCancelledV2);
   }
 
   const items: HistoryFeedItem[] = [];
@@ -377,21 +359,6 @@ async function fetchUserHistoryFeed(
     const side = Number(log.args.side) === 1 ? "YES" : "NO";
     items.push({
       id: `${log.transactionHash}-${log.logIndex}-p`,
-      type: "placed",
-      side,
-      tick: String(log.args.tick),
-      amount: log.args.amount ?? 0n,
-      escrow: Boolean(log.args.escrow),
-      who: log.args.maker as `0x${string}`,
-      block: log.blockNumber ?? 0n,
-      logIndex: Number(log.logIndex),
-    });
-  }
-
-  for (const log of placedV2) {
-    const side = Number(log.args.side) === 1 ? "YES" : "NO";
-    items.push({
-      id: `${log.transactionHash}-${log.logIndex}-p2`,
       type: "placed",
       side,
       tick: String(log.args.tick),
@@ -421,28 +388,6 @@ async function fetchUserHistoryFeed(
       maker: log.args.maker as `0x${string}`,
       makerSide,
       makerTick,
-      block: log.blockNumber ?? 0n,
-      logIndex: Number(log.logIndex),
-    });
-  }
-
-  for (const log of filledV2) {
-    const takerSide = Number(log.args.takerSide);
-    const side = takerSide === 1 ? "YES" : "NO";
-    const makerSide: "YES" | "NO" = takerSide === 1 ? "NO" : "YES";
-    const makerTick =
-      takerSide === 1 ? String(log.args.noTick) : String(log.args.yesTick);
-    items.push({
-      id: `${log.transactionHash}-${log.logIndex}-f2`,
-      type: "filled",
-      side,
-      tick: `${log.args.yesTick}/${log.args.noTick}`,
-      amount: log.args.amount ?? 0n,
-      surplus: log.args.surplus ?? 0n,
-      who: log.args.taker as `0x${string}`,
-      maker: log.args.maker as `0x${string}`,
-      makerSide,
-      makerTick,
       makerOrderId: String(log.args.makerOrderId ?? ""),
       block: log.blockNumber ?? 0n,
       logIndex: Number(log.logIndex),
@@ -453,20 +398,6 @@ async function fetchUserHistoryFeed(
     const side = Number(log.args.side) === 1 ? "YES" : "NO";
     items.push({
       id: `${log.transactionHash}-${log.logIndex}-c`,
-      type: "cancelled",
-      side,
-      tick: String(log.args.tick),
-      amount: log.args.amount ?? 0n,
-      who: log.args.maker as `0x${string}`,
-      block: log.blockNumber ?? 0n,
-      logIndex: Number(log.logIndex),
-    });
-  }
-
-  for (const log of cancelledV2) {
-    const side = Number(log.args.side) === 1 ? "YES" : "NO";
-    items.push({
-      id: `${log.transactionHash}-${log.logIndex}-c2`,
       type: "cancelled",
       side,
       tick: String(log.args.tick),
@@ -833,80 +764,27 @@ export async function cancel(
 }
 
 export async function redeem(
-  ctx: CommandContext,
+  _ctx: CommandContext,
   _args: string[],
 ): Promise<CommandResult> {
-  const marketKey = requireMarketKey(ctx);
-  const soothBook = requireSoothBook(ctx);
-  const walletClient = ctx.actorManager.currentWalletClient();
-
-  if (!walletClient) return { success: false, message: "No actor selected" };
-  if (!marketKey)
-    return {
-      success: false,
-      message: "No market selected. Use: setmarket <key>",
-    };
-  if (!soothBook)
-    return {
-      success: false,
-      message: "SoothBook address not found in deployment",
-    };
-
-  try {
-    const hash = await walletClient.writeContract({
-      address: soothBook,
-      abi: ABIS.SoothBook,
-      functionName: "redeem",
-      args: [marketKey],
-    });
-    await waitForTx(ctx, hash);
-
-    console.log(success("  ✓ Redeemed winning tokens"));
-    return { success: true, txHash: hash };
-  } catch (err) {
-    return { success: false, message: (err as Error).message };
-  }
+  console.log(
+    warn(
+      "  v0.2.1 removed SoothBook.redeem — use market `redeem` / `redeemamm` after settlement",
+    ),
+  );
+  return { success: true };
 }
 
 export async function resolve(
   ctx: CommandContext,
-  args: string[],
+  _args: string[],
 ): Promise<CommandResult> {
-  if (args.length < 1) {
-    return { success: false, message: "Usage: resolve <outcome>" };
-  }
-
-  const marketKey = requireMarketKey(ctx);
-  const soothBook = requireSoothBook(ctx);
-  const walletClient = ctx.actorManager.currentWalletClient();
-
-  if (!walletClient) return { success: false, message: "No actor selected" };
-  if (!marketKey)
-    return {
-      success: false,
-      message: "No market selected. Use: setmarket <key>",
-    };
-  if (!soothBook)
-    return {
-      success: false,
-      message: "SoothBook address not found in deployment",
-    };
-
-  try {
-    const outcome = parseOutcome(args[0]);
-    const hash = await walletClient.writeContract({
-      address: soothBook,
-      abi: ABIS.SoothBook,
-      functionName: "resolveMarket",
-      args: [marketKey, outcome],
-    });
-    await waitForTx(ctx, hash);
-
-    console.log(success(`  ✓ Market resolved: ${outcomeLabel(outcome)}`));
-    return { success: true, txHash: hash };
-  } catch (err) {
-    return { success: false, message: (err as Error).message };
-  }
+  console.log(
+    warn(
+      "  v0.2.1 removed SoothBook.resolveMarket — use the adjudicator lifecycle via `setmarket` then `marketstatus`/`resolve`",
+    ),
+  );
+  return { success: true };
 }
 
 export async function book(
@@ -927,37 +805,12 @@ export async function book(
     };
 
   try {
-    const marketInfo = await readContractWithRpcFallback<
-      readonly [
-        `0x${string}`,
-        `0x${string}`,
-        `0x${string}`,
-        boolean,
-        boolean,
-        number,
-      ]
-    >(ctx.config.chain, ctx.config.rpc, {
-      address: soothBook,
-      abi: ABIS.SoothBook,
-      functionName: "markets",
-      args: [marketKey],
-    }).catch((err) => {
-      const msg = (err as Error).message.toLowerCase();
-      if (msg.includes("no data") || msg.includes("returned address")) {
-        return null;
-      }
-      throw err;
-    });
-
-    if (
-      !marketInfo ||
-      marketInfo[0] === "0x0000000000000000000000000000000000000000"
-    ) {
-      return {
-        success: false,
-        message: `Market not registered in SoothBook (orderbook). This is an AMM-only market — try: marketstatus`,
-      };
-    }
+    const registered = await isMarketRegisteredInSoothBook(
+      ctx,
+      soothBook,
+      marketKey,
+    );
+    if (!registered) return notRegisteredResult();
 
     const center = args[0]
       ? Math.max(0, Math.min(65535, Number.parseInt(args[0], 10) || 500))
@@ -987,7 +840,7 @@ export async function book(
         {
           address: soothBook,
           abi: ABIS.SoothBook,
-          functionName: "getImpliedPrice",
+          functionName: "getImpliedPriceByKey",
           args: [marketKey],
         },
       ),
@@ -1074,49 +927,15 @@ export async function state(
       message: "SoothBook address not found in deployment",
     };
 
-  let marketInfo: readonly [
-    `0x${string}`,
-    `0x${string}`,
-    `0x${string}`,
-    boolean,
-    boolean,
-    number,
-  ];
   try {
-    marketInfo = await readContractWithRpcFallback<
-      readonly [
-        `0x${string}`,
-        `0x${string}`,
-        `0x${string}`,
-        boolean,
-        boolean,
-        number,
-      ]
-    >(ctx.config.chain, ctx.config.rpc, {
-      address: soothBook,
-      abi: ABIS.SoothBook,
-      functionName: "markets",
-      args: [marketKey],
-    });
+    const registered = await isMarketRegisteredInSoothBook(
+      ctx,
+      soothBook,
+      marketKey,
+    );
+    if (!registered) return notRegisteredResult();
   } catch (err) {
-    const msg = (err as Error).message.toLowerCase();
-    if (msg.includes("no data") || msg.includes("returned address")) {
-      return {
-        success: false,
-        message: `Market not registered in SoothBook (orderbook). This is an AMM-only market — try: marketstatus`,
-      };
-    }
     return { success: false, message: (err as Error).message };
-  }
-
-  const [collateral, yesToken, noToken, active, finalized, outcome] =
-    marketInfo;
-
-  if (collateral === "0x0000000000000000000000000000000000000000") {
-    return {
-      success: false,
-      message: `Market not registered in SoothBook (orderbook). This is an AMM-only market — try: marketstatus`,
-    };
   }
 
   try {
@@ -1146,7 +965,7 @@ export async function state(
           {
             address: soothBook,
             abi: ABIS.SoothBook,
-            functionName: "getImpliedPrice",
+            functionName: "getImpliedPriceByKey",
             args: [marketKey],
           },
         ),
@@ -1154,16 +973,7 @@ export async function state(
     console.log(`\n  ${bold("Market State")}`);
     console.log("  " + "-".repeat(56));
     console.log(`  Market Key:      ${marketKey}`);
-    console.log(`  Collateral:      ${shortAddress(collateral)}`);
-    console.log(`  YES Token:       ${shortAddress(yesToken)}`);
-    console.log(`  NO Token:        ${shortAddress(noToken)}`);
-    console.log(
-      `  Active:          ${active ? success("true") : warn("false")}`,
-    );
-    console.log(
-      `  Finalized:       ${finalized ? success("true") : dim("false")}`,
-    );
-    console.log(`  Outcome:         ${outcomeLabel(outcome)}`);
+    console.log(`  Registered:      ${success("true")}`);
     console.log(`  Collateral Back: ${formatWad(collateralBacking)} USDC`);
     console.log(`  Best YES Tick:   ${bestYesTick}`);
     console.log(`  Best NO Tick:    ${bestNoTick}`);

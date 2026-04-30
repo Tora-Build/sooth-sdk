@@ -154,13 +154,13 @@ export async function runSimulate(
   report({ type: "success", message: "SoothBook + OrderEngine approved" });
 
   // Pre-check: market must be active on SoothBook or all trades revert
-  const marketState = (await publicClient.readContract({
+  const registered = (await publicClient.readContract({
     address: soothBook,
     abi: SoothBookABI,
-    functionName: "markets",
+    functionName: "registeredMarkets",
     args: [marketKey],
-  })) as readonly [boolean, boolean, number];
-  if (!marketState[0]) {
+  })) as boolean;
+  if (!registered) {
     throw new Error(
       `Market not active on SoothBook. The market must graduate from Launchpad first. Run 'graduate' before 'simulate'.`,
     );

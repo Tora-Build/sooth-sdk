@@ -9,6 +9,7 @@ export interface SoothContracts {
   feeRouter: Address;
   adjudicatorRegistry: Address;
   baseToken: Address;
+  baseTokenDecimals?: number;
 }
 
 export interface SoothAdjudicators {
@@ -31,6 +32,7 @@ export interface SoothNode {
   deployedBy: Address;
   startBlock?: number;
   indexed?: boolean;
+  label?: string;
 }
 
 export interface ChainMeta {
