@@ -1,0 +1,34 @@
+# CODEOWNERS — review routing for sooth-sdk
+#
+# Every file path is reviewed by the matched owners before merge.
+# Later lines override earlier ones for the same path.
+
+# Default: any change needs a core maintainer review.
+*                               @zakrad @LadderChaos
+
+# Core SDK source — require maintainer review.
+/src/                           @zakrad @LadderChaos
+
+# Public API surface — any change is a semver decision.
+/src/core/types.ts              @zakrad @LadderChaos
+/src/core/index.ts              @zakrad @LadderChaos
+
+# ABIs — changing these is a protocol-compat decision.
+/src/core/abis/                 @zakrad @LadderChaos
+/data/                          @zakrad @LadderChaos
+
+# CLI — user-facing; maintainer review.
+/src/cli/                       @zakrad @LadderChaos
+/bin/                           @zakrad @LadderChaos
+
+# Tests — any maintainer may approve.
+/test/                          @zakrad @LadderChaos
+
+# Security policy, contribution guide, license files — maintainer-only.
+/SECURITY.md                    @zakrad @LadderChaos
+/CONTRIBUTING.md                @zakrad @LadderChaos
+/LICENSE                        @zakrad @LadderChaos
+/CHANGELOG.md                   @zakrad @LadderChaos
+
+# CI — maintainer review so CI can't be silently weakened.
+/.github/                       @zakrad @LadderChaos
