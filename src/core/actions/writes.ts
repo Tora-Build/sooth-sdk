@@ -17,44 +17,40 @@ import {
   parseAbi,
   zeroAddress,
   type Address,
-} from "viem";
-import { LaunchpadEngineABI } from "../abis/LaunchpadEngine.js";
-import { AMMEngineABI } from "../abis/AMMEngine.js";
-import { SoothBookABI } from "../abis/SoothBook.js";
-import {
-  type ActionContext,
-  type ActionReporter,
-  noopReporter,
-} from "./types.js";
+} from 'viem';
+import { LaunchpadEngineABI } from '../abis/LaunchpadEngine.js';
+import { AMMEngineABI } from '../abis/AMMEngine.js';
+import { SoothBookABI } from '../abis/SoothBook.js';
+import { type ActionContext, type ActionReporter, noopReporter } from './types.js';
 
 const WAD = 10n ** 18n;
 const LN2_WAD = 693147180559945309n;
 
 const ERC20_ABI = parseAbi([
-  "function balanceOf(address owner) view returns (uint256)",
-  "function approve(address spender, uint256 amount) returns (bool)",
-  "function mint(address to, uint256 amount)",
-  "function totalSupply() view returns (uint256)",
-  "function transfer(address to, uint256 amount) returns (bool)",
+  'function balanceOf(address owner) view returns (uint256)',
+  'function approve(address spender, uint256 amount) returns (bool)',
+  'function mint(address to, uint256 amount)',
+  'function totalSupply() view returns (uint256)',
+  'function transfer(address to, uint256 amount) returns (bool)',
 ]);
 
 // Local extended ABI for write functions the minimal core LaunchpadEngine
 // ABI in core/abis/LaunchpadEngine.ts doesn't declare. Declared here so
 // actions don't need a broader ABI change.
 const LAUNCHPAD_WRITE_ABI = parseAbi([
-  "function dismissMarket(address market)",
-  "function claimRefund(address market) returns (uint256)",
+  'function dismissMarket(address market)',
+  'function claimRefund(address market) returns (uint256)',
 ]);
 
 function formatWad(value: bigint): string {
   const whole = value / WAD;
   const frac = (value % WAD) / 10n ** 16n;
-  return `${whole}.${frac.toString().padStart(2, "0")}`;
+  return `${whole}.${frac.toString().padStart(2, '0')}`;
 }
 
 function requireWallet(ctx: ActionContext) {
   if (!ctx.walletClient.account) {
-    throw new Error("walletClient has no bound account");
+    throw new Error('walletClient has no bound account');
   }
   return ctx.walletClient.account;
 }
@@ -74,20 +70,20 @@ export async function runMintUsdc(
 ): Promise<`0x${string}`> {
   const account = requireWallet(ctx);
   report({
-    type: "info",
+    type: 'info',
     message: `Minting ${formatWad(params.amount)} USDC...`,
   });
   const hash = await ctx.walletClient.writeContract({
     address: ctx.contracts.MockUSDC,
     abi: ERC20_ABI,
-    functionName: "mint",
+    functionName: 'mint',
     args: [ctx.address, params.amount],
     account,
     chain: null,
   });
   await ctx.publicClient.waitForTransactionReceipt({ hash });
   report({
-    type: "success",
+    type: 'success',
     message: `Minted ${formatWad(params.amount)} USDC`,
   });
   return hash;
@@ -95,7 +91,7 @@ export async function runMintUsdc(
 
 export interface ApproveParams {
   /** logical target name(s) to approve USDC for */
-  targets: Array<"launchpad" | "ammengine" | "soothbook" | "orderengine">;
+  targets: Array<'launchpad' | 'ammengine' | 'soothbook' | 'orderengine'>;
   amount?: bigint; // default max
 }
 
@@ -108,17 +104,15 @@ export async function runApprove(
   const amount = params.amount ?? maxUint256;
   const hashes: `0x${string}`[] = [];
 
-  const resolve = (
-    t: ApproveParams["targets"][number],
-  ): Address | undefined => {
+  const resolve = (t: ApproveParams['targets'][number]): Address | undefined => {
     switch (t) {
-      case "launchpad":
+      case 'launchpad':
         return ctx.contracts.LaunchpadEngine;
-      case "ammengine":
+      case 'ammengine':
         return ctx.contracts.AMMEngine;
-      case "soothbook":
+      case 'soothbook':
         return ctx.contracts.SoothBook;
-      case "orderengine":
+      case 'orderengine':
         return ctx.contracts.OrderEngine;
     }
   };
@@ -127,23 +121,23 @@ export async function runApprove(
     const addr = resolve(target);
     if (!addr) {
       report({
-        type: "warn",
+        type: 'warn',
         message: `Skipping ${target}: not deployed on chain ${ctx.chainId}`,
       });
       continue;
     }
-    report({ type: "info", message: `Approving ${target}...` });
+    report({ type: 'info', message: `Approving ${target}...` });
     const hash = await ctx.walletClient.writeContract({
       address: ctx.contracts.MockUSDC,
       abi: ERC20_ABI,
-      functionName: "approve",
+      functionName: 'approve',
       args: [addr, amount],
       account,
       chain: null,
     });
     await ctx.publicClient.waitForTransactionReceipt({ hash });
     hashes.push(hash);
-    report({ type: "success", message: `Approved ${target}` });
+    report({ type: 'success', message: `Approved ${target}` });
   }
   return hashes;
 }
@@ -186,29 +180,29 @@ export async function runCreateMarket(
   const balance = (await ctx.publicClient.readContract({
     address: ctx.contracts.MockUSDC,
     abi: ERC20_ABI,
-    functionName: "balanceOf",
+    functionName: 'balanceOf',
     args: [ctx.address],
   })) as bigint;
   if (balance < deposit * 2n) {
     await runMintUsdc(ctx, { amount: deposit * 3n }, report);
   }
 
-  await runApprove(ctx, { targets: ["launchpad"] }, report);
+  await runApprove(ctx, { targets: ['launchpad'] }, report);
 
   // v0.2.0 AdjudicatorBase.configureMarket decodes (address, uint64, bytes).
   // The old 4-field (uint48 vetoPeriod) encoding reverts Panic(65).
   const adjConfig: `0x${string}` =
     params.adjudicatorConfig ??
     encodeAbiParameters(
-      [{ type: "address" }, { type: "uint64" }, { type: "bytes" }],
-      [ctx.address, params.deadline, "0x"],
+      [{ type: 'address' }, { type: 'uint64' }, { type: 'bytes' }],
+      [ctx.address, params.deadline, '0x'],
     );
 
-  report({ type: "info", message: "Creating market in LaunchpadEngine..." });
+  report({ type: 'info', message: 'Creating market in LaunchpadEngine...' });
   const hash = await ctx.walletClient.writeContract({
     address: ctx.contracts.LaunchpadEngine,
     abi: LaunchpadEngineABI,
-    functionName: "createMarket",
+    functionName: 'createMarket',
     args: [
       params.question,
       params.startTime,
@@ -222,8 +216,8 @@ export async function runCreateMarket(
     chain: null,
   });
   const receipt = await ctx.publicClient.waitForTransactionReceipt({ hash });
-  if (receipt.status === "reverted") {
-    throw new Error("createMarket reverted");
+  if (receipt.status === 'reverted') {
+    throw new Error('createMarket reverted');
   }
 
   let marketAddress: Address | undefined;
@@ -234,7 +228,7 @@ export async function runCreateMarket(
         data: log.data,
         topics: log.topics,
       });
-      if (decoded.eventName === "MarketCreated") {
+      if (decoded.eventName === 'MarketCreated') {
         marketAddress = (decoded.args as unknown as { market: Address }).market;
         break;
       }
@@ -242,10 +236,10 @@ export async function runCreateMarket(
       continue;
     }
   }
-  if (!marketAddress) throw new Error("MarketCreated event not found");
+  if (!marketAddress) throw new Error('MarketCreated event not found');
 
   report({
-    type: "success",
+    type: 'success',
     message: `Market created: ${marketAddress}`,
     data: { marketAddress, txHash: hash },
   });
@@ -257,8 +251,8 @@ export async function runCreateMarket(
 //
 
 const FEE_ROUTER_ABI = parseAbi([
-  "function getGraduationProgress(address market) view returns (uint256 accrued, uint256 threshold, uint256 bps)",
-  "function preGradFeeBps() view returns (uint256)",
+  'function getGraduationProgress(address market) view returns (uint256 accrued, uint256 threshold, uint256 bps)',
+  'function preGradFeeBps() view returns (uint256)',
 ]);
 
 export interface GraduateParams {
@@ -285,11 +279,11 @@ export async function runGraduate(
   const alreadyGraduated = (await ctx.publicClient.readContract({
     address: ctx.contracts.LaunchpadEngine,
     abi: LaunchpadEngineABI,
-    functionName: "isGraduated",
+    functionName: 'isGraduated',
     args: [marketAddress],
   })) as boolean;
   if (alreadyGraduated) {
-    report({ type: "success", message: "Market is already graduated" });
+    report({ type: 'success', message: 'Market is already graduated' });
     return { tradesExecuted: 0, totalGas: 0n, graduated: true };
   }
 
@@ -300,7 +294,7 @@ export async function runGraduate(
       const [accrued, threshold] = (await ctx.publicClient.readContract({
         address: ctx.contracts.FeeRouter,
         abi: FEE_ROUTER_ABI,
-        functionName: "getGraduationProgress",
+        functionName: 'getGraduationProgress',
         args: [marketAddress],
       })) as readonly [bigint, bigint, bigint];
       if (threshold > 0n) {
@@ -308,18 +302,16 @@ export async function runGraduate(
         const remaining = target > accrued ? target - accrued : 0n;
         if (remaining > 0n) {
           const PER_TRADE_FEE_PER_SHARE_WAD = 18_750_000_000_000_000n;
-          const computed =
-            (remaining * WAD) /
-            (PER_TRADE_FEE_PER_SHARE_WAD * BigInt(numTrades));
+          const computed = (remaining * WAD) / (PER_TRADE_FEE_PER_SHARE_WAD * BigInt(numTrades));
           if (computed > tradeSize) tradeSize = computed;
         }
         report({
-          type: "info",
+          type: 'info',
           message: `Progress: ${formatWad(accrued)}/${formatWad(threshold)} USDC, tradeSize=${formatWad(tradeSize)}`,
         });
       }
     } catch {
-      report({ type: "warn", message: "FeeRouter progress unavailable" });
+      report({ type: 'warn', message: 'FeeRouter progress unavailable' });
     }
   }
 
@@ -328,13 +320,13 @@ export async function runGraduate(
   const balance = (await ctx.publicClient.readContract({
     address: ctx.contracts.MockUSDC,
     abi: ERC20_ABI,
-    functionName: "balanceOf",
+    functionName: 'balanceOf',
     args: [ctx.address],
   })) as bigint;
   if (balance < required) {
     await runMintUsdc(ctx, { amount: required * 2n }, report);
   }
-  await runApprove(ctx, { targets: ["ammengine"] }, report);
+  await runApprove(ctx, { targets: ['ammengine'] }, report);
 
   // 4. Execute trades, alternating BUY/SELL YES, stop early if graduated
   let totalGas = 0n;
@@ -348,7 +340,7 @@ export async function runGraduate(
     const outcome = 1; // YES
     const delta = isBuy ? tradeSize : -tradeSize / 2n;
     const limit = isBuy ? maxUint256 : 0n;
-    const label = isBuy ? "BUY" : "SELL";
+    const label = isBuy ? 'BUY' : 'SELL';
 
     let notLiveRetries = 0;
     let insufficientShareRetries = 0;
@@ -359,7 +351,7 @@ export async function runGraduate(
         const hash = await ctx.walletClient.writeContract({
           address: ctx.contracts.AMMEngine,
           abi: AMMEngineABI,
-          functionName: "tradePositions",
+          functionName: 'tradePositions',
           args: [marketAddress, outcome, delta, limit],
           account,
           chain: null,
@@ -368,7 +360,7 @@ export async function runGraduate(
           hash,
         });
         totalGas += receipt.gasUsed;
-        if (receipt.status !== "success") {
+        if (receipt.status !== 'success') {
           // viem returns receipts for reverted txs without throwing. Without
           // this guard the Geek page printed "[3/8] BUY 5081.99 (gas: 230229)"
           // for a revert, and the next SELL then hit InsufficientYesShares
@@ -394,7 +386,7 @@ export async function runGraduate(
               const pos = (await ctx.publicClient.readContract({
                 address: ctx.contracts.AMMEngine,
                 abi: AMMEngineABI,
-                functionName: "getPosition",
+                functionName: 'getPosition',
                 args: [marketAddress, ctx.address],
               })) as readonly [bigint, bigint];
               const yesShares = pos[0];
@@ -406,7 +398,7 @@ export async function runGraduate(
           }
         }
         report({
-          type: "success",
+          type: 'success',
           message: `[${i + 1}/${numTrades}] ${label} ${formatWad(
             delta > 0n ? delta : -delta,
           )} (gas: ${receipt.gasUsed})`,
@@ -415,29 +407,28 @@ export async function runGraduate(
         const graduated = (await ctx.publicClient.readContract({
           address: ctx.contracts.LaunchpadEngine,
           abi: LaunchpadEngineABI,
-          functionName: "isGraduated",
+          functionName: 'isGraduated',
           args: [marketAddress],
         })) as boolean;
         if (graduated) {
           report({
-            type: "success",
+            type: 'success',
             message: `MARKET GRADUATED after ${tradesExecuted} trades`,
           });
           return { tradesExecuted, totalGas, graduated: true };
         }
         break; // trade succeeded, advance to next i
       } catch (err) {
-        const fullMsg = (err as Error).message ?? "";
+        const fullMsg = (err as Error).message ?? '';
         // startTime boundary race: freshly created markets briefly report
         // !isLive() because eth_call sees a block just before creation. Wait
         // one block interval and retry the same trade. Matches the E2E
         // helper in apps/demo/e2e/specs/lakers-rockets-e2e.spec.ts.
-        const isNotLive =
-          fullMsg.includes("MarketNotLive") || fullMsg.includes("3f22bf08");
+        const isNotLive = fullMsg.includes('MarketNotLive') || fullMsg.includes('3f22bf08');
         if (isNotLive && notLiveRetries < NOT_LIVE_MAX_RETRIES) {
           notLiveRetries++;
           report({
-            type: "warn",
+            type: 'warn',
             message: `[${i + 1}/${numTrades}] ${label} MarketNotLive — retry ${notLiveRetries}/${NOT_LIVE_MAX_RETRIES} in ${NOT_LIVE_WAIT_MS / 1000}s`,
           });
           await new Promise((r) => setTimeout(r, NOT_LIVE_WAIT_MS));
@@ -449,31 +440,28 @@ export async function runGraduate(
         // its view of `position.yesShares` is one block behind. Wait then
         // retry the same trade.
         const isInsufficientShares =
-          fullMsg.includes("InsufficientYesShares") ||
-          fullMsg.includes("InsufficientNoShares") ||
+          fullMsg.includes('InsufficientYesShares') ||
+          fullMsg.includes('InsufficientNoShares') ||
           // 4-byte selector for InsufficientYesShares()
-          fullMsg.includes("0x09bde339");
-        if (
-          isInsufficientShares &&
-          insufficientShareRetries < INSUFFICIENT_SHARES_MAX_RETRIES
-        ) {
+          fullMsg.includes('0x09bde339');
+        if (isInsufficientShares && insufficientShareRetries < INSUFFICIENT_SHARES_MAX_RETRIES) {
           insufficientShareRetries++;
           report({
-            type: "warn",
+            type: 'warn',
             message: `[${i + 1}/${numTrades}] ${label} InsufficientShares — retry ${insufficientShareRetries}/${INSUFFICIENT_SHARES_MAX_RETRIES} after ${INSUFFICIENT_SHARES_WAIT_MS}ms (RPC desync)`,
           });
           await new Promise((r) => setTimeout(r, INSUFFICIENT_SHARES_WAIT_MS));
           continue;
         }
         report({
-          type: "error",
+          type: 'error',
           message: `[${i + 1}/${numTrades}] ${label} failed: ${fullMsg.slice(0, 120)}`,
         });
         consecutiveFailures++;
         if (consecutiveFailures >= 3) {
           report({
-            type: "warn",
-            message: "Stopping after 3 consecutive failures",
+            type: 'warn',
+            message: 'Stopping after 3 consecutive failures',
           });
           break outer;
         }
@@ -485,7 +473,7 @@ export async function runGraduate(
   const finalGraduated = (await ctx.publicClient.readContract({
     address: ctx.contracts.LaunchpadEngine,
     abi: LaunchpadEngineABI,
-    functionName: "isGraduated",
+    functionName: 'isGraduated',
     args: [marketAddress],
   })) as boolean;
   return { tradesExecuted, totalGas, graduated: finalGraduated };
@@ -501,18 +489,15 @@ export interface LpAmountParams {
   amount?: bigint;
 }
 
-async function resolveLpToken(
-  ctx: ActionContext,
-  marketAddress: Address,
-): Promise<Address> {
+async function resolveLpToken(ctx: ActionContext, marketAddress: Address): Promise<Address> {
   const lp = (await ctx.publicClient.readContract({
     address: ctx.contracts.LaunchpadEngine,
     abi: LaunchpadEngineABI,
-    functionName: "getLPToken",
+    functionName: 'getLPToken',
     args: [marketAddress],
   })) as Address;
   if (!lp || lp === zeroAddress) {
-    throw new Error("Market not found in LaunchpadEngine");
+    throw new Error('Market not found in LaunchpadEngine');
   }
   return lp;
 }
@@ -527,29 +512,29 @@ export async function runRedeemLp(
   const balance = (await ctx.publicClient.readContract({
     address: lp,
     abi: ERC20_ABI,
-    functionName: "balanceOf",
+    functionName: 'balanceOf',
     args: [ctx.address],
   })) as bigint;
-  if (balance === 0n) throw new Error("No LP tokens to redeem");
+  if (balance === 0n) throw new Error('No LP tokens to redeem');
   const amount = params.amount ?? balance;
   if (amount > balance) {
     throw new Error(`Insufficient LP balance: ${formatWad(balance)}`);
   }
   report({
-    type: "info",
+    type: 'info',
     message: `Redeeming ${formatWad(amount)} LP tokens...`,
   });
   const hash = await ctx.walletClient.writeContract({
     address: ctx.contracts.AMMEngine,
     abi: AMMEngineABI,
-    functionName: "redeemLP",
+    functionName: 'redeemLP',
     args: [params.marketAddress, amount],
     account,
     chain: null,
   });
   await ctx.publicClient.waitForTransactionReceipt({ hash });
   report({
-    type: "success",
+    type: 'success',
     message: `Redeemed ${formatWad(amount)} LP`,
   });
   return hash;
@@ -566,34 +551,34 @@ export async function runTransferLp(
 ): Promise<`0x${string}`> {
   const account = requireWallet(ctx);
   if (params.recipient.toLowerCase() === ctx.address.toLowerCase()) {
-    throw new Error("Cannot transfer to yourself");
+    throw new Error('Cannot transfer to yourself');
   }
   const lp = await resolveLpToken(ctx, params.marketAddress);
   const balance = (await ctx.publicClient.readContract({
     address: lp,
     abi: ERC20_ABI,
-    functionName: "balanceOf",
+    functionName: 'balanceOf',
     args: [ctx.address],
   })) as bigint;
-  if (balance === 0n) throw new Error("No LP tokens to transfer");
+  if (balance === 0n) throw new Error('No LP tokens to transfer');
   const amount = params.amount ?? balance;
   if (amount > balance) {
     throw new Error(`Insufficient LP balance: ${formatWad(balance)}`);
   }
   report({
-    type: "info",
+    type: 'info',
     message: `Transferring ${formatWad(amount)} LP to ${params.recipient}...`,
   });
   const hash = await ctx.walletClient.writeContract({
     address: lp,
     abi: ERC20_ABI,
-    functionName: "transfer",
+    functionName: 'transfer',
     args: [params.recipient, amount],
     account,
     chain: null,
   });
   await ctx.publicClient.waitForTransactionReceipt({ hash });
-  report({ type: "success", message: `Transferred ${formatWad(amount)} LP` });
+  report({ type: 'success', message: `Transferred ${formatWad(amount)} LP` });
   return hash;
 }
 
@@ -618,28 +603,26 @@ export async function runDismiss(
     isTrialExpired = (await ctx.publicClient.readContract({
       address: ctx.contracts.LaunchpadEngine,
       abi: LaunchpadEngineABI,
-      functionName: "isTrialExpiredWithoutGraduation",
+      functionName: 'isTrialExpiredWithoutGraduation',
       args: [params.marketAddress],
     })) as boolean;
   } catch {
     // fall through — let contract produce authoritative revert
   }
   if (!isTrialExpired) {
-    throw new Error(
-      "Market cannot be dismissed (trial not expired or already graduated)",
-    );
+    throw new Error('Market cannot be dismissed (trial not expired or already graduated)');
   }
-  report({ type: "info", message: "Dismissing market..." });
+  report({ type: 'info', message: 'Dismissing market...' });
   const hash = await ctx.walletClient.writeContract({
     address: ctx.contracts.LaunchpadEngine,
     abi: LAUNCHPAD_WRITE_ABI,
-    functionName: "dismissMarket",
+    functionName: 'dismissMarket',
     args: [params.marketAddress],
     account,
     chain: null,
   });
   await ctx.publicClient.waitForTransactionReceipt({ hash });
-  report({ type: "success", message: "Market dismissed" });
+  report({ type: 'success', message: 'Market dismissed' });
   return hash;
 }
 
@@ -649,17 +632,17 @@ export async function runClaimRefund(
   report: ActionReporter = noopReporter,
 ): Promise<`0x${string}`> {
   const account = requireWallet(ctx);
-  report({ type: "info", message: "Claiming refund..." });
+  report({ type: 'info', message: 'Claiming refund...' });
   const hash = await ctx.walletClient.writeContract({
     address: ctx.contracts.LaunchpadEngine,
     abi: LAUNCHPAD_WRITE_ABI,
-    functionName: "claimRefund",
+    functionName: 'claimRefund',
     args: [params.marketAddress],
     account,
     chain: null,
   });
   await ctx.publicClient.waitForTransactionReceipt({ hash });
-  report({ type: "success", message: "Refund claimed" });
+  report({ type: 'success', message: 'Refund claimed' });
   return hash;
 }
 
@@ -673,7 +656,7 @@ export async function runClaimRefund(
 
 function requireSoothBook(ctx: ActionContext): Address {
   if (!ctx.contracts.SoothBook) {
-    throw new Error("SoothBook not deployed on this chain");
+    throw new Error('SoothBook not deployed on this chain');
   }
   return ctx.contracts.SoothBook;
 }
@@ -694,13 +677,13 @@ export async function runSoothBookBuyYes(
   const account = requireWallet(ctx);
   const soothBook = requireSoothBook(ctx);
   report({
-    type: "info",
+    type: 'info',
     message: `buyYes tick=${params.tick} size=${formatWad(params.amount)}`,
   });
   const hash = await ctx.walletClient.writeContract({
     address: soothBook,
     abi: SoothBookABI,
-    functionName: "buyYes",
+    functionName: 'buyYes',
     args: [
       params.marketKey,
       params.tick,
@@ -723,13 +706,13 @@ export async function runSoothBookBuyNo(
   const account = requireWallet(ctx);
   const soothBook = requireSoothBook(ctx);
   report({
-    type: "info",
+    type: 'info',
     message: `buyNo tick=${params.tick} size=${formatWad(params.amount)}`,
   });
   const hash = await ctx.walletClient.writeContract({
     address: soothBook,
     abi: SoothBookABI,
-    functionName: "buyNo",
+    functionName: 'buyNo',
     args: [
       params.marketKey,
       params.tick,
@@ -757,13 +740,13 @@ export async function runSoothBookMint(
   const account = requireWallet(ctx);
   const soothBook = requireSoothBook(ctx);
   report({
-    type: "info",
+    type: 'info',
     message: `sb.mint ${formatWad(params.amount)}`,
   });
   const hash = await ctx.walletClient.writeContract({
     address: soothBook,
     abi: SoothBookABI,
-    functionName: "mint",
+    functionName: 'mint',
     args: [params.marketKey, params.amount],
     account,
     chain: null,
@@ -780,13 +763,13 @@ export async function runSoothBookMerge(
   const account = requireWallet(ctx);
   const soothBook = requireSoothBook(ctx);
   report({
-    type: "info",
+    type: 'info',
     message: `sb.merge ${formatWad(params.amount)}`,
   });
   const hash = await ctx.walletClient.writeContract({
     address: soothBook,
     abi: SoothBookABI,
-    functionName: "merge",
+    functionName: 'merge',
     args: [params.marketKey, params.amount],
     account,
     chain: null,
@@ -809,13 +792,13 @@ export async function runSoothBookCancel(
   const account = requireWallet(ctx);
   const soothBook = requireSoothBook(ctx);
   report({
-    type: "info",
+    type: 'info',
     message: `sb.cancel side=${params.side} tick=${params.tick}`,
   });
   const hash = await ctx.walletClient.writeContract({
     address: soothBook,
     abi: SoothBookABI,
-    functionName: "cancel",
+    functionName: 'cancel',
     args: [params.marketKey, params.side, params.tick],
     account,
     chain: null,
@@ -831,11 +814,11 @@ export async function runSoothBookRedeem(
 ): Promise<`0x${string}`> {
   const account = requireWallet(ctx);
   const soothBook = requireSoothBook(ctx);
-  report({ type: "info", message: "sb.redeem" });
+  report({ type: 'info', message: 'sb.redeem' });
   const hash = await ctx.walletClient.writeContract({
     address: soothBook,
     abi: SoothBookABI,
-    functionName: "redeem",
+    functionName: 'redeem',
     args: [params.marketKey],
     account,
     chain: null,

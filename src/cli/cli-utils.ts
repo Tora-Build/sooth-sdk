@@ -62,12 +62,11 @@ export function bold(msg: string): string {
 }
 
 export function printTable(headers: string[], rows: string[][], widths?: number[]): void {
-  const colWidths = widths || headers.map((h, i) =>
-    Math.max(h.length, ...rows.map(r => (r[i] || '').length))
-  );
+  const colWidths =
+    widths || headers.map((h, i) => Math.max(h.length, ...rows.map((r) => (r[i] || '').length)));
 
   const tableRow = (cols: string[]) => cols.map((col, i) => col.padEnd(colWidths[i])).join(' | ');
-  const tableLine = () => colWidths.map(w => '-'.repeat(w)).join('-+-');
+  const tableLine = () => colWidths.map((w) => '-'.repeat(w)).join('-+-');
 
   console.log(tableRow(headers));
   console.log(tableLine());
@@ -142,7 +141,11 @@ export function parseCommand(input: string): { command: string; args: string[] }
   };
 }
 
-export function getRpcCandidates(primaryRpc: string, chain: Chain, extraRpcs: string[] = []): string[] {
+export function getRpcCandidates(
+  primaryRpc: string,
+  chain: Chain,
+  extraRpcs: string[] = [],
+): string[] {
   const candidates: string[] = [];
   const seen = new Set<string>();
 
@@ -169,7 +172,8 @@ export async function readContractWithRpcFallback<T>(
   args: ReadContractArgs,
   extraRpcs: string[] = [],
 ): Promise<T> {
-  const { isContractError, isTransientError, isNoDataError, decodeError } = await import('../core/index.js');
+  const { isContractError, isTransientError, isNoDataError, decodeError } =
+    await import('../core/index.js');
   const candidates = getRpcCandidates(primaryRpc, chain, extraRpcs);
 
   let lastError: Error | undefined;
@@ -193,9 +197,8 @@ export async function readContractWithRpcFallback<T>(
     }
   }
 
-  const hint = candidates.length > 1
-    ? `Tried RPCs: ${candidates.join(', ')}`
-    : `RPC: ${primaryRpc}`;
+  const hint =
+    candidates.length > 1 ? `Tried RPCs: ${candidates.join(', ')}` : `RPC: ${primaryRpc}`;
 
   throw new Error(`${decodeError(lastError || new Error('Unknown error'))}. ${hint}`);
 }

@@ -127,8 +127,8 @@ export function computeMarketStats(input: MarketStatsInput): MarketStats {
   // 6. Supply & Rates
   const supply = input.lpSupply;
   const supplyNum = Number(supply) / 1e18;
-  const floorRate = supplyNum > 0 ? (Number(floor) / (10 ** usdcDecimals)) / supplyNum : 0;
-  const ceilingRate = supplyNum > 0 ? (Number(ceilingEquity) / (10 ** usdcDecimals)) / supplyNum : 0;
+  const floorRate = supplyNum > 0 ? Number(floor) / 10 ** usdcDecimals / supplyNum : 0;
+  const ceilingRate = supplyNum > 0 ? Number(ceilingEquity) / 10 ** usdcDecimals / supplyNum : 0;
 
   // 7. Anchor Supply
   const anchorSupply = (Number(bBase) / 1e18) * LN2;

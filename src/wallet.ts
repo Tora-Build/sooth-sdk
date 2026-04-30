@@ -87,10 +87,7 @@ export class Wallet {
   }
 
   /** Get allowance */
-  async getAllowance(
-    owner: `0x${string}`,
-    spender: `0x${string}`,
-  ): Promise<bigint> {
+  async getAllowance(owner: `0x${string}`, spender: `0x${string}`): Promise<bigint> {
     return (await this.client.publicClient.readContract({
       address: this.client.contracts.baseToken,
       abi: ERC20Abi,
@@ -100,10 +97,7 @@ export class Wallet {
   }
 
   /** Approve USDC for a spender (default: max approval) */
-  async approve(
-    spender: `0x${string}`,
-    amount?: bigint,
-  ): Promise<`0x${string}`> {
+  async approve(spender: `0x${string}`, amount?: bigint): Promise<`0x${string}`> {
     return this.client.writeContract({
       address: this.client.contracts.baseToken,
       abi: ERC20Abi,
@@ -124,10 +118,7 @@ export class Wallet {
 
   /** Approve USDC for all contracts */
   async approveAll(): Promise<`0x${string}`[]> {
-    const hashes = await Promise.all([
-      this.approveLaunchpad(),
-      this.approveSoothBook(),
-    ]);
+    const hashes = await Promise.all([this.approveLaunchpad(), this.approveSoothBook()]);
     return hashes;
   }
 

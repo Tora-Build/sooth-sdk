@@ -8,7 +8,7 @@
  * output format.
  */
 
-import type { Address, PublicClient, WalletClient } from "viem";
+import type { Address, PublicClient, WalletClient } from 'viem';
 
 export interface ActionContracts {
   MockUSDC: Address;
@@ -29,12 +29,7 @@ export interface ActionContext {
   contracts: ActionContracts;
 }
 
-export type ActionEventType =
-  | "info"
-  | "success"
-  | "warn"
-  | "error"
-  | "progress";
+export type ActionEventType = 'info' | 'success' | 'warn' | 'error' | 'progress';
 
 export interface ActionEvent {
   type: ActionEventType;

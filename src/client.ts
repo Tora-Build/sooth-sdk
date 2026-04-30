@@ -78,19 +78,14 @@ export class SoothClient {
    * @param nodeId - 8-char hex node ID from the registry
    * @param options - private key, RPC override, registry URL override
    */
-  static async create(
-    nodeId: string,
-    options: SoothClientOptions = {},
-  ): Promise<SoothClient> {
+  static async create(nodeId: string, options: SoothClientOptions = {}): Promise<SoothClient> {
     const registry = new Registry(options.registryUrl);
 
     const node = await registry.getNode(nodeId);
     if (!node) {
       const nodes = await registry.listNodes();
       const list = nodes.map((n) => `  ${n.id}  ${n.chainName}`).join('\n');
-      throw new Error(
-        `Node not found: "${nodeId}"\n\nAvailable nodes:\n${list}`,
-      );
+      throw new Error(`Node not found: "${nodeId}"\n\nAvailable nodes:\n${list}`);
     }
 
     const chainInfo = await registry.getChain(node.chainId);

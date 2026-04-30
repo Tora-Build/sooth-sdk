@@ -137,10 +137,7 @@ export class Orderbook {
   }
 
   /** Get best tick for a side (0=YES, 1=NO) */
-  async getBestTick(
-    marketKey: `0x${string}`,
-    side: 'yes' | 'no',
-  ): Promise<number> {
+  async getBestTick(marketKey: `0x${string}`, side: 'yes' | 'no'): Promise<number> {
     const sideNum = side === 'yes' ? 0 : 1;
     const result = await this.client.publicClient.readContract({
       address: this.client.contracts.soothBook,
@@ -152,9 +149,7 @@ export class Orderbook {
   }
 
   /** Get implied price */
-  async getImpliedPrice(
-    marketKey: `0x${string}`,
-  ): Promise<{ yesPrice: bigint; noPrice: bigint }> {
+  async getImpliedPrice(marketKey: `0x${string}`): Promise<{ yesPrice: bigint; noPrice: bigint }> {
     const result = (await this.client.publicClient.readContract({
       address: this.client.contracts.soothBook,
       abi: SoothBookAbi,
@@ -200,9 +195,7 @@ export class Orderbook {
     params: { tick: number; amount: string; escrow?: boolean; maxCost?: string },
   ): Promise<`0x${string}`> {
     const amount = parseUnits(params.amount, 18);
-    const maxCost = params.maxCost
-      ? parseUnits(params.maxCost, 18)
-      : amount;
+    const maxCost = params.maxCost ? parseUnits(params.maxCost, 18) : amount;
     return this.client.writeContract({
       address: this.client.contracts.soothBook,
       abi: SoothBookAbi,
@@ -217,9 +210,7 @@ export class Orderbook {
     params: { tick: number; amount: string; escrow?: boolean; maxCost?: string },
   ): Promise<`0x${string}`> {
     const amount = parseUnits(params.amount, 18);
-    const maxCost = params.maxCost
-      ? parseUnits(params.maxCost, 18)
-      : amount;
+    const maxCost = params.maxCost ? parseUnits(params.maxCost, 18) : amount;
     return this.client.writeContract({
       address: this.client.contracts.soothBook,
       abi: SoothBookAbi,
@@ -229,11 +220,7 @@ export class Orderbook {
   }
 
   /** Cancel an order */
-  async cancel(
-    marketKey: `0x${string}`,
-    side: 'yes' | 'no',
-    tick: number,
-  ): Promise<`0x${string}`> {
+  async cancel(marketKey: `0x${string}`, side: 'yes' | 'no', tick: number): Promise<`0x${string}`> {
     const sideNum = side === 'yes' ? 0 : 1;
     return this.client.writeContract({
       address: this.client.contracts.soothBook,

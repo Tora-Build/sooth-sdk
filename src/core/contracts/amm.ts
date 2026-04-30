@@ -31,14 +31,14 @@ const WAD = 10n ** 18n;
 export async function getAmmMarketState(
   client: PublicClient,
   ammEngine: Address,
-  marketAddress: Address
+  marketAddress: Address,
 ): Promise<AmmMarketState> {
-  const liquidity = await client.readContract({
+  const liquidity = (await client.readContract({
     address: ammEngine,
     abi: AMMEngineABI,
     functionName: 'getLiquidity',
     args: [marketAddress],
-  }) as bigint;
+  })) as bigint;
 
   const isInitialized = liquidity > 0n;
   let qYes = 0n;
@@ -46,12 +46,12 @@ export async function getAmmMarketState(
   let yesPrice = WAD / 2n;
 
   if (isInitialized) {
-    const state = await client.readContract({
+    const state = (await client.readContract({
       address: ammEngine,
       abi: AMMEngineABI,
       functionName: 'getMarketState',
       args: [marketAddress],
-    }) as readonly [bigint, bigint, bigint];
+    })) as readonly [bigint, bigint, bigint];
     [qYes, qNo, yesPrice] = state;
   }
 
@@ -77,14 +77,14 @@ export async function getAmmPosition(
   client: PublicClient,
   ammEngine: Address,
   marketAddress: Address,
-  userAddress: Address
+  userAddress: Address,
 ): Promise<AmmPosition> {
-  const result = await client.readContract({
+  const result = (await client.readContract({
     address: ammEngine,
     abi: AMMEngineABI,
     functionName: 'getPosition',
     args: [marketAddress, userAddress],
-  }) as readonly [bigint, bigint];
+  })) as readonly [bigint, bigint];
 
   return { yesShares: result[0], noShares: result[1] };
 }
@@ -97,14 +97,14 @@ export async function getAmmQuote(
   ammEngine: Address,
   marketAddress: Address,
   outcome: 0 | 1,
-  deltaShares: bigint
+  deltaShares: bigint,
 ): Promise<AmmQuote> {
-  const result = await client.readContract({
+  const result = (await client.readContract({
     address: ammEngine,
     abi: AMMEngineABI,
     functionName: 'getPositionQuote',
     args: [marketAddress, outcome, deltaShares],
-  }) as readonly [bigint, bigint, bigint, bigint];
+  })) as readonly [bigint, bigint, bigint, bigint];
 
   return { cost: result[0], newPrice: result[3] };
 }

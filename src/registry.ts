@@ -5,7 +5,13 @@
 import type { NodesManifest } from './registry-types';
 import type { NodeInfo, ChainInfo } from './types';
 
-export type { SoothNode, SoothContracts, ChainMeta, NodesManifest, Address } from './registry-types';
+export type {
+  SoothNode,
+  SoothContracts,
+  ChainMeta,
+  NodesManifest,
+  Address,
+} from './registry-types';
 
 const DEFAULT_REGISTRY_URL = 'https://registry.sooth.market';
 const CACHE_TTL_MS = 60_000;
@@ -70,8 +76,7 @@ export class Registry {
     return manifest.nodes.map((n) => ({
       id: n.id,
       chainId: n.chainId,
-      chainName:
-        manifest.chains[String(n.chainId)]?.name ?? `Chain ${n.chainId}`,
+      chainName: manifest.chains[String(n.chainId)]?.name ?? `Chain ${n.chainId}`,
       indexed: n.indexed !== false,
     }));
   }

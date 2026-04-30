@@ -1,6 +1,6 @@
-import type { Address, PublicClient } from "viem";
-import { AMMEngineABI } from "../abis/AMMEngine.js";
-import { LaunchpadEngineABI } from "../abis/LaunchpadEngine.js";
+import type { Address, PublicClient } from 'viem';
+import { AMMEngineABI } from '../abis/AMMEngine.js';
+import { LaunchpadEngineABI } from '../abis/LaunchpadEngine.js';
 
 export const OUTCOME = {
   NO: 0,
@@ -9,19 +9,14 @@ export const OUTCOME = {
 } as const;
 
 export type BinaryOutcome = typeof OUTCOME.NO | typeof OUTCOME.YES;
-export type SoothTradeAction = "buy" | "sell";
-export type SoothMarketStage =
-  | "bonding"
-  | "live"
-  | "settled"
-  | "finalized"
-  | "dismissed";
+export type SoothTradeAction = 'buy' | 'sell';
+export type SoothMarketStage = 'bonding' | 'live' | 'settled' | 'finalized' | 'dismissed';
 
 const WAD = 10n ** 18n;
 const BPS_DENOMINATOR = 10_000n;
 const DEFAULT_PRE_GRAD_FEE_BPS = 500n;
 const DEFAULT_POST_GRAD_FEE_BPS = 100n;
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const;
 
 export interface LaunchpadAmmContracts {
   launchpadEngine: Address;
@@ -158,14 +153,11 @@ function clampProbability(value: number): number {
  * - sell: minProceeds = amount * (1 - slippageBps)
  */
 export function applySlippageToAmount(input: ApplySlippageInput): bigint {
-  const bps =
-    typeof input.slippageBps === "bigint"
-      ? input.slippageBps
-      : BigInt(input.slippageBps);
-  if (bps < 0n) throw new Error("slippageBps must be >= 0");
-  if (bps > BPS_DENOMINATOR) throw new Error("slippageBps must be <= 10000");
+  const bps = typeof input.slippageBps === 'bigint' ? input.slippageBps : BigInt(input.slippageBps);
+  if (bps < 0n) throw new Error('slippageBps must be >= 0');
+  if (bps > BPS_DENOMINATOR) throw new Error('slippageBps must be <= 10000');
 
-  if (input.action === "buy") {
+  if (input.action === 'buy') {
     return input.amount + (input.amount * bps) / BPS_DENOMINATOR;
   }
 
@@ -181,10 +173,7 @@ function toRatio(numerator: bigint, denominator: bigint): number {
   return Number(numerator) / Number(denominator);
 }
 
-async function readWithFallback<T>(
-  read: () => Promise<T>,
-  fallback: T,
-): Promise<T> {
+async function readWithFallback<T>(read: () => Promise<T>, fallback: T): Promise<T> {
   try {
     return await read();
   } catch {
@@ -193,17 +182,13 @@ async function readWithFallback<T>(
 }
 
 function toBigInt(value: bigint | number): bigint {
-  return typeof value === "bigint" ? value : BigInt(value);
+  return typeof value === 'bigint' ? value : BigInt(value);
 }
 
 /**
  * Canonical outcome probability using stable log-sum-exp.
  */
-export function computeLmsrYesProbability(
-  qYes: bigint,
-  qNo: bigint,
-  b: bigint,
-): number {
+export function computeLmsrYesProbability(qYes: bigint, qNo: bigint, b: bigint): number {
   if (b <= 0n) return 0.5;
   const qMax = qYes > qNo ? qYes : qNo;
   const yesArg = toRatio(qYes - qMax, b);
@@ -221,11 +206,11 @@ export function resolveSoothMarketStage(flags: {
   isSettled: boolean;
   isGraduated: boolean;
 }): SoothMarketStage {
-  if (flags.isDismissed) return "dismissed";
-  if (flags.isFinalized) return "finalized";
-  if (flags.isSettled) return "settled";
-  if (flags.isGraduated) return "live";
-  return "bonding";
+  if (flags.isDismissed) return 'dismissed';
+  if (flags.isFinalized) return 'finalized';
+  if (flags.isSettled) return 'settled';
+  if (flags.isGraduated) return 'live';
+  return 'bonding';
 }
 
 export function getLaunchpadFeeBps(
@@ -239,32 +224,25 @@ export function getLaunchpadFeeBps(
 /**
  * Normalizes raw AMM quote + Launchpad fee model into a single shape for all app frontends.
  */
-export function computeLaunchpadAmmQuote(
-  input: ComputeLaunchpadAmmQuoteInput,
-): LaunchpadAmmQuote {
-  const deltaShares = input.action === "buy" ? input.shares : -input.shares;
+export function computeLaunchpadAmmQuote(input: ComputeLaunchpadAmmQuoteInput): LaunchpadAmmQuote {
+  const deltaShares = input.action === 'buy' ? input.shares : -input.shares;
   // Prefer the contract-reported fee when caller supplies it (matches the
   // exact value tradePositions will charge). Fall back to feeBps math.
-  const fee =
-    input.contractFee ?? (input.rawQuote * input.feeBps) / BPS_DENOMINATOR;
+  const fee = input.contractFee ?? (input.rawQuote * input.feeBps) / BPS_DENOMINATOR;
   const proceeds = input.rawQuote > fee ? input.rawQuote - fee : 0n;
-  const total = input.action === "buy" ? input.rawQuote + fee : proceeds;
+  const total = input.action === 'buy' ? input.rawQuote + fee : proceeds;
 
   const newPriceYes = clampProbability(Number(input.newPriceYesWad) / 1e18);
   const newPriceNo = clampProbability(1 - newPriceYes);
-  const newPriceForOutcome =
-    input.outcome === OUTCOME.YES ? newPriceYes : newPriceNo;
+  const newPriceForOutcome = input.outcome === OUTCOME.YES ? newPriceYes : newPriceNo;
 
   let priceImpactPct = 0;
-  if (typeof input.currentYesPrice === "number") {
+  if (typeof input.currentYesPrice === 'number') {
     const currentYes = clampProbability(input.currentYesPrice);
     const currentForOutcome =
-      input.outcome === OUTCOME.YES
-        ? currentYes
-        : clampProbability(1 - currentYes);
+      input.outcome === OUTCOME.YES ? currentYes : clampProbability(1 - currentYes);
     if (currentForOutcome > 0) {
-      const rawImpact =
-        ((newPriceForOutcome - currentForOutcome) / currentForOutcome) * 100;
+      const rawImpact = ((newPriceForOutcome - currentForOutcome) / currentForOutcome) * 100;
       priceImpactPct = Math.max(-99.99, Math.min(99.99, rawImpact));
     }
   }
@@ -295,56 +273,49 @@ export async function readLaunchpadAmmSnapshot(
   marketAddress: Address,
   options: LaunchpadAmmSnapshotOptions = {},
 ): Promise<LaunchpadAmmMarketSnapshot> {
-  const emptyMarketsMapping: LaunchpadMarketsMapping = [
-    ZERO_ADDRESS,
-    ZERO_ADDRESS,
-    0n,
-    0n,
-    0n,
-  ];
+  const emptyMarketsMapping: LaunchpadMarketsMapping = [ZERO_ADDRESS, ZERO_ADDRESS, 0n, 0n, 0n];
   const emptyAmmState: AmmMarketState = [0n, 0n, WAD / 2n];
 
-  const [liquidity, marketsMapping, isGraduated, userPosition] =
-    await Promise.all([
-      client.readContract({
-        address: contracts.ammEngine,
-        abi: AMMEngineABI,
-        functionName: "getLiquidity",
-        args: [marketAddress],
-      }) as Promise<bigint>,
-      readWithFallback(
-        () =>
-          client.readContract({
-            address: contracts.launchpadEngine,
-            abi: LaunchpadEngineABI,
-            functionName: "markets",
-            args: [marketAddress],
-          }) as Promise<LaunchpadMarketsMapping>,
-        emptyMarketsMapping,
-      ),
-      readWithFallback(
-        () =>
-          client.readContract({
-            address: contracts.launchpadEngine,
-            abi: LaunchpadEngineABI,
-            functionName: "isGraduated",
-            args: [marketAddress],
-          }) as Promise<boolean>,
-        false,
-      ),
-      options.userAddress
-        ? readWithFallback(
-            () =>
-              client.readContract({
-                address: contracts.ammEngine,
-                abi: AMMEngineABI,
-                functionName: "getPosition",
-                args: [marketAddress, options.userAddress!],
-              }) as Promise<AmmPosition>,
-            [0n, 0n] as const,
-          )
-        : Promise.resolve([0n, 0n] as const),
-    ]);
+  const [liquidity, marketsMapping, isGraduated, userPosition] = await Promise.all([
+    client.readContract({
+      address: contracts.ammEngine,
+      abi: AMMEngineABI,
+      functionName: 'getLiquidity',
+      args: [marketAddress],
+    }) as Promise<bigint>,
+    readWithFallback(
+      () =>
+        client.readContract({
+          address: contracts.launchpadEngine,
+          abi: LaunchpadEngineABI,
+          functionName: 'markets',
+          args: [marketAddress],
+        }) as Promise<LaunchpadMarketsMapping>,
+      emptyMarketsMapping,
+    ),
+    readWithFallback(
+      () =>
+        client.readContract({
+          address: contracts.launchpadEngine,
+          abi: LaunchpadEngineABI,
+          functionName: 'isGraduated',
+          args: [marketAddress],
+        }) as Promise<boolean>,
+      false,
+    ),
+    options.userAddress
+      ? readWithFallback(
+          () =>
+            client.readContract({
+              address: contracts.ammEngine,
+              abi: AMMEngineABI,
+              functionName: 'getPosition',
+              args: [marketAddress, options.userAddress!],
+            }) as Promise<AmmPosition>,
+          [0n, 0n] as const,
+        )
+      : Promise.resolve([0n, 0n] as const),
+  ]);
 
   const isInitialized = liquidity > 0n;
   const ammState = isInitialized
@@ -353,7 +324,7 @@ export async function readLaunchpadAmmSnapshot(
           client.readContract({
             address: contracts.ammEngine,
             abi: AMMEngineABI,
-            functionName: "getMarketState",
+            functionName: 'getMarketState',
             args: [marketAddress],
           }) as Promise<AmmMarketState>,
         emptyAmmState,
@@ -375,11 +346,7 @@ export async function readLaunchpadAmmSnapshot(
 
   const preGradFeeBpsBig = DEFAULT_PRE_GRAD_FEE_BPS;
   const postGradFeeBpsBig = DEFAULT_POST_GRAD_FEE_BPS;
-  const currentFeeBps = getLaunchpadFeeBps(
-    isGraduated,
-    preGradFeeBpsBig,
-    postGradFeeBpsBig,
-  );
+  const currentFeeBps = getLaunchpadFeeBps(isGraduated, preGradFeeBpsBig, postGradFeeBpsBig);
 
   // Dismiss removed in v0.1.2 — isDismissed always false.
   // Trial period still tracked via trialEndTimes(address).
@@ -389,17 +356,15 @@ export async function readLaunchpadAmmSnapshot(
     trialEndTime = (await client.readContract({
       address: contracts.launchpadEngine,
       abi: LaunchpadEngineABI,
-      functionName: "trialEndTimes",
+      functionName: 'trialEndTimes',
       args: [marketAddress],
     })) as bigint;
   } catch {
     // trialEndTimes may not exist on older deploys
   }
   const now = BigInt(Math.floor(Date.now() / 1000));
-  const isInTrialPeriod =
-    trialEndTime > 0n && now < trialEndTime && !isGraduated;
-  const trialTimeRemainingSeconds =
-    trialEndTime > now ? Number(trialEndTime - now) : 0;
+  const isInTrialPeriod = trialEndTime > 0n && now < trialEndTime && !isGraduated;
+  const trialTimeRemainingSeconds = trialEndTime > now ? Number(trialEndTime - now) : 0;
 
   const stage = resolveSoothMarketStage({
     isDismissed,
@@ -462,11 +427,10 @@ export async function readLaunchpadAmmQuote(
   options: ReadLaunchpadAmmQuoteOptions,
 ): Promise<LaunchpadAmmQuote> {
   if (options.shares <= 0n) {
-    throw new Error("shares must be greater than zero");
+    throw new Error('shares must be greater than zero');
   }
 
-  const deltaShares =
-    options.action === "buy" ? options.shares : -options.shares;
+  const deltaShares = options.action === 'buy' ? options.shares : -options.shares;
   // getPositionQuote returns (cost, fee, netAmount, newPrice). The
   // contract-reported `fee` is authoritative — it's exactly what
   // tradePositions will charge. Earlier code discarded it and
@@ -477,7 +441,7 @@ export async function readLaunchpadAmmQuote(
   const [rawQuote, contractFee, , newPriceYesWad] = (await client.readContract({
     address: contracts.ammEngine,
     abi: AMMEngineABI,
-    functionName: "getPositionQuote",
+    functionName: 'getPositionQuote',
     args: [marketAddress, options.outcome, deltaShares],
   })) as AmmQuote;
 
@@ -493,17 +457,13 @@ export async function readLaunchpadAmmQuote(
           client.readContract({
             address: contracts.launchpadEngine,
             abi: LaunchpadEngineABI,
-            functionName: "isGraduated",
+            functionName: 'isGraduated',
             args: [marketAddress],
           }) as Promise<boolean>,
         false,
       ));
 
-    feeBps = getLaunchpadFeeBps(
-      isGraduated,
-      toBigInt(preGradFeeBps),
-      toBigInt(postGradFeeBps),
-    );
+    feeBps = getLaunchpadFeeBps(isGraduated, toBigInt(preGradFeeBps), toBigInt(postGradFeeBps));
   }
 
   return computeLaunchpadAmmQuote({

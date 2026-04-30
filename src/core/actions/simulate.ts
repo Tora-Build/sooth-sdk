@@ -8,23 +8,15 @@
  * Both apps/demo (browser) and packages/sdk/src/cli (Node) call this.
  */
 
-import { maxUint256, parseAbi } from "viem";
-import { SoothBookABI } from "../abis/SoothBook.js";
-import {
-  type ActionContext,
-  type ActionReporter,
-  noopReporter,
-} from "./types.js";
-import {
-  isMegaethChain,
-  getMegaethNativeRpcUrl,
-  writeContractRealtime,
-} from "../megaeth.js";
+import { maxUint256, parseAbi } from 'viem';
+import { SoothBookABI } from '../abis/SoothBook.js';
+import { type ActionContext, type ActionReporter, noopReporter } from './types.js';
+import { isMegaethChain, getMegaethNativeRpcUrl, writeContractRealtime } from '../megaeth.js';
 
 const ERC20_ABI = parseAbi([
-  "function balanceOf(address owner) view returns (uint256)",
-  "function approve(address spender, uint256 amount) returns (bool)",
-  "function mint(address to, uint256 amount)",
+  'function balanceOf(address owner) view returns (uint256)',
+  'function approve(address spender, uint256 amount) returns (bool)',
+  'function mint(address to, uint256 amount)',
 ]);
 
 export interface SimulateParams {
@@ -46,7 +38,7 @@ export interface SimulateResult {
     p95: number;
     min: number;
     max: number;
-    mode: "standard" | "realtime";
+    mode: 'standard' | 'realtime';
   };
 }
 
@@ -65,7 +57,7 @@ function mulberry32(seed: number): () => number {
 function formatWad(value: bigint): string {
   const whole = value / WAD;
   const frac = (value % WAD) / 10n ** 16n; // 2 decimals
-  return `${whole}.${frac.toString().padStart(2, "0")}`;
+  return `${whole}.${frac.toString().padStart(2, '0')}`;
 }
 
 export async function runSimulate(
@@ -77,25 +69,23 @@ export async function runSimulate(
 
   const soothBook = contracts.SoothBook;
   const orderEngine = contracts.OrderEngine;
-  if (!soothBook) throw new Error("SoothBook not deployed on this chain");
-  if (!orderEngine) throw new Error("OrderEngine not deployed on this chain");
-  if (!walletClient.account) throw new Error("walletClient has no account");
+  if (!soothBook) throw new Error('SoothBook not deployed on this chain');
+  if (!orderEngine) throw new Error('OrderEngine not deployed on this chain');
+  if (!walletClient.account) throw new Error('walletClient has no account');
 
   const { marketKey, numOrders, avgSize, seed } = params;
   const useRealtime = params.realtimeMode && isMegaethChain(ctx.chainId);
-  const realtimeRpcUrl = useRealtime
-    ? getMegaethNativeRpcUrl(ctx.chainId)
-    : undefined;
+  const realtimeRpcUrl = useRealtime ? getMegaethNativeRpcUrl(ctx.chainId) : undefined;
   if (!Number.isInteger(numOrders) || numOrders <= 0) {
-    throw new Error("numOrders must be a positive integer");
+    throw new Error('numOrders must be a positive integer');
   }
-  if (avgSize <= 0n) throw new Error("avgSize must be > 0");
+  if (avgSize <= 0n) throw new Error('avgSize must be > 0');
 
   const rng = mulberry32(seed);
 
   report({
-    type: "info",
-    message: `Simulate start: orders=${numOrders} avgSize=${formatWad(avgSize)} seed=${seed}${useRealtime ? " [realtime]" : ""}`,
+    type: 'info',
+    message: `Simulate start: orders=${numOrders} avgSize=${formatWad(avgSize)} seed=${seed}${useRealtime ? ' [realtime]' : ''}`,
     data: { numOrders, avgSize, seed, useRealtime },
   });
 
@@ -104,27 +94,27 @@ export async function runSimulate(
   const usdcBalance = (await publicClient.readContract({
     address: contracts.MockUSDC,
     abi: ERC20_ABI,
-    functionName: "balanceOf",
+    functionName: 'balanceOf',
     args: [address],
   })) as bigint;
 
   if (usdcBalance < estimatedUsdcNeeded) {
     const mintAmount = estimatedUsdcNeeded - usdcBalance + avgSize * 5n;
     report({
-      type: "info",
+      type: 'info',
       message: `Minting ${formatWad(mintAmount)} USDC...`,
     });
     const mintHash = await walletClient.writeContract({
       address: contracts.MockUSDC,
       abi: ERC20_ABI,
-      functionName: "mint",
+      functionName: 'mint',
       args: [address, mintAmount],
       account: walletClient.account,
       chain: null,
     });
     await publicClient.waitForTransactionReceipt({ hash: mintHash });
     report({
-      type: "success",
+      type: 'success',
       message: `Minted ${formatWad(mintAmount)} USDC`,
     });
   }
@@ -132,11 +122,11 @@ export async function runSimulate(
   // Approve BOTH SoothBook AND OrderEngine.
   // SoothBook.mint/buyYes/buyNo internally transferFrom via OrderEngine —
   // approving only SoothBook reverts with ERC20InsufficientAllowance.
-  report({ type: "info", message: "Approving SoothBook + OrderEngine..." });
+  report({ type: 'info', message: 'Approving SoothBook + OrderEngine...' });
   const approveSBHash = await walletClient.writeContract({
     address: contracts.MockUSDC,
     abi: ERC20_ABI,
-    functionName: "approve",
+    functionName: 'approve',
     args: [soothBook, maxUint256],
     account: walletClient.account,
     chain: null,
@@ -145,19 +135,19 @@ export async function runSimulate(
   const approveOEHash = await walletClient.writeContract({
     address: contracts.MockUSDC,
     abi: ERC20_ABI,
-    functionName: "approve",
+    functionName: 'approve',
     args: [orderEngine, maxUint256],
     account: walletClient.account,
     chain: null,
   });
   await publicClient.waitForTransactionReceipt({ hash: approveOEHash });
-  report({ type: "success", message: "SoothBook + OrderEngine approved" });
+  report({ type: 'success', message: 'SoothBook + OrderEngine approved' });
 
   // Pre-check: market must be active on SoothBook or all trades revert
   const marketState = (await publicClient.readContract({
     address: soothBook,
     abi: SoothBookABI,
-    functionName: "markets",
+    functionName: 'markets',
     args: [marketKey],
   })) as readonly [boolean, boolean, number];
   if (!marketState[0]) {
@@ -179,49 +169,48 @@ export async function runSimulate(
     const amount = (avgSize * sizeMultiplierBps) / 1000n || WAD;
     const tick = 100 + Math.floor(rng() * 801);
 
-    let action: "buyyes" | "buyno" | "mint" | "merge";
-    if (r < 0.4) action = "buyyes";
-    else if (r < 0.8) action = "buyno";
-    else if (r < 0.9) action = "mint";
-    else action = "merge";
+    let action: 'buyyes' | 'buyno' | 'mint' | 'merge';
+    if (r < 0.4) action = 'buyyes';
+    else if (r < 0.8) action = 'buyno';
+    else if (r < 0.9) action = 'mint';
+    else action = 'merge';
 
     try {
       let likelyCross = false;
       let fnName: string;
       let fnArgs: readonly unknown[];
 
-      if (action === "buyyes") {
+      if (action === 'buyyes') {
         const bestNoTick = (await publicClient.readContract({
           address: soothBook,
           abi: SoothBookABI,
-          functionName: "getBestTick",
+          functionName: 'getBestTick',
           args: [marketKey, 0],
         })) as number;
         likelyCross = bestNoTick > 0 && tick + bestNoTick >= 1000;
-        fnName = "buyYes";
+        fnName = 'buyYes';
         fnArgs = [marketKey, tick, amount, false, 0];
-      } else if (action === "buyno") {
+      } else if (action === 'buyno') {
         const bestYesTick = (await publicClient.readContract({
           address: soothBook,
           abi: SoothBookABI,
-          functionName: "getBestTick",
+          functionName: 'getBestTick',
           args: [marketKey, 1],
         })) as number;
         likelyCross = bestYesTick > 0 && tick + bestYesTick >= 1000;
-        fnName = "buyNo";
+        fnName = 'buyNo';
         fnArgs = [marketKey, tick, amount, false, 0];
-      } else if (action === "mint") {
-        fnName = "mint";
+      } else if (action === 'mint') {
+        fnName = 'mint';
         fnArgs = [marketKey, amount];
       } else {
         const balances = (await publicClient.readContract({
           address: soothBook,
           abi: SoothBookABI,
-          functionName: "getBalance",
+          functionName: 'getBalance',
           args: [marketKey, address],
         })) as readonly [bigint, bigint];
-        const mergeAmount =
-          balances[0] < balances[1] ? balances[0] : balances[1];
+        const mergeAmount = balances[0] < balances[1] ? balances[0] : balances[1];
         if (mergeAmount <= 0n) {
           // Don't waste an iteration when MERGE has nothing to merge —
           // fall through to a buyyes (the default productive action).
@@ -229,21 +218,21 @@ export async function runSimulate(
           // "Partial M/N" and the user can't tell whether the simulator
           // hit a real failure or just unlucky RNG.
           report({
-            type: "info",
+            type: 'info',
             message: `[${i + 1}/${numOrders}] MERGE skipped (no complete sets) — falling through to BUYYES`,
           });
-          action = "buyyes";
+          action = 'buyyes';
           const bestNoTick = (await publicClient.readContract({
             address: soothBook,
             abi: SoothBookABI,
-            functionName: "getBestTick",
+            functionName: 'getBestTick',
             args: [marketKey, 0],
           })) as number;
           likelyCross = bestNoTick > 0 && tick + bestNoTick >= 1000;
-          fnName = "buyYes";
+          fnName = 'buyYes';
           fnArgs = [marketKey, tick, amount, false, 0];
         } else {
-          fnName = "merge";
+          fnName = 'merge';
           fnArgs = [marketKey, mergeAmount < amount ? mergeAmount : amount];
         }
       }
@@ -267,7 +256,7 @@ export async function runSimulate(
         orderTimings.push(sendMs);
         consecutiveFailures = 0;
         report({
-          type: "success",
+          type: 'success',
           message: `[${i + 1}/${numOrders}] ${action.toUpperCase()} (gas: ${receipt.gasUsed}, ${prepareMs}ms prep, ${sendMs}ms realtime)`,
           data: {
             i,
@@ -297,7 +286,7 @@ export async function runSimulate(
         orderTimings.push(orderMs);
         consecutiveFailures = 0;
         report({
-          type: "success",
+          type: 'success',
           message: `[${i + 1}/${numOrders}] ${action.toUpperCase()} (gas: ${receipt.gasUsed}, ${orderMs}ms)`,
           data: { i, action, gasUsed: receipt.gasUsed, likelyCross, orderMs },
         });
@@ -305,14 +294,14 @@ export async function runSimulate(
     } catch (err) {
       const msg = (err as Error).message.slice(0, 120);
       report({
-        type: "error",
+        type: 'error',
         message: `[${i + 1}/${numOrders}] ${action.toUpperCase()} failed: ${msg}`,
       });
       consecutiveFailures++;
       if (consecutiveFailures >= 3) {
         report({
-          type: "warn",
-          message: "Stopping after 3 consecutive failures",
+          type: 'warn',
+          message: 'Stopping after 3 consecutive failures',
         });
         stoppedEarly = true;
         break;
@@ -320,7 +309,7 @@ export async function runSimulate(
     }
   }
 
-  let latency: SimulateResult["latency"];
+  let latency: SimulateResult['latency'];
   if (orderTimings.length > 0) {
     const sorted = [...orderTimings].sort((a, b) => a - b);
     const avg = sorted.reduce((a, b) => a + b, 0) / sorted.length;
@@ -330,7 +319,7 @@ export async function runSimulate(
       p95: Math.round(sorted[Math.floor(sorted.length * 0.95)]),
       min: Math.round(sorted[0]),
       max: Math.round(sorted[sorted.length - 1]),
-      mode: useRealtime ? "realtime" : "standard",
+      mode: useRealtime ? 'realtime' : 'standard',
     };
   }
 
