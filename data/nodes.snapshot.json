@@ -1,0 +1,98 @@
+{
+  "version": "0.2.2",
+  "updatedAt": "2026-04-30T00:00:00.000Z",
+  "nodes": [
+    {
+      "id": "3b02bcfd",
+      "chainId": 6343,
+      "coreVersion": "0.2.1",
+      "contracts": {
+        "launchpadEngine": "0x8B44C61692461496043257f1605E8Af73Dcd952b",
+        "soothBook": "0x20c0a274aB8D90452859809B3804Ef2cFA595132",
+        "ammEngine": "0x1Bab97dBCE105E8715A29B33cd18F0d8B9871383",
+        "orderEngine": "0x14941AA509e484e14A7A7C1cb97fcfcfC96C02A2",
+        "truthMarket": "0x6c4f2460e0e6DFb58C6a1a044DC6C1Ccd274C850",
+        "feeRouter": "0x7007c321B82F96C16e5Ca114019Fb669633e6219",
+        "adjudicatorRegistry": "0x122E97eFeCCC921713D24f5a81351A9457E1c266",
+        "baseToken": "0x881C78A52a813b9b711514E9f0518D2faCB01F84",
+        "baseTokenDecimals": 6
+      },
+      "adjudicators": {
+        "default": "0xEe1029DCDa225cB15E751fDf61F43367456fb1E9",
+        "zkTLS": "0xEe1029DCDa225cB15E751fDf61F43367456fb1E9",
+        "manual": "0x024BA5f5d9DED6ded6e073a622C21528F5043C06",
+        "primusVerifier": "0x90B7A938b75803Db139cf54Ab19204Ae31286961"
+      },
+      "deployedAt": "2026-04-30T00:00:00.000Z",
+      "deployedBy": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
+      "startBlock": 17669139,
+      "indexed": true,
+      "label": "MegaETH · v0.2.1"
+    },
+    {
+      "id": "0d896a4f",
+      "chainId": 11155111,
+      "coreVersion": "0.2.1",
+      "contracts": {
+        "launchpadEngine": "0x8B44C61692461496043257f1605E8Af73Dcd952b",
+        "soothBook": "0x20c0a274aB8D90452859809B3804Ef2cFA595132",
+        "ammEngine": "0x1Bab97dBCE105E8715A29B33cd18F0d8B9871383",
+        "orderEngine": "0x14941AA509e484e14A7A7C1cb97fcfcfC96C02A2",
+        "truthMarket": "0x6c4f2460e0e6DFb58C6a1a044DC6C1Ccd274C850",
+        "feeRouter": "0x7007c321B82F96C16e5Ca114019Fb669633e6219",
+        "adjudicatorRegistry": "0x122E97eFeCCC921713D24f5a81351A9457E1c266",
+        "baseToken": "0x58F35BE6A5e3D2be4C3575853043322B02FEeD84",
+        "baseTokenDecimals": 6
+      },
+      "adjudicators": {
+        "default": "0x1aF3cB8B270Db3e71fC979543c32B87709EA191f",
+        "zkTLS": "0x1aF3cB8B270Db3e71fC979543c32B87709EA191f",
+        "manual": "0x024BA5f5d9DED6ded6e073a622C21528F5043C06",
+        "primusVerifier": "0x3760aB354507a29a9F5c65A66C74353fd86393FA"
+      },
+      "deployedAt": "2026-04-30T00:00:00.000Z",
+      "deployedBy": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
+      "startBlock": 10749016,
+      "indexed": true,
+      "label": "Eth Sepolia · v0.2.1"
+    }
+  ],
+  "chains": {
+    "6343": {
+      "name": "MegaETH Testnet",
+      "nativeCurrency": {
+        "name": "Ether",
+        "symbol": "ETH",
+        "decimals": 18
+      },
+      "rpcUrls": [
+        "https://rpc.sooth.market/megaeth-testnet",
+        "https://carrot.megaeth.com/rpc"
+      ],
+      "explorer": {
+        "name": "MegaExplorer",
+        "url": "https://www.megaexplorer.xyz"
+      },
+      "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
+      "testnet": true
+    },
+    "11155111": {
+      "name": "Ethereum Sepolia",
+      "nativeCurrency": {
+        "name": "Ether",
+        "symbol": "ETH",
+        "decimals": 18
+      },
+      "rpcUrls": [
+        "https://ethereum-sepolia-rpc.publicnode.com",
+        "https://sepolia.gateway.tenderly.co"
+      ],
+      "explorer": {
+        "name": "Etherscan",
+        "url": "https://sepolia.etherscan.io"
+      },
+      "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
+      "testnet": true
+    }
+  }
+}

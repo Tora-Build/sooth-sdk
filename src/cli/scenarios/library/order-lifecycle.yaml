@@ -1,0 +1,92 @@
+# Updated for SoothBook V12 (was TickBook)
+# Order Lifecycle Scenario
+# Tests the complete lifecycle: place, auto-fill, cancel
+
+name: order-lifecycle
+description: Test complete order lifecycle including auto-fills and cancellation
+
+steps:
+  # Setup
+  - actor: alice
+    action: mint
+    args:
+      amount: "20000"
+
+  - actor: alice
+    action: approve
+    args:
+      contract: "soothbook"
+
+  - actor: bob
+    action: mint
+    args:
+      amount: "20000"
+
+  - actor: bob
+    action: approve
+    args:
+      contract: "soothbook"
+
+  # Alice places a large order at tick 500 (45-55% range midpoint)
+  - actor: alice
+    action: buyyes
+    args:
+      tick: 500
+      amount: "500"
+
+  # Check order was placed
+  - actor: alice
+    action: history
+    args: {}
+
+  # Bob partially fills it with aggressive market order
+  - actor: bob
+    action: buyno
+    args:
+      tick: 950
+      amount: "100"
+
+  # Alice checks order history (auto-filled)
+  - actor: alice
+    action: history
+    args: {}
+
+  # SoothBook: fills are automatic, no claim needed
+
+  # Check balances after auto-fill
+  - actor: alice
+    action: balance
+    args: {}
+
+  # Bob fills more
+  - actor: bob
+    action: buyno
+    args:
+      tick: 950
+      amount: "150"
+
+  # SoothBook: fills are automatic
+
+  # Alice decides to cancel remaining
+  - actor: alice
+    action: cancel
+    args:
+      side: "yes"
+      tick: 500
+
+  # Verify order is now inactive
+  - actor: alice
+    action: history
+    args: {}
+
+  # Final balance check - should have received collateral back
+  - actor: alice
+    action: balance
+    args: {}
+
+  # SoothBook: no reserved collateral concept (auto-returned on cancel)
+
+assertions:
+  - "alice.positions.yes >= 0"
+  - "alice.received_collateral_refund"
+  - "vault.solvent"
