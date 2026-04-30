@@ -5,7 +5,20 @@
 
 import type { CommandContext, CommandResult } from './types';
 import { ABIS, MAX_UINT256 } from '../config';
-import { formatWad, parseWad, shortAddress, shortTx, Spinner, success, error, warn, info, dim, bold, readContractWithRpcFallback } from '../cli-utils';
+import {
+  formatWad,
+  parseWad,
+  shortAddress,
+  shortTx,
+  Spinner,
+  success,
+  error,
+  warn,
+  info,
+  dim,
+  bold,
+  readContractWithRpcFallback,
+} from '../cli-utils';
 import { parseAbi } from 'viem';
 
 // Additional ABIs for complete position tracking
@@ -13,8 +26,6 @@ const OrderEngineAbi = parseAbi([
   'function getBalances(address market, address user) view returns (uint256 yesBalance, uint256 noBalance)',
   'function isMarketRegistered(address market) view returns (bool)',
 ]);
-
-
 
 const LaunchpadEngineAbi = parseAbi([
   'function markets(address) view returns (address creator, address lpToken, uint256 bBase, uint256 creatorDeposit, uint64 graduatedAt)',
@@ -42,7 +53,6 @@ const ERC20Abi = parseAbi([
 export async function balance(ctx: CommandContext, _args: string[]): Promise<CommandResult> {
   const { actorManager, deployment } = ctx;
   const address = actorManager.currentAddress();
-  const publicClient = actorManager.getPublicClient();
 
   if (!address) {
     return { success: false, message: 'No actor selected' };
@@ -54,36 +64,24 @@ export async function balance(ctx: CommandContext, _args: string[]): Promise<Com
 
   if (hasSoothBook && hasOutcomeTokens) {
     const [walletBalance, yesBalance, noBalance] = await Promise.all([
-      readContractWithRpcFallback<bigint>(
-        ctx.config.chain,
-        ctx.config.rpc,
-        {
-          address: deployment.contracts.BaseToken as `0x${string}`,
-          abi: ABIS.BaseToken,
-          functionName: 'balanceOf',
-          args: [address],
-        },
-      ),
-      readContractWithRpcFallback<bigint>(
-        ctx.config.chain,
-        ctx.config.rpc,
-        {
-          address: firstMarket.yesToken as `0x${string}`,
-          abi: ABIS.OutcomeToken,
-          functionName: 'balanceOf',
-          args: [address],
-        },
-      ),
-      readContractWithRpcFallback<bigint>(
-        ctx.config.chain,
-        ctx.config.rpc,
-        {
-          address: firstMarket.noToken as `0x${string}`,
-          abi: ABIS.OutcomeToken,
-          functionName: 'balanceOf',
-          args: [address],
-        },
-      ),
+      readContractWithRpcFallback<bigint>(ctx.config.chain, ctx.config.rpc, {
+        address: deployment.contracts.BaseToken as `0x${string}`,
+        abi: ABIS.BaseToken,
+        functionName: 'balanceOf',
+        args: [address],
+      }),
+      readContractWithRpcFallback<bigint>(ctx.config.chain, ctx.config.rpc, {
+        address: firstMarket.yesToken as `0x${string}`,
+        abi: ABIS.OutcomeToken,
+        functionName: 'balanceOf',
+        args: [address],
+      }),
+      readContractWithRpcFallback<bigint>(ctx.config.chain, ctx.config.rpc, {
+        address: firstMarket.noToken as `0x${string}`,
+        abi: ABIS.OutcomeToken,
+        functionName: 'balanceOf',
+        args: [address],
+      }),
     ]);
 
     console.log(`\n  ${bold('Balances')} for ${info(shortAddress(address))}`);
@@ -165,7 +163,10 @@ export async function approve(ctx: CommandContext, args: string[]): Promise<Comm
   }
 
   if (args.length < 1) {
-    return { success: false, message: 'Usage: approve <contract> [amount]\n  Contracts: vault, launchpad, all' };
+    return {
+      success: false,
+      message: 'Usage: approve <contract> [amount]\n  Contracts: vault, launchpad, all',
+    };
   }
 
   const contractArg = args[0].toLowerCase();
@@ -215,7 +216,10 @@ export async function approve(ctx: CommandContext, args: string[]): Promise<Comm
 
   const contractAddress = contractMap[contractArg];
   if (!contractAddress) {
-    return { success: false, message: `Unknown contract: ${contractArg}. Use: launchpad, soothbook, or all` };
+    return {
+      success: false,
+      message: `Unknown contract: ${contractArg}. Use: launchpad, soothbook, or all`,
+    };
   }
 
   const ok = await approveContract(contractArg, contractAddress);
@@ -234,9 +238,7 @@ export async function allowance(ctx: CommandContext, _args: string[]): Promise<C
     return { success: false, message: 'No actor selected' };
   }
 
-  const contracts = [
-    { name: 'Launchpad', address: deployment.contracts.LaunchpadEngine },
-  ];
+  const contracts = [{ name: 'Launchpad', address: deployment.contracts.LaunchpadEngine }];
 
   if (deployment.contracts.SoothBook) {
     contracts.push({ name: 'SoothBook', address: deployment.contracts.SoothBook });
@@ -246,16 +248,17 @@ export async function allowance(ctx: CommandContext, _args: string[]): Promise<C
   console.log('  ' + '─'.repeat(40));
 
   for (const contract of contracts) {
-    const allowanceValue = await publicClient.readContract({
+    const allowanceValue = (await publicClient.readContract({
       address: deployment.contracts.BaseToken as `0x${string}`,
       abi: ABIS.BaseToken,
       functionName: 'allowance',
       args: [address, contract.address as `0x${string}`],
-    }) as bigint;
+    })) as bigint;
 
-    const displayValue = allowanceValue >= MAX_UINT256 / 2n
-      ? success('unlimited')
-      : formatWad(allowanceValue) + ' USDC';
+    const displayValue =
+      allowanceValue >= MAX_UINT256 / 2n
+        ? success('unlimited')
+        : formatWad(allowanceValue) + ' USDC';
 
     console.log(`  ${contract.name.padEnd(12)}: ${displayValue}`);
   }
@@ -328,7 +331,7 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
   console.log(dim('  Taking comprehensive balance snapshot...'));
 
   const marketAddress = ctxMarketAddress ?? undefined;
-  
+
   const snap: BalanceSnapshot = {
     timestamp: Date.now(),
     actors: {},
@@ -352,28 +355,32 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
           functionName: 'markets',
           args: [marketAddress],
         }) as Promise<[string, string, bigint, bigint, bigint]>,
-        publicClient.readContract({
-          address: marketAddress,
-          abi: TruthMarketAbi,
-          functionName: 'isSettled',
-        }).catch(() => false) as Promise<boolean>,
-        publicClient.readContract({
-          address: deployment.contracts.LaunchpadEngine as `0x${string}`,
-          abi: LaunchpadEngineAbi,
-          functionName: 'isGraduated',
-          args: [marketAddress],
-        }).catch(() => false) as Promise<boolean>,
+        publicClient
+          .readContract({
+            address: marketAddress,
+            abi: TruthMarketAbi,
+            functionName: 'isSettled',
+          })
+          .catch(() => false) as Promise<boolean>,
+        publicClient
+          .readContract({
+            address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+            abi: LaunchpadEngineAbi,
+            functionName: 'isGraduated',
+            args: [marketAddress],
+          })
+          .catch(() => false) as Promise<boolean>,
       ]);
 
       const [, lpTokenAddress, , creatorDeposit] = marketState;
 
       let winningOutcome = -1;
       if (isSettled) {
-        winningOutcome = await publicClient.readContract({
+        winningOutcome = (await publicClient.readContract({
           address: marketAddress,
           abi: TruthMarketAbi,
           functionName: 'winningOutcome',
-        }) as number;
+        })) as number;
       }
 
       snap.market = {
@@ -388,20 +395,20 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
         isGraduated,
         isDismissed: false,
       };
-    } catch (e) {
+    } catch {
       console.log(dim('  Could not fetch market state'));
     }
   }
 
   for (const actor of actors) {
     const actorAddr = actor.account.address;
-    
-    const wallet = await publicClient.readContract({
+
+    const wallet = (await publicClient.readContract({
       address: deployment.contracts.BaseToken as `0x${string}`,
       abi: ABIS.BaseToken,
       functionName: 'balanceOf',
       args: [actorAddr],
-    }) as Promise<bigint>;
+    })) as Promise<bigint>;
 
     let erc20Yes = 0n;
     let erc20No = 0n;
@@ -411,31 +418,34 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
 
     if (marketAddress) {
       try {
-        [erc20Yes, erc20No] = await publicClient.readContract({
+        [erc20Yes, erc20No] = (await publicClient.readContract({
           address: deployment.contracts.OrderEngine as `0x${string}`,
           abi: OrderEngineAbi,
           functionName: 'getBalances',
           args: [marketAddress, actorAddr],
-        }) as [bigint, bigint];
+        })) as [bigint, bigint];
       } catch {}
 
       try {
-        [ammYes, ammNo] = await publicClient.readContract({
+        [ammYes, ammNo] = (await publicClient.readContract({
           address: deployment.contracts.AMMEngine as `0x${string}`,
           abi: AMMEngineAbi,
           functionName: 'getPosition',
           args: [marketAddress, actorAddr],
-        }) as [bigint, bigint];
+        })) as [bigint, bigint];
       } catch {}
 
-      if (snap.market?.lpTokenAddress && snap.market.lpTokenAddress !== '0x0000000000000000000000000000000000000000') {
+      if (
+        snap.market?.lpTokenAddress &&
+        snap.market.lpTokenAddress !== '0x0000000000000000000000000000000000000000'
+      ) {
         try {
-          lpTokens = await publicClient.readContract({
+          lpTokens = (await publicClient.readContract({
             address: snap.market.lpTokenAddress as `0x${string}`,
             abi: ERC20Abi,
             functionName: 'balanceOf',
             args: [actorAddr],
-          }) as bigint;
+          })) as bigint;
         } catch {}
       }
     }
@@ -451,11 +461,11 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
     };
   }
 
-  const protocolTreasuryAddr = await publicClient.readContract({
+  const protocolTreasuryAddr = (await publicClient.readContract({
     address: deployment.contracts.AMMEngine as `0x${string}`,
     abi: AMMEngineAbi,
     functionName: 'protocolTreasury',
-  }) as `0x${string}`;
+  })) as `0x${string}`;
 
   const [launchpadBal, orderEngineBal, ammEngineBal, treasuryBal] = await Promise.all([
     publicClient.readContract({
@@ -492,11 +502,11 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
   };
   snap.protocolTreasuryAddress = protocolTreasuryAddr;
 
-  snap.totalMinted = await publicClient.readContract({
+  snap.totalMinted = (await publicClient.readContract({
     address: deployment.contracts.BaseToken as `0x${string}`,
     abi: ABIS.BaseToken,
     functionName: 'totalSupply',
-  }) as bigint;
+  })) as bigint;
 
   balanceSnapshot = snap;
 
@@ -506,24 +516,24 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
   return { success: true, data: { snapshot: snap } };
 }
 
-function calculateActorTotalValue(data: ActorPositions, market: MarketState | null, excludeAmm: boolean = false): bigint {
+function calculateActorTotalValue(
+  data: ActorPositions,
+  market: MarketState | null,
+  excludeAmm: boolean = false,
+): bigint {
   const liquidUsdc = data.wallet;
-  
+
   if (!market) {
     return liquidUsdc;
   }
 
-  const totalYes = excludeAmm 
-    ? data.erc20Yes 
-    : data.erc20Yes + data.ammYes;
-  const totalNo = excludeAmm 
-    ? data.erc20No 
-    : data.erc20No + data.ammNo;
-  
+  const totalYes = excludeAmm ? data.erc20Yes : data.erc20Yes + data.ammYes;
+  const totalNo = excludeAmm ? data.erc20No : data.erc20No + data.ammNo;
+
   let yesValue = 0n;
   let noValue = 0n;
   let lpValue = 0n;
-  
+
   if (market.isDismissed) {
     yesValue = 0n;
     noValue = 0n;
@@ -549,7 +559,7 @@ function calculateActorTotalValue(data: ActorPositions, market: MarketState | nu
       lpValue = (poolValue * data.lpTokens) / market.totalLPSupply;
     }
   }
-  
+
   return liquidUsdc + yesValue + noValue + lpValue;
 }
 
@@ -559,42 +569,53 @@ function printSnapshot(snap: BalanceSnapshot, title: string): void {
 
   if (snap.market) {
     const m = snap.market;
-    const settlementStatus = m.isSettled 
-      ? `settled: ${['NO', 'YES', 'INVALID'][m.winningOutcome]}` 
+    const settlementStatus = m.isSettled
+      ? `settled: ${['NO', 'YES', 'INVALID'][m.winningOutcome]}`
       : 'live';
-    console.log(`\n  ${info('Market:')} ${dim(m.address.slice(0, 10))}... ${dim(`(${settlementStatus})`)}`);
-    console.log(`    Pool: ${formatWad(m.creatorDeposit + m.feesAccrued)} USDC ${dim(`(deposit: ${formatWad(m.creatorDeposit)}, fees: ${formatWad(m.feesAccrued)})`)}`);
+    console.log(
+      `\n  ${info('Market:')} ${dim(m.address.slice(0, 10))}... ${dim(`(${settlementStatus})`)}`,
+    );
+    console.log(
+      `    Pool: ${formatWad(m.creatorDeposit + m.feesAccrued)} USDC ${dim(`(deposit: ${formatWad(m.creatorDeposit)}, fees: ${formatWad(m.feesAccrued)})`)}`,
+    );
   }
 
   console.log(`\n  ${info('Actor Positions:')}`);
   let totalActorValue = 0n;
-  
+
   for (const [, data] of Object.entries(snap.actors)) {
     const totalValue = calculateActorTotalValue(data, snap.market);
     totalActorValue += totalValue;
-    
+
     const parts: string[] = [];
     if (data.wallet > 0n) parts.push(`w:${formatWad(data.wallet)}`);
-    
+
     if (snap.market) {
       const totalYes = data.erc20Yes + data.ammYes;
       const totalNo = data.erc20No + data.ammNo;
       if (totalYes > 0n) parts.push(`Y:${formatWad(totalYes)}`);
       if (totalNo > 0n) parts.push(`N:${formatWad(totalNo)}`);
-      if (data.ammYes > 0n || data.ammNo > 0n) parts.push(`amm:${formatWad(data.ammYes)}/${formatWad(data.ammNo)}`);
+      if (data.ammYes > 0n || data.ammNo > 0n)
+        parts.push(`amm:${formatWad(data.ammYes)}/${formatWad(data.ammNo)}`);
       if (data.lpTokens > 0n) parts.push(`LP:${formatWad(data.lpTokens)}`);
     }
-    
-    console.log(`    ${data.name.padEnd(10)} ${formatWad(totalValue).padStart(12)} USDC ${dim(`(${parts.join(', ')})`)}`);
+
+    console.log(
+      `    ${data.name.padEnd(10)} ${formatWad(totalValue).padStart(12)} USDC ${dim(`(${parts.join(', ')})`)}`,
+    );
   }
   console.log(`    ${'─'.repeat(50)}`);
   console.log(`    ${'Total'.padEnd(10)} ${formatWad(totalActorValue).padStart(12)} USDC`);
 
   console.log(`\n  ${info('Contract Balances:')}`);
-  console.log(`    LaunchpadEngine  ${formatWad(snap.contracts.launchpadEngine).padStart(12)} USDC`);
+  console.log(
+    `    LaunchpadEngine  ${formatWad(snap.contracts.launchpadEngine).padStart(12)} USDC`,
+  );
   console.log(`    AMMEngine        ${formatWad(snap.contracts.ammEngine).padStart(12)} USDC`);
   console.log(`    OrderEngine   ${formatWad(snap.contracts.orderEngine).padStart(12)} USDC`);
-  console.log(`    ProtocolTreasury ${formatWad(snap.contracts.protocolTreasury).padStart(12)} USDC`);
+  console.log(
+    `    ProtocolTreasury ${formatWad(snap.contracts.protocolTreasury).padStart(12)} USDC`,
+  );
 
   console.log(`\n  ${info('Summary:')}`);
   console.log(`    Total Minted:   ${formatWad(snap.totalMinted).padStart(12)} USDC`);
@@ -638,28 +659,32 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
           functionName: 'markets',
           args: [marketAddress],
         }) as Promise<[string, string, bigint, bigint, bigint]>,
-        publicClient.readContract({
-          address: marketAddress,
-          abi: TruthMarketAbi,
-          functionName: 'isSettled',
-        }).catch(() => false) as Promise<boolean>,
-        publicClient.readContract({
-          address: deployment.contracts.LaunchpadEngine as `0x${string}`,
-          abi: LaunchpadEngineAbi,
-          functionName: 'isGraduated',
-          args: [marketAddress],
-        }).catch(() => false) as Promise<boolean>,
+        publicClient
+          .readContract({
+            address: marketAddress,
+            abi: TruthMarketAbi,
+            functionName: 'isSettled',
+          })
+          .catch(() => false) as Promise<boolean>,
+        publicClient
+          .readContract({
+            address: deployment.contracts.LaunchpadEngine as `0x${string}`,
+            abi: LaunchpadEngineAbi,
+            functionName: 'isGraduated',
+            args: [marketAddress],
+          })
+          .catch(() => false) as Promise<boolean>,
       ]);
 
       const [, lpTokenAddress, , creatorDeposit] = marketState;
 
       let winningOutcome = -1;
       if (isSettled) {
-        winningOutcome = await publicClient.readContract({
+        winningOutcome = (await publicClient.readContract({
           address: marketAddress,
           abi: TruthMarketAbi,
           functionName: 'winningOutcome',
-        }) as number;
+        })) as number;
       }
 
       after.market = {
@@ -679,13 +704,13 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
 
   for (const actor of actors) {
     const actorAddr = actor.account.address;
-    
-    const wallet = await publicClient.readContract({
+
+    const wallet = (await publicClient.readContract({
       address: deployment.contracts.BaseToken as `0x${string}`,
       abi: ABIS.BaseToken,
       functionName: 'balanceOf',
       args: [actorAddr],
-    }) as Promise<bigint>;
+    })) as Promise<bigint>;
 
     let erc20Yes = 0n;
     let erc20No = 0n;
@@ -695,31 +720,34 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
 
     if (marketAddress) {
       try {
-        [erc20Yes, erc20No] = await publicClient.readContract({
+        [erc20Yes, erc20No] = (await publicClient.readContract({
           address: deployment.contracts.OrderEngine as `0x${string}`,
           abi: OrderEngineAbi,
           functionName: 'getBalances',
           args: [marketAddress, actorAddr],
-        }) as [bigint, bigint];
+        })) as [bigint, bigint];
       } catch {}
 
       try {
-        [ammYes, ammNo] = await publicClient.readContract({
+        [ammYes, ammNo] = (await publicClient.readContract({
           address: deployment.contracts.AMMEngine as `0x${string}`,
           abi: AMMEngineAbi,
           functionName: 'getPosition',
           args: [marketAddress, actorAddr],
-        }) as [bigint, bigint];
+        })) as [bigint, bigint];
       } catch {}
 
-      if (after.market?.lpTokenAddress && after.market.lpTokenAddress !== '0x0000000000000000000000000000000000000000') {
+      if (
+        after.market?.lpTokenAddress &&
+        after.market.lpTokenAddress !== '0x0000000000000000000000000000000000000000'
+      ) {
         try {
-          lpTokens = await publicClient.readContract({
+          lpTokens = (await publicClient.readContract({
             address: after.market.lpTokenAddress as `0x${string}`,
             abi: ERC20Abi,
             functionName: 'balanceOf',
             args: [actorAddr],
-          }) as bigint;
+          })) as bigint;
         } catch {}
       }
     }
@@ -736,7 +764,7 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
   }
 
   const treasuryAddr = before.protocolTreasuryAddress as `0x${string}` | null;
-  
+
   const [launchpadBal, orderEngineBal, ammEngineBal, treasuryBal] = await Promise.all([
     publicClient.readContract({
       address: deployment.contracts.BaseToken as `0x${string}`,
@@ -756,12 +784,14 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
       functionName: 'balanceOf',
       args: [deployment.contracts.AMMEngine as `0x${string}`],
     }) as Promise<bigint>,
-    treasuryAddr ? publicClient.readContract({
-      address: deployment.contracts.BaseToken as `0x${string}`,
-      abi: ABIS.BaseToken,
-      functionName: 'balanceOf',
-      args: [treasuryAddr],
-    }) as Promise<bigint> : Promise.resolve(0n),
+    treasuryAddr
+      ? (publicClient.readContract({
+          address: deployment.contracts.BaseToken as `0x${string}`,
+          abi: ABIS.BaseToken,
+          functionName: 'balanceOf',
+          args: [treasuryAddr],
+        }) as Promise<bigint>)
+      : Promise.resolve(0n),
   ]);
 
   after.contracts = {
@@ -771,11 +801,11 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
     protocolTreasury: treasuryBal,
   };
 
-  after.totalMinted = await publicClient.readContract({
+  after.totalMinted = (await publicClient.readContract({
     address: deployment.contracts.BaseToken as `0x${string}`,
     abi: ABIS.BaseToken,
     functionName: 'totalSupply',
-  }) as bigint;
+  })) as bigint;
 
   console.log(`\n  ${bold('Zero-Sum USDC Verification')}`);
   console.log('  ' + '═'.repeat(70));
@@ -787,8 +817,8 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
     const m = after.market;
     const settlementStatus = m.isDismissed
       ? 'dismissed (trial period)'
-      : m.isSettled 
-        ? `settled: ${['NO', 'YES', 'INVALID'][m.winningOutcome]}` 
+      : m.isSettled
+        ? `settled: ${['NO', 'YES', 'INVALID'][m.winningOutcome]}`
         : 'live';
     console.log(`  ${info('Market Status:')} ${settlementStatus}`);
   }
@@ -799,7 +829,7 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
   let totalActorUsdcBefore = 0n;
   let totalActorUsdcAfter = 0n;
   const actorDeltas: { name: string; delta: bigint; breakdown: string }[] = [];
-  
+
   let totalUnredeemedYes = 0n;
   let totalUnredeemedNo = 0n;
   let totalUnredeemedLp = 0n;
@@ -812,14 +842,14 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
     const beforeUsdc = beforeData.wallet;
     const afterUsdc = afterData.wallet;
     const delta = afterUsdc - beforeUsdc;
-    
+
     totalActorUsdcBefore += beforeUsdc;
     totalActorUsdcAfter += afterUsdc;
 
     const actorYesTokens = afterData.erc20Yes + afterData.ammYes;
     const actorNoTokens = afterData.erc20No + afterData.ammNo;
     const actorLpTokens = afterData.lpTokens;
-    
+
     if (actorYesTokens > 0n || actorNoTokens > 0n || actorLpTokens > 0n) {
       totalUnredeemedYes += actorYesTokens;
       totalUnredeemedNo += actorNoTokens;
@@ -829,15 +859,19 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
 
     const sign = delta >= 0n ? '+' : '';
     const color = delta >= 0n ? success : error;
-    console.log(`    ${afterData.name.padEnd(10)} ${color(`${sign}${formatWad(delta)}`.padStart(15))} USDC`);
-    
+    console.log(
+      `    ${afterData.name.padEnd(10)} ${color(`${sign}${formatWad(delta)}`.padStart(15))} USDC`,
+    );
+
     actorDeltas.push({ name: afterData.name, delta, breakdown: `usdc:${sign}${formatWad(delta)}` });
   }
-  
+
   console.log('  ' + '─'.repeat(70));
   const totalActorDelta = totalActorUsdcAfter - totalActorUsdcBefore;
   const actorSign = totalActorDelta >= 0n ? '+' : '';
-  console.log(`    ${'Actors Σ'.padEnd(10)} ${(actorSign + formatWad(totalActorDelta)).padStart(15)} USDC`);
+  console.log(
+    `    ${'Actors Σ'.padEnd(10)} ${(actorSign + formatWad(totalActorDelta)).padStart(15)} USDC`,
+  );
 
   console.log(`\n  ${info('Protocol USDC:')}`);
   console.log('  ' + '─'.repeat(70));
@@ -846,32 +880,41 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
   const orderEngineDelta = after.contracts.orderEngine - before.contracts.orderEngine;
   const ammEngineDelta = after.contracts.ammEngine - before.contracts.ammEngine;
   const treasuryDelta = after.contracts.protocolTreasury - before.contracts.protocolTreasury;
-  
-  const actorAddresses = new Set(Object.keys(after.actors).map(a => a.toLowerCase()));
-  const treasuryIsActor = before.protocolTreasuryAddress && actorAddresses.has(before.protocolTreasuryAddress.toLowerCase());
+
+  const actorAddresses = new Set(Object.keys(after.actors).map((a) => a.toLowerCase()));
+  const treasuryIsActor =
+    before.protocolTreasuryAddress &&
+    actorAddresses.has(before.protocolTreasuryAddress.toLowerCase());
   const effectiveTreasuryDelta = treasuryIsActor ? 0n : treasuryDelta;
-  
-  const totalContractDelta = launchpadDelta + orderEngineDelta + ammEngineDelta + effectiveTreasuryDelta;
+
+  const totalContractDelta =
+    launchpadDelta + orderEngineDelta + ammEngineDelta + effectiveTreasuryDelta;
 
   const printDelta = (name: string, delta: bigint, note?: string) => {
     const sign = delta >= 0n ? '+' : '';
     const color = delta >= 0n ? success : error;
     const suffix = note ? ` ${dim(note)}` : '';
-    console.log(`    ${name.padEnd(18)} ${color(`${sign}${formatWad(delta)}`.padStart(12))} USDC${suffix}`);
+    console.log(
+      `    ${name.padEnd(18)} ${color(`${sign}${formatWad(delta)}`.padStart(12))} USDC${suffix}`,
+    );
   };
 
   printDelta('LaunchpadEngine', launchpadDelta);
   printDelta('AMMEngine', ammEngineDelta);
   printDelta('OrderEngine', orderEngineDelta);
   if (treasuryIsActor) {
-    console.log(`    ${dim('ProtocolTreasury'.padEnd(18))} ${dim(`${treasuryDelta >= 0n ? '+' : ''}${formatWad(treasuryDelta)}`.padStart(12))} ${dim('USDC (= actor, not counted)')}`);
+    console.log(
+      `    ${dim('ProtocolTreasury'.padEnd(18))} ${dim(`${treasuryDelta >= 0n ? '+' : ''}${formatWad(treasuryDelta)}`.padStart(12))} ${dim('USDC (= actor, not counted)')}`,
+    );
   } else {
     printDelta('ProtocolTreasury', treasuryDelta);
   }
-  
+
   console.log('  ' + '─'.repeat(70));
   const contractSign = totalContractDelta >= 0n ? '+' : '';
-  console.log(`    ${'Protocol Σ'.padEnd(18)} ${(contractSign + formatWad(totalContractDelta)).padStart(12)} USDC`);
+  console.log(
+    `    ${'Protocol Σ'.padEnd(18)} ${(contractSign + formatWad(totalContractDelta)).padStart(12)} USDC`,
+  );
 
   if (totalUnredeemedYes > 0n || totalUnredeemedNo > 0n || totalUnredeemedLp > 0n) {
     console.log(`\n  ${warn('Unredeemed Positions:')}`);
@@ -890,22 +933,34 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
 
   console.log(`\n  ${bold('Zero-Sum Equation:')}`);
   console.log('  ' + '═'.repeat(70));
-  console.log(`    Actor USDC Δ:      ${(actorSign + formatWad(totalActorDelta)).padStart(15)} USDC`);
-  console.log(`    Protocol USDC Δ:   ${(contractSign + formatWad(totalContractDelta)).padStart(15)} USDC`);
+  console.log(
+    `    Actor USDC Δ:      ${(actorSign + formatWad(totalActorDelta)).padStart(15)} USDC`,
+  );
+  console.log(
+    `    Protocol USDC Δ:   ${(contractSign + formatWad(totalContractDelta)).padStart(15)} USDC`,
+  );
   console.log(`    ─────────────────────────────────────────────────`);
-  
+
   const totalAccountedDelta = totalActorDelta + totalContractDelta;
-  console.log(`    Total Accounted:   ${((totalAccountedDelta >= 0n ? '+' : '') + formatWad(totalAccountedDelta)).padStart(15)} USDC`);
-  console.log(`    USDC Minted:       ${((mintedDelta >= 0n ? '+' : '') + formatWad(mintedDelta)).padStart(15)} USDC`);
+  console.log(
+    `    Total Accounted:   ${((totalAccountedDelta >= 0n ? '+' : '') + formatWad(totalAccountedDelta)).padStart(15)} USDC`,
+  );
+  console.log(
+    `    USDC Minted:       ${((mintedDelta >= 0n ? '+' : '') + formatWad(mintedDelta)).padStart(15)} USDC`,
+  );
   console.log(`    ─────────────────────────────────────────────────`);
 
   const checksumValue = totalAccountedDelta - mintedDelta;
   const checksumPass = checksumValue === 0n;
-  
+
   if (checksumPass) {
-    console.log(`    ${success('✓ CHECKSUM:')}          ${bold('0.00')} USDC ${success('(EXACT BALANCE)')}`);
+    console.log(
+      `    ${success('✓ CHECKSUM:')}          ${bold('0.00')} USDC ${success('(EXACT BALANCE)')}`,
+    );
   } else {
-    console.log(`    ${error('✗ CHECKSUM:')}          ${error(formatWad(checksumValue))} USDC ${error('(IMBALANCED)')}`);
+    console.log(
+      `    ${error('✗ CHECKSUM:')}          ${error(formatWad(checksumValue))} USDC ${error('(IMBALANCED)')}`,
+    );
     console.log(`\n  ${error('USDC LEAK DETECTED!')}`);
     console.log(dim('  Possible causes:'));
     console.log(dim('    - Unredeemed positions (see above)'));
@@ -916,9 +971,9 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
 
   console.log('');
 
-  return { 
-    success: checksumPass, 
-    data: { 
+  return {
+    success: checksumPass,
+    data: {
       checksumPass,
       mintedDelta,
       totalActorDelta,
@@ -931,7 +986,7 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
         lp: totalUnredeemedLp,
         actors: unredeemedActors,
       },
-    } 
+    },
   };
 }
 

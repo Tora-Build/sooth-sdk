@@ -12,7 +12,7 @@ import type { ActorManager } from '../actors';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import type { CommandContext, RecordedCommand, Scenario, ScenarioStep } from '../commands/types';
-import { success, error, info, dim, bold, warn, formatWad, parseWad } from '../cli-utils';
+import { success, error, info, dim, bold } from '../cli-utils';
 
 export class ScenarioEngine {
   private actorManager: ActorManager;
@@ -20,10 +20,7 @@ export class ScenarioEngine {
   private scenarioDir: string;
   private recordingsDir: string;
 
-  constructor(
-    actorManager: ActorManager,
-    executeCommand: (input: string) => Promise<void>
-  ) {
+  constructor(actorManager: ActorManager, executeCommand: (input: string) => Promise<void>) {
     this.actorManager = actorManager;
     this.executeCommand = executeCommand;
     this.scenarioDir = path.join(__dirname, 'library');
@@ -58,9 +55,10 @@ export class ScenarioEngine {
 
     // User recordings
     if (fs.existsSync(this.recordingsDir)) {
-      const recordings = fs.readdirSync(this.recordingsDir)
-        .filter(f => f.endsWith('.yaml'))
-        .map(f => f.replace('.yaml', ''));
+      const recordings = fs
+        .readdirSync(this.recordingsDir)
+        .filter((f) => f.endsWith('.yaml'))
+        .map((f) => f.replace('.yaml', ''));
 
       if (recordings.length > 0) {
         console.log(`\n  ${info('Recordings:')}`);
@@ -80,9 +78,10 @@ export class ScenarioEngine {
     if (!fs.existsSync(this.scenarioDir)) {
       return [];
     }
-    return fs.readdirSync(this.scenarioDir)
-      .filter(f => f.endsWith('.yaml'))
-      .map(f => f.replace('.yaml', ''));
+    return fs
+      .readdirSync(this.scenarioDir)
+      .filter((f) => f.endsWith('.yaml'))
+      .map((f) => f.replace('.yaml', ''));
   }
 
   /**
@@ -124,7 +123,6 @@ export class ScenarioEngine {
 
     const startTime = Date.now();
     let stepNum = 0;
-    let successCount = 0;
     let failCount = 0;
 
     for (const step of scenario.steps) {
@@ -137,9 +135,7 @@ export class ScenarioEngine {
         for (let i = 0; i < loopConfig.count; i++) {
           for (const loopStep of loopConfig.steps) {
             const result = await this.executeStep(loopStep, stepNum, ctx);
-            if (result) {
-              successCount++;
-            } else {
+            if (!result) {
               failCount++;
             }
           }
@@ -150,7 +146,9 @@ export class ScenarioEngine {
       if ('parallel' in step) {
         // Parallel step - run multiple steps concurrently
         const parallelSteps = (step as any).parallel;
-        const results = await Promise.all(parallelSteps.map((s: ScenarioStep) => this.executeStep(s, stepNum, ctx)));
+        const results = await Promise.all(
+          parallelSteps.map((s: ScenarioStep) => this.executeStep(s, stepNum, ctx)),
+        );
         for (const result of results) {
           if (result) {
             successCount++;
@@ -184,7 +182,9 @@ export class ScenarioEngine {
     }
 
     const status = failCount === 0 ? success('PASSED') : error('FAILED');
-    console.log(`\n  Scenario ${status} in ${elapsed}s (${stepNum} steps, ${failCount} failures)\n`);
+    console.log(
+      `\n  Scenario ${status} in ${elapsed}s (${stepNum} steps, ${failCount} failures)\n`,
+    );
 
     return failCount === 0;
   }
@@ -192,7 +192,11 @@ export class ScenarioEngine {
   /**
    * Execute a single scenario step
    */
-  private async executeStep(step: ScenarioStep, stepNum: number, ctx: CommandContext): Promise<boolean> {
+  private async executeStep(
+    step: ScenarioStep,
+    stepNum: number,
+    _ctx: CommandContext,
+  ): Promise<boolean> {
     // Switch actor if specified
     if (step.actor) {
       this.actorManager.switchActor(step.actor);
@@ -201,13 +205,15 @@ export class ScenarioEngine {
     // Build command string
     let cmdStr = step.action;
     if (step.args) {
-      const argValues = Object.values(step.args).map(v => String(v));
+      const argValues = Object.values(step.args).map((v) => String(v));
       cmdStr += ' ' + argValues.join(' ');
     }
 
     const actor = this.actorManager.currentActor()?.name || '?';
     const expectFail = step.expect?.fail === true;
-    const stepLabel = expectFail ? `${info(actor)}.${step.action}(${Object.values(step.args || {}).join(', ')}) ${dim('[expect: fail]')}` : `${info(actor)}.${step.action}(${Object.values(step.args || {}).join(', ')})`;
+    const stepLabel = expectFail
+      ? `${info(actor)}.${step.action}(${Object.values(step.args || {}).join(', ')}) ${dim('[expect: fail]')}`
+      : `${info(actor)}.${step.action}(${Object.values(step.args || {}).join(', ')})`;
     console.log(`  Step ${stepNum}: ${stepLabel}`);
 
     try {
@@ -219,7 +225,9 @@ export class ScenarioEngine {
       return true;
     } catch (err) {
       if (expectFail) {
-        console.log(`    ${success('✓')} Failed as expected: ${(err as Error).message.slice(0, 50)}`);
+        console.log(
+          `    ${success('✓')} Failed as expected: ${(err as Error).message.slice(0, 50)}`,
+        );
         return true;
       }
       console.log(`    ${error('✗')} ${(err as Error).message}`);
@@ -234,13 +242,16 @@ export class ScenarioEngine {
     const scenario: Scenario = {
       name,
       description: `Recorded on ${new Date().toISOString()}`,
-      steps: commands.map(cmd => ({
+      steps: commands.map((cmd) => ({
         actor: cmd.actor,
         action: cmd.command,
-        args: cmd.args.reduce((acc, arg, i) => {
-          acc[`arg${i}`] = arg;
-          return acc;
-        }, {} as Record<string, any>),
+        args: cmd.args.reduce(
+          (acc, arg, i) => {
+            acc[`arg${i}`] = arg;
+            return acc;
+          },
+          {} as Record<string, any>,
+        ),
       })),
     };
 
