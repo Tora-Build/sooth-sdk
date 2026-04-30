@@ -35,7 +35,9 @@ const args = process.argv.slice(2);
 
 // --list: show available nodes and exit
 if (args.includes("--list")) {
-  const { getAllNodes, getChain } = await import("../../../registry/src/index");
+  const { loadManifest, getAllNodes, getChain } =
+    await import("../registry-loader");
+  await loadManifest();
   const nodes = getAllNodes();
   console.log(`\n  ${bold("Available Sooth Nodes")}`);
   console.log(
@@ -966,6 +968,10 @@ async function main(): Promise<void> {
 
   // Initialize
   try {
+    // Load registry manifest before any sync registry accessors run.
+    // Tries HTTP first (with short timeout), falls back to embedded snapshot.
+    const { loadManifest } = await import("../registry-loader");
+    await loadManifest();
     config = createConfig(nodeIdArg);
     if (config.coreVersion !== SUPPORTED_CORE_VERSION) {
       console.error(

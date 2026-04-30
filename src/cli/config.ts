@@ -13,16 +13,34 @@ import {
   getAllNodes,
   getNodeById,
   getChain,
-} from "../../../registry/src/index";
-import type { SoothNode, ChainMeta } from "../../../registry/src/types";
-import { toViemChain } from "../../../registry/src/viem";
+  toViemChain,
+} from "../registry-loader";
+import type { SoothNode, ChainMeta } from "../registry-types";
 
-// Chain definitions from registry (with extra Monad RPC fallbacks)
-export const monadTestnet: Chain = toViemChain(10143, [
-  "https://testnet-rpc.monad.xyz",
-  "https://rpc.ankr.com/monad_testnet",
-  "https://rpc-testnet.monadinfra.com",
-]);
+// Chain definitions inlined as static literals so they don't require the
+// registry manifest to be loaded at module import time. The other three
+// chains below follow the same pattern.
+export const monadTestnet: Chain = {
+  id: 10143,
+  name: "Monad Testnet",
+  nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 },
+  rpcUrls: {
+    default: {
+      http: [
+        "https://testnet-rpc.monad.xyz",
+        "https://rpc.ankr.com/monad_testnet",
+        "https://rpc-testnet.monadinfra.com",
+      ],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: "MonadExplorer",
+      url: "https://testnet.monadexplorer.com",
+    },
+  },
+  testnet: true,
+};
 
 export const arcTestnet: Chain = {
   id: 5042002,
