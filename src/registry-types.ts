@@ -11,11 +11,22 @@ export interface SoothContracts {
   baseToken: Address;
 }
 
+export interface SoothAdjudicators {
+  /** Default contract adjudicator used by tools when the caller doesn't
+   *  specify one. v0.1.2+ createMarket always calls configureMarket(), so
+   *  this must be a deployed contract, not an EOA. */
+  default?: Address;
+  manual?: Address;
+  zkTLS?: Address;
+  optimistic?: Address;
+}
+
 export interface SoothNode {
   id: string;
   chainId: number;
   coreVersion: string;
   contracts: SoothContracts;
+  adjudicators?: SoothAdjudicators;
   deployedAt: string;
   deployedBy: Address;
   startBlock?: number;
@@ -32,6 +43,7 @@ export interface ChainMeta {
 }
 
 export interface NodesManifest {
+  version: string;
   updatedAt: string;
   nodes: SoothNode[];
   chains: Record<string, ChainMeta>;
