@@ -171,7 +171,7 @@ function getPostTxWait(chainId: number): number {
 // CLI is hardcoded against this sooth-core version's ABIs and call flow.
 // Connecting to a node with a different coreVersion produces ABI mismatches
 // (e.g. settle() arity, isMarketSettled vs isSettled). Refuse to start.
-export const SUPPORTED_CORE_VERSION = "0.2.0";
+export const SUPPORTED_CORE_VERSION = "0.2.1";
 
 // SDK version tracks the contract version it speaks. Bump both together.
 // If we ever need a patch release without a contract change, append `-N`
@@ -373,23 +373,6 @@ export const ABIS = {
       stateMutability: "nonpayable",
     },
     {
-      name: "redeem",
-      type: "function",
-      inputs: [{ type: "bytes32", name: "marketKey" }],
-      outputs: [],
-      stateMutability: "nonpayable",
-    },
-    {
-      name: "resolveMarket",
-      type: "function",
-      inputs: [
-        { type: "bytes32", name: "marketKey" },
-        { type: "uint8", name: "outcome" },
-      ],
-      outputs: [],
-      stateMutability: "nonpayable",
-    },
-    {
       name: "createMarket",
       type: "function",
       inputs: [
@@ -450,6 +433,16 @@ export const ABIS = {
     {
       name: "getImpliedPrice",
       type: "function",
+      inputs: [{ type: "address", name: "market" }],
+      outputs: [
+        { type: "uint256", name: "yesPrice" },
+        { type: "uint256", name: "noPrice" },
+      ],
+      stateMutability: "view",
+    },
+    {
+      name: "getImpliedPriceByKey",
+      type: "function",
       inputs: [{ type: "bytes32", name: "marketKey" }],
       outputs: [
         { type: "uint256", name: "yesPrice" },
@@ -458,17 +451,17 @@ export const ABIS = {
       stateMutability: "view",
     },
     {
-      name: "markets",
+      name: "registeredMarkets",
       type: "function",
-      inputs: [{ type: "bytes32", name: "" }],
-      outputs: [
-        { type: "address", name: "collateral" },
-        { type: "address", name: "yesToken" },
-        { type: "address", name: "noToken" },
-        { type: "bool", name: "active" },
-        { type: "bool", name: "finalized" },
-        { type: "uint8", name: "outcome" },
-      ],
+      inputs: [{ type: "bytes32", name: "marketKey" }],
+      outputs: [{ type: "bool" }],
+      stateMutability: "view",
+    },
+    {
+      name: "isMarketRegistered",
+      type: "function",
+      inputs: [{ type: "address", name: "market" }],
+      outputs: [{ type: "bool" }],
       stateMutability: "view",
     },
     {

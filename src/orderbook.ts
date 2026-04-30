@@ -14,7 +14,7 @@ const SoothBookAbi = [
       { type: 'uint16', name: 'tick' },
       { type: 'uint128', name: 'amount' },
       { type: 'bool', name: 'escrow' },
-      { type: 'uint256', name: 'maxCost' },
+      { type: 'uint32', name: 'matchLimit' },
     ],
     outputs: [],
     stateMutability: 'nonpayable',
@@ -27,7 +27,7 @@ const SoothBookAbi = [
       { type: 'uint16', name: 'tick' },
       { type: 'uint128', name: 'amount' },
       { type: 'bool', name: 'escrow' },
-      { type: 'uint256', name: 'maxCost' },
+      { type: 'uint32', name: 'matchLimit' },
     ],
     outputs: [],
     stateMutability: 'nonpayable',
@@ -83,6 +83,16 @@ const SoothBookAbi = [
   {
     name: 'getImpliedPrice',
     type: 'function',
+    inputs: [{ type: 'address', name: 'market' }],
+    outputs: [
+      { type: 'uint256', name: 'yesPrice' },
+      { type: 'uint256', name: 'noPrice' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    name: 'getImpliedPriceByKey',
+    type: 'function',
     inputs: [{ type: 'bytes32', name: 'marketKey' }],
     outputs: [
       { type: 'uint256', name: 'yesPrice' },
@@ -91,17 +101,17 @@ const SoothBookAbi = [
     stateMutability: 'view',
   },
   {
-    name: 'markets',
+    name: 'registeredMarkets',
     type: 'function',
-    inputs: [{ type: 'bytes32' }],
-    outputs: [
-      { type: 'address', name: 'collateral' },
-      { type: 'address', name: 'yesToken' },
-      { type: 'address', name: 'noToken' },
-      { type: 'bool', name: 'active' },
-      { type: 'bool', name: 'finalized' },
-      { type: 'uint8', name: 'outcome' },
-    ],
+    inputs: [{ type: 'bytes32', name: 'marketKey' }],
+    outputs: [{ type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'isMarketRegistered',
+    type: 'function',
+    inputs: [{ type: 'address', name: 'market' }],
+    outputs: [{ type: 'bool' }],
     stateMutability: 'view',
   },
 ] as const;
@@ -120,19 +130,15 @@ export class Orderbook {
 
   /** Get SoothBook market state */
   async getMarket(marketKey: `0x${string}`) {
-    const result = (await this.client.publicClient.readContract({
+    const registered = (await this.client.publicClient.readContract({
       address: this.client.contracts.soothBook,
       abi: SoothBookAbi,
-      functionName: 'markets',
+      functionName: 'registeredMarkets',
       args: [marketKey],
-    })) as [`0x${string}`, `0x${string}`, `0x${string}`, boolean, boolean, number];
+    })) as boolean;
     return {
-      collateral: result[0],
-      yesToken: result[1],
-      noToken: result[2],
-      active: result[3],
-      finalized: result[4],
-      outcome: result[5],
+      registered,
+      active: registered,
     };
   }
 
@@ -152,14 +158,27 @@ export class Orderbook {
   }
 
   /** Get implied price */
-  async getImpliedPrice(
+  async getImpliedPriceByKey(
     marketKey: `0x${string}`,
   ): Promise<{ yesPrice: bigint; noPrice: bigint }> {
     const result = (await this.client.publicClient.readContract({
       address: this.client.contracts.soothBook,
       abi: SoothBookAbi,
-      functionName: 'getImpliedPrice',
+      functionName: 'getImpliedPriceByKey',
       args: [marketKey],
+    })) as [bigint, bigint];
+    return { yesPrice: result[0], noPrice: result[1] };
+  }
+
+  /** Get implied price by market address */
+  async getImpliedPrice(
+    market: `0x${string}`,
+  ): Promise<{ yesPrice: bigint; noPrice: bigint }> {
+    const result = (await this.client.publicClient.readContract({
+      address: this.client.contracts.soothBook,
+      abi: SoothBookAbi,
+      functionName: 'getImpliedPrice',
+      args: [market],
     })) as [bigint, bigint];
     return { yesPrice: result[0], noPrice: result[1] };
   }
@@ -197,34 +216,30 @@ export class Orderbook {
   /** Place a YES buy order */
   async buyYes(
     marketKey: `0x${string}`,
-    params: { tick: number; amount: string; escrow?: boolean; maxCost?: string },
+    params: { tick: number; amount: string; escrow?: boolean; matchLimit?: number },
   ): Promise<`0x${string}`> {
     const amount = parseUnits(params.amount, 18);
-    const maxCost = params.maxCost
-      ? parseUnits(params.maxCost, 18)
-      : amount;
+    const matchLimit = params.matchLimit ?? 100;
     return this.client.writeContract({
       address: this.client.contracts.soothBook,
       abi: SoothBookAbi,
       functionName: 'buyYes',
-      args: [marketKey, params.tick, amount, params.escrow ?? false, maxCost],
+      args: [marketKey, params.tick, amount, params.escrow ?? false, matchLimit],
     });
   }
 
   /** Place a NO buy order */
   async buyNo(
     marketKey: `0x${string}`,
-    params: { tick: number; amount: string; escrow?: boolean; maxCost?: string },
+    params: { tick: number; amount: string; escrow?: boolean; matchLimit?: number },
   ): Promise<`0x${string}`> {
     const amount = parseUnits(params.amount, 18);
-    const maxCost = params.maxCost
-      ? parseUnits(params.maxCost, 18)
-      : amount;
+    const matchLimit = params.matchLimit ?? 100;
     return this.client.writeContract({
       address: this.client.contracts.soothBook,
       abi: SoothBookAbi,
       functionName: 'buyNo',
-      args: [marketKey, params.tick, amount, params.escrow ?? false, maxCost],
+      args: [marketKey, params.tick, amount, params.escrow ?? false, matchLimit],
     });
   }
 

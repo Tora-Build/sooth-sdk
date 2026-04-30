@@ -65,23 +65,6 @@ export const SoothBookABI = [
   },
   {
     type: "function",
-    name: "redeem",
-    inputs: [{ name: "marketKey", type: "bytes32", internalType: "bytes32" }],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "resolveMarket",
-    inputs: [
-      { name: "marketKey", type: "bytes32", internalType: "bytes32" },
-      { name: "outcome", type: "uint8", internalType: "uint8" },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
     name: "getBalance",
     inputs: [
       { name: "marketKey", type: "bytes32", internalType: "bytes32" },
@@ -113,7 +96,7 @@ export const SoothBookABI = [
   {
     type: "function",
     name: "getImpliedPrice",
-    inputs: [{ name: "marketKey", type: "bytes32", internalType: "bytes32" }],
+    inputs: [{ name: "market", type: "address", internalType: "address" }],
     outputs: [
       { name: "yesPrice", type: "uint256", internalType: "uint256" },
       { name: "noPrice", type: "uint256", internalType: "uint256" },
@@ -136,17 +119,26 @@ export const SoothBookABI = [
   },
   {
     type: "function",
-    name: "markets",
-    inputs: [{ name: "", type: "bytes32", internalType: "bytes32" }],
-    // Deployed v0.1.2 SoothBook.markets(bytes32) returns only state flags.
-    // Collateral / YES / NO token addresses are NOT in this tuple — read
-    // the deployment manifest (contracts.MockUSDC and the market-level
-    // outcome token) instead.
+    name: "getImpliedPriceByKey",
+    inputs: [{ name: "marketKey", type: "bytes32", internalType: "bytes32" }],
     outputs: [
-      { name: "active", type: "bool", internalType: "bool" },
-      { name: "finalized", type: "bool", internalType: "bool" },
-      { name: "outcome", type: "uint8", internalType: "uint8" },
+      { name: "yesPrice", type: "uint256", internalType: "uint256" },
+      { name: "noPrice", type: "uint256", internalType: "uint256" },
     ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "registeredMarkets",
+    inputs: [{ name: "marketKey", type: "bytes32", internalType: "bytes32" }],
+    outputs: [{ name: "", type: "bool", internalType: "bool" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "isMarketRegistered",
+    inputs: [{ name: "market", type: "address", internalType: "address" }],
+    outputs: [{ name: "", type: "bool", internalType: "bool" }],
     stateMutability: "view",
   },
   {
