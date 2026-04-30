@@ -1,5 +1,7 @@
 # sooth-sdk
 
+![CI](https://github.com/Tora-Build/sooth-sdk/actions/workflows/ci.yml/badge.svg)
+
 TypeScript SDK and `soothcli` REPL for the Sooth Protocol. Extracted from `Tora-Build/sooth-alpha` on 2026-04-30 (full git history preserved). Pairs with `Tora-Build/sooth-core` (Solidity contracts).
 
 This repo:
@@ -42,7 +44,7 @@ The sooth-alpha CLI launcher injects `packages/registry/nodes.json` via `setMani
 
 ---
 
-# Sooth SDK Core Unified Layer
+## Integration Guide
 
 Single canonical protocol interaction layer for Launchpad + AMM + SoothBook + settlement flows.
 
@@ -79,17 +81,17 @@ Implemented scope:
 
 **Public API (snapshot, quote, trade builders — consumed by app hooks):**
 
-- `packages/sdk/src/core/contracts/launchpadAmm.ts`
-- `packages/sdk/src/core/contracts/soothCore.ts`
-- `packages/sdk/src/core/contracts/index.ts`
+- `src/core/contracts/launchpadAmm.ts`
+- `src/core/contracts/soothCore.ts`
+- `src/core/contracts/index.ts`
 
 **Imperative actions (shared write logic — consumed by CLI + Geek terminal):**
 
-- `packages/sdk/src/core/actions/simulate.ts` — `runSimulate`
-- `packages/sdk/src/core/actions/writes.ts` — `runCreateMarket`, `runGraduate`, `runApprove`, `runMintUsdc`, `runRedeemLp`, `runTransferLp`, `runDismiss`, `runClaimRefund`, `runSoothBook{BuyYes,BuyNo,Mint,Merge,Cancel,Redeem}`
-- `packages/sdk/src/core/actions/types.ts` — `ActionContext`, `ActionEvent`, `ActionReporter`
+- `src/core/actions/simulate.ts` — `runSimulate`
+- `src/core/actions/writes.ts` — `runCreateMarket`, `runGraduate`, `runApprove`, `runMintUsdc`, `runRedeemLp`, `runTransferLp`, `runDismiss`, `runClaimRefund`, `runSoothBook{BuyYes,BuyNo,Mint,Merge,Cancel,Redeem}`
+- `src/core/actions/types.ts` — `ActionContext`, `ActionEvent`, `ActionReporter`
 
-See `docs/specs/GEEK_CLI_ALIGNMENT.md` for the full alignment spec.
+See `src/core/actions/` for the full action surface.
 
 ## Non-Negotiable Protocol Invariants
 
@@ -475,15 +477,6 @@ An app is conformant only if all pass:
 5. Uses `buildClaimRequest` for claim route selection.
 6. Uses SDK preflight + approval helpers instead of local duplicates.
 7. Keeps decimals handling at boundaries only.
-
-## Validation
-
-Validated locally:
-
-- `pnpm --filter @sooth/sdk build`
-- `pnpm --filter @sooth/telegram build:webapp`
-
-Both pass.
 
 ## Notes
 
