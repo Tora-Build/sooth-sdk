@@ -143,21 +143,6 @@ export const SoothBookABI = [
   },
   {
     type: "function",
-    name: "getOrder",
-    inputs: [{ name: "orderId", type: "uint64", internalType: "uint64" }],
-    outputs: [
-      { name: "maker", type: "address", internalType: "address" },
-      { name: "marketKey", type: "bytes32", internalType: "bytes32" },
-      { name: "side", type: "uint8", internalType: "uint8" },
-      { name: "tick", type: "uint16", internalType: "uint16" },
-      { name: "amount", type: "uint128", internalType: "uint128" },
-      { name: "escrow", type: "bool", internalType: "bool" },
-      { name: "active", type: "bool", internalType: "bool" },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
     name: "feeBps",
     inputs: [],
     outputs: [{ name: "", type: "uint24", internalType: "uint24" }],
