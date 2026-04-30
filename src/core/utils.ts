@@ -1,5 +1,11 @@
-import { formatUnits, parseUnits, keccak256, encodeAbiParameters, parseAbiParameters, type Address } from 'viem';
-import { WAD } from './types.js';
+import {
+  formatUnits,
+  parseUnits,
+  keccak256,
+  encodeAbiParameters,
+  parseAbiParameters,
+  type Address,
+} from 'viem';
 import type { OutputLine, OutputLineType } from './types.js';
 
 export function formatWad(value: bigint, decimals = 2): string {
@@ -25,7 +31,7 @@ export function shortTx(hash: string): string {
 }
 
 export function parseTickRange(range: string): { tickLower: number; tickUpper: number } {
-  const parts = range.split('-').map(p => parseInt(p.trim(), 10));
+  const parts = range.split('-').map((p) => parseInt(p.trim(), 10));
 
   if (parts.length === 1 && !isNaN(parts[0])) {
     let tick = parts[0];
@@ -74,13 +80,14 @@ export function formatTick(tick: number): string {
 export function computeMarketKey(
   truthMarket: string,
   yesToken: string,
-  noToken: string
+  noToken: string,
 ): `0x${string}` {
   return keccak256(
-    encodeAbiParameters(
-      parseAbiParameters('address, address, address'),
-      [truthMarket as Address, yesToken as Address, noToken as Address]
-    )
+    encodeAbiParameters(parseAbiParameters('address, address, address'), [
+      truthMarket as Address,
+      yesToken as Address,
+      noToken as Address,
+    ]),
   );
 }
 
@@ -88,13 +95,15 @@ export function computeMarketKeyWithHook(
   truthMarket: string,
   yesToken: string,
   noToken: string,
-  hook: string = '0x0000000000000000000000000000000000000000'
+  hook: string = '0x0000000000000000000000000000000000000000',
 ): `0x${string}` {
   return keccak256(
-    encodeAbiParameters(
-      parseAbiParameters('address, address, address, address'),
-      [truthMarket as Address, yesToken as Address, noToken as Address, hook as Address]
-    )
+    encodeAbiParameters(parseAbiParameters('address, address, address, address'), [
+      truthMarket as Address,
+      yesToken as Address,
+      noToken as Address,
+      hook as Address,
+    ]),
   );
 }
 
@@ -143,16 +152,17 @@ export function tableRow(cols: string[], widths: number[]): string {
 }
 
 export function tableLine(widths: number[]): string {
-  return widths.map(w => '-'.repeat(w)).join('-+-');
+  return widths.map((w) => '-'.repeat(w)).join('-+-');
 }
 
 export function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export function getOrderType(tickLower: number, tickUpper: number): 'limit' | 'market' | 'range' {
   if (tickLower === tickUpper) return 'limit';
-  if ((tickLower === 1 || tickLower === 10) && (tickUpper === 999 || tickUpper === 9990)) return 'market';
+  if ((tickLower === 1 || tickLower === 10) && (tickUpper === 999 || tickUpper === 9990))
+    return 'market';
   return 'range';
 }
 
@@ -162,8 +172,8 @@ export function getOrderType(tickLower: number, tickUpper: number): 'limit' | 'm
  */
 export function wadToTokenUnits(wad: bigint, tokenDecimals: number): bigint {
   const diff = 18 - tokenDecimals;
-  if (diff < 0) return wad * (10n ** BigInt(-diff));
-  return wad / (10n ** BigInt(diff));
+  if (diff < 0) return wad * 10n ** BigInt(-diff);
+  return wad / 10n ** BigInt(diff);
 }
 
 /**
@@ -172,6 +182,6 @@ export function wadToTokenUnits(wad: bigint, tokenDecimals: number): bigint {
  */
 export function tokenUnitsToWad(units: bigint, tokenDecimals: number): bigint {
   const diff = 18 - tokenDecimals;
-  if (diff < 0) return units / (10n ** BigInt(-diff));
-  return units * (10n ** BigInt(diff));
+  if (diff < 0) return units / 10n ** BigInt(-diff);
+  return units * 10n ** BigInt(diff);
 }

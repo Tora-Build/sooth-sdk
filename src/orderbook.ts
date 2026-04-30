@@ -14,7 +14,7 @@ const SoothBookAbi = [
       { type: 'uint16', name: 'tick' },
       { type: 'uint128', name: 'amount' },
       { type: 'bool', name: 'escrow' },
-      { type: 'uint32', name: 'matchLimit' },
+      { type: 'uint256', name: 'maxCost' },
     ],
     outputs: [],
     stateMutability: 'nonpayable',
@@ -27,7 +27,7 @@ const SoothBookAbi = [
       { type: 'uint16', name: 'tick' },
       { type: 'uint128', name: 'amount' },
       { type: 'bool', name: 'escrow' },
-      { type: 'uint32', name: 'matchLimit' },
+      { type: 'uint256', name: 'maxCost' },
     ],
     outputs: [],
     stateMutability: 'nonpayable',
@@ -83,16 +83,6 @@ const SoothBookAbi = [
   {
     name: 'getImpliedPrice',
     type: 'function',
-    inputs: [{ type: 'address', name: 'market' }],
-    outputs: [
-      { type: 'uint256', name: 'yesPrice' },
-      { type: 'uint256', name: 'noPrice' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    name: 'getImpliedPriceByKey',
-    type: 'function',
     inputs: [{ type: 'bytes32', name: 'marketKey' }],
     outputs: [
       { type: 'uint256', name: 'yesPrice' },
@@ -101,17 +91,17 @@ const SoothBookAbi = [
     stateMutability: 'view',
   },
   {
-    name: 'registeredMarkets',
+    name: 'markets',
     type: 'function',
-    inputs: [{ type: 'bytes32', name: 'marketKey' }],
-    outputs: [{ type: 'bool' }],
-    stateMutability: 'view',
-  },
-  {
-    name: 'isMarketRegistered',
-    type: 'function',
-    inputs: [{ type: 'address', name: 'market' }],
-    outputs: [{ type: 'bool' }],
+    inputs: [{ type: 'bytes32' }],
+    outputs: [
+      { type: 'address', name: 'collateral' },
+      { type: 'address', name: 'yesToken' },
+      { type: 'address', name: 'noToken' },
+      { type: 'bool', name: 'active' },
+      { type: 'bool', name: 'finalized' },
+      { type: 'uint8', name: 'outcome' },
+    ],
     stateMutability: 'view',
   },
 ] as const;
@@ -130,23 +120,24 @@ export class Orderbook {
 
   /** Get SoothBook market state */
   async getMarket(marketKey: `0x${string}`) {
-    const registered = (await this.client.publicClient.readContract({
+    const result = (await this.client.publicClient.readContract({
       address: this.client.contracts.soothBook,
       abi: SoothBookAbi,
-      functionName: 'registeredMarkets',
+      functionName: 'markets',
       args: [marketKey],
-    })) as boolean;
+    })) as [`0x${string}`, `0x${string}`, `0x${string}`, boolean, boolean, number];
     return {
-      registered,
-      active: registered,
+      collateral: result[0],
+      yesToken: result[1],
+      noToken: result[2],
+      active: result[3],
+      finalized: result[4],
+      outcome: result[5],
     };
   }
 
   /** Get best tick for a side (0=YES, 1=NO) */
-  async getBestTick(
-    marketKey: `0x${string}`,
-    side: 'yes' | 'no',
-  ): Promise<number> {
+  async getBestTick(marketKey: `0x${string}`, side: 'yes' | 'no'): Promise<number> {
     const sideNum = side === 'yes' ? 0 : 1;
     const result = await this.client.publicClient.readContract({
       address: this.client.contracts.soothBook,
@@ -158,27 +149,12 @@ export class Orderbook {
   }
 
   /** Get implied price */
-  async getImpliedPriceByKey(
-    marketKey: `0x${string}`,
-  ): Promise<{ yesPrice: bigint; noPrice: bigint }> {
-    const result = (await this.client.publicClient.readContract({
-      address: this.client.contracts.soothBook,
-      abi: SoothBookAbi,
-      functionName: 'getImpliedPriceByKey',
-      args: [marketKey],
-    })) as [bigint, bigint];
-    return { yesPrice: result[0], noPrice: result[1] };
-  }
-
-  /** Get implied price by market address */
-  async getImpliedPrice(
-    market: `0x${string}`,
-  ): Promise<{ yesPrice: bigint; noPrice: bigint }> {
+  async getImpliedPrice(marketKey: `0x${string}`): Promise<{ yesPrice: bigint; noPrice: bigint }> {
     const result = (await this.client.publicClient.readContract({
       address: this.client.contracts.soothBook,
       abi: SoothBookAbi,
       functionName: 'getImpliedPrice',
-      args: [market],
+      args: [marketKey],
     })) as [bigint, bigint];
     return { yesPrice: result[0], noPrice: result[1] };
   }
@@ -216,39 +192,35 @@ export class Orderbook {
   /** Place a YES buy order */
   async buyYes(
     marketKey: `0x${string}`,
-    params: { tick: number; amount: string; escrow?: boolean; matchLimit?: number },
+    params: { tick: number; amount: string; escrow?: boolean; maxCost?: string },
   ): Promise<`0x${string}`> {
     const amount = parseUnits(params.amount, 18);
-    const matchLimit = params.matchLimit ?? 100;
+    const maxCost = params.maxCost ? parseUnits(params.maxCost, 18) : amount;
     return this.client.writeContract({
       address: this.client.contracts.soothBook,
       abi: SoothBookAbi,
       functionName: 'buyYes',
-      args: [marketKey, params.tick, amount, params.escrow ?? false, matchLimit],
+      args: [marketKey, params.tick, amount, params.escrow ?? false, maxCost],
     });
   }
 
   /** Place a NO buy order */
   async buyNo(
     marketKey: `0x${string}`,
-    params: { tick: number; amount: string; escrow?: boolean; matchLimit?: number },
+    params: { tick: number; amount: string; escrow?: boolean; maxCost?: string },
   ): Promise<`0x${string}`> {
     const amount = parseUnits(params.amount, 18);
-    const matchLimit = params.matchLimit ?? 100;
+    const maxCost = params.maxCost ? parseUnits(params.maxCost, 18) : amount;
     return this.client.writeContract({
       address: this.client.contracts.soothBook,
       abi: SoothBookAbi,
       functionName: 'buyNo',
-      args: [marketKey, params.tick, amount, params.escrow ?? false, matchLimit],
+      args: [marketKey, params.tick, amount, params.escrow ?? false, maxCost],
     });
   }
 
   /** Cancel an order */
-  async cancel(
-    marketKey: `0x${string}`,
-    side: 'yes' | 'no',
-    tick: number,
-  ): Promise<`0x${string}`> {
+  async cancel(marketKey: `0x${string}`, side: 'yes' | 'no', tick: number): Promise<`0x${string}`> {
     const sideNum = side === 'yes' ? 0 : 1;
     return this.client.writeContract({
       address: this.client.contracts.soothBook,

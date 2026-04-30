@@ -1,28 +1,27 @@
 # sooth-sdk
 
-TypeScript SDK and `soothcli` REPL for the Sooth Protocol. Extracted from `Tora-Build/sooth-alpha` on 2026-04-30 (full git history preserved). Pairs with `Tora-Build/sooth-core` (Solidity contracts).
+![CI](https://github.com/Tora-Build/sooth-sdk/actions/workflows/ci.yml/badge.svg)
+
+TypeScript SDK and `soothcli` REPL for the Sooth Protocol. Pairs with [`Tora-Build/sooth-core`](https://github.com/Tora-Build/sooth-core) (Solidity contracts).
 
 This repo:
 
 - Ships `@sooth/sdk` (npm) — programmatic access to LaunchpadEngine, AMMEngine, SoothBook, OrderEngine, TruthMarket, FeeRouter.
 - Ships `soothcli` — interactive REPL for Sooth nodes (`soothcli <nodeId>`, `soothcli --list`).
-- Versioning is locked to the contract version it speaks. v0.2.0 of this SDK targets sooth-core v0.2.0; the CLI rejects nodes whose `coreVersion` doesn't match (see `src/cli/config.ts:SUPPORTED_CORE_VERSION` and ADR-094 in sooth-alpha's `DECISIONS.md`).
+- Versioning is locked to the contract version it speaks. v0.2.1 of this SDK targets [`sooth-core`](https://github.com/Tora-Build/sooth-core) v0.2.1; the CLI rejects nodes whose `coreVersion` doesn't match (see `src/cli/config.ts:SUPPORTED_CORE_VERSION`).
 - Migration playbook: `.claude/skills/cli-migration/` (covers ABI drift, parseAbi audits, per-chain RPC config, multi-chain test sweeps).
 
 ## Consumed by
 
-- `Tora-Build/sooth-alpha` — apps/demo, apps/telegram, packages/indexer. Vendored back as a git submodule at `packages/sdk` (preserves all `@sooth/sdk` import paths byte-for-byte).
 - Anyone integrating Sooth markets via `npm install @sooth/sdk`.
 
 ## Registry data
 
 The SDK reads registry node/chain metadata via `src/registry-loader.ts`. Order of preference:
 
-1. Injected manifest (`setManifest()` / `setManifestProvider()`) — sooth-alpha contributors wire this with the live `packages/registry/nodes.json` for instant feedback.
+1. Injected manifest (`setManifest()` / `setManifestProvider()`) — wire this with a live `nodes.json` for instant feedback during development.
 2. HTTP fetch from `registry.sooth.market` (2 s timeout) — the freshness path, picks up newly registered nodes between SDK releases.
 3. Embedded snapshot at `data/nodes.snapshot.json` — last-known-good, ships with each release. Drives offline boot and CI.
-
-The embedded snapshot is the source of truth for SDK builds; sooth-alpha enforces freshness via a CI guard that fails if `packages/registry/nodes.json` and the SDK's snapshot diverge.
 
 ## Develop locally
 
@@ -34,15 +33,9 @@ bun src/cli/interactive.ts --list
 bun src/cli/interactive.ts c30c6b15
 ```
 
-## Local dev inside sooth-alpha
-
-When developing in the parent monorepo, `packages/sdk/` is a submodule pointing at this repo. Edit normally, commit, push to this repo's `main`, then bump the submodule pointer in sooth-alpha (`git -C packages/sdk pull --ff-only` from the sooth-alpha working copy).
-
-The sooth-alpha CLI launcher injects `packages/registry/nodes.json` via `setManifestProvider()` so registry edits don't require re-vendoring `data/nodes.snapshot.json` for local dev.
-
 ---
 
-# Sooth SDK Core Unified Layer
+## Integration Guide
 
 Single canonical protocol interaction layer for Launchpad + AMM + SoothBook + settlement flows.
 
@@ -79,17 +72,17 @@ Implemented scope:
 
 **Public API (snapshot, quote, trade builders — consumed by app hooks):**
 
-- `packages/sdk/src/core/contracts/launchpadAmm.ts`
-- `packages/sdk/src/core/contracts/soothCore.ts`
-- `packages/sdk/src/core/contracts/index.ts`
+- `src/core/contracts/launchpadAmm.ts`
+- `src/core/contracts/soothCore.ts`
+- `src/core/contracts/index.ts`
 
 **Imperative actions (shared write logic — consumed by CLI + Geek terminal):**
 
-- `packages/sdk/src/core/actions/simulate.ts` — `runSimulate`
-- `packages/sdk/src/core/actions/writes.ts` — `runCreateMarket`, `runGraduate`, `runApprove`, `runMintUsdc`, `runRedeemLp`, `runTransferLp`, `runDismiss`, `runClaimRefund`, `runSoothBook{BuyYes,BuyNo,Mint,Merge,Cancel,Redeem}`
-- `packages/sdk/src/core/actions/types.ts` — `ActionContext`, `ActionEvent`, `ActionReporter`
+- `src/core/actions/simulate.ts` — `runSimulate`
+- `src/core/actions/writes.ts` — `runCreateMarket`, `runGraduate`, `runApprove`, `runMintUsdc`, `runRedeemLp`, `runTransferLp`, `runDismiss`, `runClaimRefund`, `runSoothBook{BuyYes,BuyNo,Mint,Merge,Cancel,Redeem}`
+- `src/core/actions/types.ts` — `ActionContext`, `ActionEvent`, `ActionReporter`
 
-See `docs/specs/GEEK_CLI_ALIGNMENT.md` for the full alignment spec.
+See `src/core/actions/` for the full action surface.
 
 ## Non-Negotiable Protocol Invariants
 
@@ -475,15 +468,6 @@ An app is conformant only if all pass:
 5. Uses `buildClaimRequest` for claim route selection.
 6. Uses SDK preflight + approval helpers instead of local duplicates.
 7. Keeps decimals handling at boundaries only.
-
-## Validation
-
-Validated locally:
-
-- `pnpm --filter @sooth/sdk build`
-- `pnpm --filter @sooth/telegram build:webapp`
-
-Both pass.
 
 ## Notes
 

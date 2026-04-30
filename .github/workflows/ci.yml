@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'pull_request' || !contains(github.event.pull_request.labels.*.name, 'early-stage') }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/setup
+      - name: Lint sources
+        run: pnpm lint:check
+
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'pull_request' || !contains(github.event.pull_request.labels.*.name, 'early-stage') }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/setup
+      - name: Check formatting
+        run: pnpm fmt:check
+
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'pull_request' || !contains(github.event.pull_request.labels.*.name, 'early-stage') }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/setup
+      - name: Type check
+        run: pnpm typecheck
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'pull_request' || !contains(github.event.pull_request.labels.*.name, 'early-stage') }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/setup
+      - name: Build
+        run: pnpm build

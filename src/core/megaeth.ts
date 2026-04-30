@@ -10,13 +10,13 @@ import {
   type Hash,
   type PublicClient,
   type TransactionReceipt,
-} from "viem";
+} from 'viem';
 
 export const MEGAETH_CHAIN_IDS = [4326, 6343] as const;
 
 const MEGAETH_NATIVE_RPC: Record<number, string> = {
-  4326: "https://mainnet.megaeth.com/rpc",
-  6343: "https://carrot.megaeth.com/rpc",
+  4326: 'https://mainnet.megaeth.com/rpc',
+  6343: 'https://carrot.megaeth.com/rpc',
 };
 
 export function isMegaethChain(chainId?: number): boolean {
@@ -36,12 +36,12 @@ export async function realtimeSendRawTransaction(args: {
   signedTransaction: `0x${string}`;
 }): Promise<TransactionReceipt> {
   const res = await fetch(args.rpcUrl, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      jsonrpc: "2.0",
+      jsonrpc: '2.0',
       id: 1,
-      method: "realtime_sendRawTransaction",
+      method: 'realtime_sendRawTransaction',
       params: [args.signedTransaction],
     }),
   });
@@ -50,9 +50,7 @@ export async function realtimeSendRawTransaction(args: {
     error?: { code: number; message: string };
   };
   if (json.error) {
-    throw new Error(
-      `realtime_sendRawTransaction: ${json.error.message}`,
-    );
+    throw new Error(`realtime_sendRawTransaction: ${json.error.message}`);
   }
   const r = json.result;
   return {
@@ -61,15 +59,15 @@ export async function realtimeSendRawTransaction(args: {
     from: r.from,
     to: r.to ?? null,
     gasUsed: BigInt(r.gasUsed),
-    status: r.status === "0x1" ? "success" : "reverted",
+    status: r.status === '0x1' ? 'success' : 'reverted',
     logs: r.logs ?? [],
     contractAddress: r.contractAddress ?? null,
-    blockHash: "0x" as Hash,
+    blockHash: '0x' as Hash,
     transactionIndex: 0,
-    logsBloom: "0x" as `0x${string}`,
+    logsBloom: '0x' as `0x${string}`,
     cumulativeGasUsed: BigInt(r.gasUsed),
     effectiveGasPrice: 0n,
-    type: "eip1559",
+    type: 'eip1559',
   } as TransactionReceipt;
 }
 
@@ -107,7 +105,7 @@ export async function writeContractRealtime(
 
   const nonce = await args.publicClient.getTransactionCount({
     address: args.account.address,
-    blockTag: "pending",
+    blockTag: 'pending',
   });
 
   const signedTx = await args.account.signTransaction({
@@ -118,7 +116,7 @@ export async function writeContractRealtime(
     maxFeePerGas: 1_500_000n,
     maxPriorityFeePerGas: 0n,
     chainId: args.chainId,
-    type: "eip1559" as const,
+    type: 'eip1559' as const,
   });
 
   const prepareMs = Number((performance.now() - prepareStart).toFixed(1));
@@ -130,10 +128,8 @@ export async function writeContractRealtime(
   });
   const sendMs = Number((performance.now() - start).toFixed(1));
 
-  if (receipt.status === "reverted") {
-    throw new Error(
-      `Transaction reverted: ${receipt.transactionHash.slice(0, 18)}...`,
-    );
+  if (receipt.status === 'reverted') {
+    throw new Error(`Transaction reverted: ${receipt.transactionHash.slice(0, 18)}...`);
   }
 
   return { receipt, sendMs, prepareMs };

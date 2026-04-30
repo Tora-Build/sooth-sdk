@@ -32,7 +32,7 @@ export function getLMSRQuote(
   currentQNo: number,
   bParam: number,
   shareAmount: number,
-  outcomeIndex: 0 | 1
+  outcomeIndex: 0 | 1,
 ) {
   const currentCost = calculateLMSRCost(currentQYes, currentQNo, bParam);
 
@@ -77,7 +77,7 @@ export function getQuoteForOutcome(
     b: number;
     delta: number;
   },
-  contractOutcome: 0 | 1
+  contractOutcome: 0 | 1,
 ): { cost: number; newPrice: number } {
   // Contract encoding: 0=NO, 1=YES
   // LMSR internal: outcomeIndex 0=qYes modification, 1=qNo modification
@@ -89,7 +89,7 @@ export function getQuoteForOutcome(
     params.currentQNo,
     params.b,
     params.delta,
-    lmsrIndex
+    lmsrIndex,
   );
 
   const newPrice = contractOutcome === 1 ? quote.newPriceYes : quote.newPriceNo;

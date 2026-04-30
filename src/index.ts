@@ -14,7 +14,13 @@
 
 export { SoothClient } from './client';
 export { Registry } from './registry';
-export type { SoothNode, SoothContracts, ChainMeta, NodesManifest, Address } from './registry-types';
+export type {
+  SoothNode,
+  SoothContracts,
+  ChainMeta,
+  NodesManifest,
+  Address,
+} from './registry-types';
 export { Markets } from './market';
 export { Orderbook } from './orderbook';
 export { Wallet } from './wallet';

@@ -13,14 +13,14 @@ export async function getPortfolioBalances(
   client: PublicClient,
   collateralizer: Address,
   userAddress: Address,
-  marketAddress: Address
+  marketAddress: Address,
 ): Promise<PortfolioBalances> {
-  const result = await client.readContract({
+  const result = (await client.readContract({
     address: collateralizer,
     abi: CollateralizerABI,
     functionName: 'getBalances',
     args: [marketAddress, userAddress],
-  }) as readonly [bigint, bigint];
+  })) as readonly [bigint, bigint];
 
   return { yesShares: result[0], noShares: result[1] };
 }

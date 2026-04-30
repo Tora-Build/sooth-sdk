@@ -1,13 +1,13 @@
 #!/usr/bin/env bun
-import * as readline from "readline";
-import { keccak256, encodePacked } from "viem";
+import * as readline from 'readline';
+import { keccak256, encodePacked } from 'viem';
 import {
   createConfig,
   SDK_VERSION,
   SUPPORTED_CORE_VERSION,
   type InteractiveConfig,
-} from "./config";
-import { createActorManager, type ActorManager } from "./actors";
+} from './config';
+import { createActorManager, type ActorManager } from './actors';
 import {
   parseCommand,
   success,
@@ -18,7 +18,7 @@ import {
   warn,
   printBox,
   shortAddress,
-} from "./cli-utils";
+} from './cli-utils';
 import {
   type CommandContext,
   type CommandResult,
@@ -26,62 +26,54 @@ import {
   walletCommands,
   soothbookCommands,
   marketCommands,
-} from "./commands";
-import { ScenarioEngine } from "./scenarios/engine";
-import { runAllInvariants, printInvariantResults } from "./assertions";
+} from './commands';
+import { ScenarioEngine } from './scenarios/engine';
+import { runAllInvariants, printInvariantResults } from './assertions';
 
 // Parse CLI arguments
 const args = process.argv.slice(2);
-const offlineRegistry = args.includes("--offline-registry");
 
 // --list: show available nodes and exit
-if (args.includes("--list")) {
-  const { loadManifest, getAllNodes, getChain } =
-    await import("../registry-loader");
-  await loadManifest({ offline: offlineRegistry });
+if (args.includes('--list')) {
+  const { loadManifest, getAllNodes, getChain } = await import('../registry-loader');
+  await loadManifest();
   const nodes = getAllNodes();
-  console.log(`\n  ${bold("Available Sooth Nodes")}`);
-  console.log(
-    `  ${dim(`CLI supports core v${SUPPORTED_CORE_VERSION} only`)}\n`,
-  );
-  console.log("  ID          Chain              Core   Compat");
-  console.log("  ────────    ─────────────────  ────   ──────");
+  console.log(`\n  ${bold('Available Sooth Nodes')}`);
+  console.log(`  ${dim(`CLI supports core v${SUPPORTED_CORE_VERSION} only`)}\n`);
+  console.log('  ID          Chain              Core   Compat');
+  console.log('  ────────    ─────────────────  ────   ──────');
   for (const n of nodes) {
     const chain = getChain(n.chainId);
-    const compat = n.coreVersion === SUPPORTED_CORE_VERSION ? "✓" : "✗";
+    const compat = n.coreVersion === SUPPORTED_CORE_VERSION ? '✓' : '✗';
     console.log(
       `  ${n.id}    ${(chain?.name ?? `chain:${n.chainId}`).padEnd(17)}  ${n.coreVersion}  ${compat}`,
     );
   }
-  console.log("");
+  console.log('');
   process.exit(0);
 }
 
 // No args: show usage
-const positionalArg = args.find((a) => !a.startsWith("--"));
+const positionalArg = args.find((a) => !a.startsWith('--'));
 if (!positionalArg) {
   console.log(`\n  ${bold(`soothcli v${SDK_VERSION}`)}`);
-  console.log(`\n  Usage: soothcli <nodeId> [--rpc=<url>] [--market=<addr>] [--offline-registry]`);
-  console.log(`         soothcli --list [--offline-registry]\n`);
+  console.log(`\n  Usage: soothcli <nodeId> [--rpc=<url>] [--market=<addr>]`);
+  console.log(`         soothcli --list\n`);
   process.exit(0);
 }
 
-if (args.find((a) => a.startsWith("--chain="))) {
+if (args.find((a) => a.startsWith('--chain='))) {
   console.log(
-    error(
-      "  --chain is no longer supported. Use an 8-char node ID (run soothcli --list).",
-    ),
+    error('  --chain is no longer supported. Use an 8-char node ID (run soothcli --list).'),
   );
   process.exit(1);
 }
 
 const nodeIdArg = positionalArg;
-const marketArg = args.find((a) => a.startsWith("--market="))?.split("=")[1];
-const rpcArg = args.find((a) => a.startsWith("--rpc="))?.split("=")[1];
-const scenarioArg = args
-  .find((a) => a.startsWith("--scenario="))
-  ?.split("=")[1];
-const realtimeFlag = args.includes("--realtime");
+const marketArg = args.find((a) => a.startsWith('--market='))?.split('=')[1];
+const rpcArg = args.find((a) => a.startsWith('--rpc='))?.split('=')[1];
+const scenarioArg = args.find((a) => a.startsWith('--scenario='))?.split('=')[1];
+const realtimeFlag = args.includes('--realtime');
 
 // Global state
 let config: InteractiveConfig;
@@ -98,90 +90,89 @@ interface DiscoveredMarket {
   address: `0x${string}`;
   name: string;
   isGraduated: boolean;
-  stage: "pre-graduation" | "graduated";
+  stage: 'pre-graduation' | 'graduated';
   marketKey: `0x${string}` | null;
 }
 
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 const LaunchpadDiscoveryAbi = [
   {
-    name: "getMarkets",
-    type: "function",
+    name: 'getMarkets',
+    type: 'function',
     inputs: [],
-    outputs: [{ type: "address[]", name: "" }],
-    stateMutability: "view",
+    outputs: [{ type: 'address[]', name: '' }],
+    stateMutability: 'view',
   },
   {
-    name: "getMarketCount",
-    type: "function",
+    name: 'getMarketCount',
+    type: 'function',
     inputs: [],
-    outputs: [{ type: "uint256", name: "" }],
-    stateMutability: "view",
+    outputs: [{ type: 'uint256', name: '' }],
+    stateMutability: 'view',
   },
   {
-    name: "allMarkets",
-    type: "function",
-    inputs: [{ type: "uint256", name: "" }],
-    outputs: [{ type: "address", name: "" }],
-    stateMutability: "view",
+    name: 'allMarkets',
+    type: 'function',
+    inputs: [{ type: 'uint256', name: '' }],
+    outputs: [{ type: 'address', name: '' }],
+    stateMutability: 'view',
   },
   {
-    name: "markets",
-    type: "function",
-    inputs: [{ type: "address", name: "market" }],
+    name: 'markets',
+    type: 'function',
+    inputs: [{ type: 'address', name: 'market' }],
     outputs: [
-      { type: "address", name: "creator" },
-      { type: "address", name: "lpToken" },
-      { type: "uint256", name: "bBase" },
-      { type: "uint256", name: "creatorDeposit" },
-      { type: "uint64", name: "graduatedAt" },
+      { type: 'address', name: 'creator' },
+      { type: 'address', name: 'lpToken' },
+      { type: 'uint256', name: 'bBase' },
+      { type: 'uint256', name: 'creatorDeposit' },
+      { type: 'uint64', name: 'graduatedAt' },
     ],
-    stateMutability: "view",
+    stateMutability: 'view',
   },
   {
-    name: "isGraduated",
-    type: "function",
-    inputs: [{ type: "address", name: "market" }],
-    outputs: [{ type: "bool" }],
-    stateMutability: "view",
+    name: 'isGraduated',
+    type: 'function',
+    inputs: [{ type: 'address', name: 'market' }],
+    outputs: [{ type: 'bool' }],
+    stateMutability: 'view',
   },
 ] as const;
 
 const TruthMarketQuestionAbi = [
   {
-    name: "question",
-    type: "function",
+    name: 'question',
+    type: 'function',
     inputs: [],
-    outputs: [{ type: "string", name: "" }],
-    stateMutability: "view",
+    outputs: [{ type: 'string', name: '' }],
+    stateMutability: 'view',
   },
 ] as const;
 
 async function discoverMarketsOnChain(): Promise<DiscoveredMarket[]> {
   const publicClient = actorManager.getPublicClient();
-  const launchpadAddress = config.deployment.contracts
-    .LaunchpadEngine as `0x${string}`;
+  const launchpadAddress = config.deployment.contracts.LaunchpadEngine as `0x${string}`;
 
   let marketAddresses: `0x${string}`[] = [];
   try {
     marketAddresses = (await publicClient.readContract({
       address: launchpadAddress,
       abi: LaunchpadDiscoveryAbi,
-      functionName: "getMarkets",
+      functionName: 'getMarkets',
     })) as `0x${string}`[];
   } catch {
     const marketCount = (await publicClient.readContract({
       address: launchpadAddress,
       abi: LaunchpadDiscoveryAbi,
-      functionName: "getMarketCount",
+      functionName: 'getMarketCount',
     })) as bigint;
 
     for (let i = 0; i < Number(marketCount); i++) {
       const marketAddress = (await publicClient.readContract({
         address: launchpadAddress,
         abi: LaunchpadDiscoveryAbi,
-        functionName: "allMarkets",
+        functionName: 'allMarkets',
         args: [BigInt(i)],
       })) as `0x${string}`;
       marketAddresses.push(marketAddress);
@@ -189,56 +180,50 @@ async function discoverMarketsOnChain(): Promise<DiscoveredMarket[]> {
   }
 
   const discovered = await Promise.all(
-    marketAddresses.map(
-      async (marketAddress): Promise<DiscoveredMarket | null> => {
-        const [state, isGraduated] = await Promise.all([
-          publicClient.readContract({
-            address: launchpadAddress,
-            abi: LaunchpadDiscoveryAbi,
-            functionName: "markets",
-            args: [marketAddress],
-          }) as Promise<[string, string, bigint, bigint, bigint]>,
-          publicClient.readContract({
-            address: launchpadAddress,
-            abi: LaunchpadDiscoveryAbi,
-            functionName: "isGraduated",
-            args: [marketAddress],
-          }) as Promise<boolean>,
-        ]);
+    marketAddresses.map(async (marketAddress): Promise<DiscoveredMarket | null> => {
+      const [state, isGraduated] = await Promise.all([
+        publicClient.readContract({
+          address: launchpadAddress,
+          abi: LaunchpadDiscoveryAbi,
+          functionName: 'markets',
+          args: [marketAddress],
+        }) as Promise<[string, string, bigint, bigint, bigint]>,
+        publicClient.readContract({
+          address: launchpadAddress,
+          abi: LaunchpadDiscoveryAbi,
+          functionName: 'isGraduated',
+          args: [marketAddress],
+        }) as Promise<boolean>,
+      ]);
 
-        const creator = state[0];
-        if (creator.toLowerCase() === ZERO_ADDRESS) {
-          return null;
-        }
+      const creator = state[0];
+      if (creator.toLowerCase() === ZERO_ADDRESS) {
+        return null;
+      }
 
-        let marketName: string = marketAddress;
-        try {
-          const question = (await publicClient.readContract({
-            address: marketAddress,
-            abi: TruthMarketQuestionAbi,
-            functionName: "question",
-          })) as string;
-          if (question && question.trim().length > 0) {
-            marketName = question.trim();
-          }
-        } catch {}
-
-        return {
+      let marketName: string = marketAddress;
+      try {
+        const question = (await publicClient.readContract({
           address: marketAddress,
-          name: marketName,
-          isGraduated,
-          stage: isGraduated ? "graduated" : "pre-graduation",
-          marketKey: isGraduated
-            ? keccak256(encodePacked(["address"], [marketAddress]))
-            : null,
-        };
-      },
-    ),
+          abi: TruthMarketQuestionAbi,
+          functionName: 'question',
+        })) as string;
+        if (question && question.trim().length > 0) {
+          marketName = question.trim();
+        }
+      } catch {}
+
+      return {
+        address: marketAddress,
+        name: marketName,
+        isGraduated,
+        stage: isGraduated ? 'graduated' : 'pre-graduation',
+        marketKey: isGraduated ? keccak256(encodePacked(['address'], [marketAddress])) : null,
+      };
+    }),
   );
 
-  return discovered.filter(
-    (market): market is DiscoveredMarket => market !== null,
-  );
+  return discovered.filter((market): market is DiscoveredMarket => market !== null);
 }
 
 /**
@@ -249,11 +234,11 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
 
   let marketAddress: string;
   const normalized = addressOrIndex.trim().toLowerCase();
-  const isDirectAddress = addressOrIndex.startsWith("0x");
+  const isDirectAddress = addressOrIndex.startsWith('0x');
 
-  if (normalized === "created" || normalized === "lastcreated") {
+  if (normalized === 'created' || normalized === 'lastcreated') {
     if (!lastCreatedMarketAddress) {
-      console.log(error("  No created market cached yet"));
+      console.log(error('  No created market cached yet'));
       return false;
     }
     marketAddress = lastCreatedMarketAddress;
@@ -261,25 +246,23 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
   }
 
   // Latest market helper
-  if (normalized === "latest" || normalized === "last") {
+  if (normalized === 'latest' || normalized === 'last') {
     try {
       const onChainMarkets = await discoverMarketsOnChain();
       if (onChainMarkets.length === 0) {
-        console.log(error("  No markets available on-chain"));
+        console.log(error('  No markets available on-chain'));
         return false;
       }
       marketAddress = onChainMarkets[onChainMarkets.length - 1].address;
     } catch (err) {
-      console.log(
-        error(`  Failed to fetch latest market: ${(err as Error).message}`),
-      );
+      console.log(error(`  Failed to fetch latest market: ${(err as Error).message}`));
       return false;
     }
   } else if (/^\d+$/.test(addressOrIndex)) {
     const index = parseInt(addressOrIndex, 10);
 
     const soothBookMarkets = config.deployment.markets.filter(
-      (m) => (m.marketKey || m.key) && (!m.address || m.address === ""),
+      (m) => (m.marketKey || m.key) && (!m.address || m.address === ''),
     );
 
     if (index < soothBookMarkets.length) {
@@ -287,11 +270,7 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
       currentMarketKey = (sbMarket.marketKey || sbMarket.key) as `0x${string}`;
       currentMarketAddress = null;
       currentMarketName = sbMarket.name || null;
-      console.log(
-        success(
-          `  Set SoothBook market: ${currentMarketName || currentMarketKey}`,
-        ),
-      );
+      console.log(success(`  Set SoothBook market: ${currentMarketName || currentMarketKey}`));
       console.log(dim(`  Key: ${currentMarketKey}`));
       return true;
     }
@@ -301,11 +280,7 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
       const onChainMarkets = await discoverMarketsOnChain();
       if (adjustedIndex >= onChainMarkets.length) {
         const total = soothBookMarkets.length + onChainMarkets.length;
-        console.log(
-          error(
-            `  Market index ${index} out of range (${total} markets available)`,
-          ),
-        );
+        console.log(error(`  Market index ${index} out of range (${total} markets available)`));
         return false;
       }
       marketAddress = onChainMarkets[adjustedIndex].address;
@@ -320,7 +295,7 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
     currentMarketKey = addressOrIndex as `0x${string}`;
     currentMarketAddress = null;
     currentMarketName = null;
-    console.log(success("  Market key set"));
+    console.log(success('  Market key set'));
     console.log(dim(`  Key: ${currentMarketKey}`));
     return true;
   } else if (isDirectAddress) {
@@ -363,19 +338,19 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
         publicClient.readContract({
           address: config.deployment.contracts.LaunchpadEngine as `0x${string}`,
           abi: LaunchpadDiscoveryAbi,
-          functionName: "markets",
+          functionName: 'markets',
           args: [marketAddress as `0x${string}`],
         }) as Promise<[string, string, bigint, bigint, bigint]>,
         publicClient.readContract({
           address: config.deployment.contracts.LaunchpadEngine as `0x${string}`,
           abi: LaunchpadDiscoveryAbi,
-          functionName: "isGraduated",
+          functionName: 'isGraduated',
           args: [marketAddress as `0x${string}`],
         }) as Promise<boolean>,
       ]);
 
       const creator = marketState[0];
-      if (creator !== "0x0000000000000000000000000000000000000000") {
+      if (creator !== '0x0000000000000000000000000000000000000000') {
         isLaunchpadMarket = true;
 
         let marketName: string | null = null;
@@ -383,7 +358,7 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
           marketName = (await publicClient.readContract({
             address: marketAddress as `0x${string}`,
             abi: TruthMarketQuestionAbi,
-            functionName: "question",
+            functionName: 'question',
           })) as string;
         } catch {}
 
@@ -394,20 +369,16 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
           const symbol = shortAddress(marketAddress);
           const displayName = marketName
             ? marketName.length > 40
-              ? marketName.slice(0, 37) + "..."
+              ? marketName.slice(0, 37) + '...'
               : marketName
             : symbol;
-          console.log(
-            info(`  Market set (pre-graduation): [${symbol}] ${displayName}`),
-          );
+          console.log(info(`  Market set (pre-graduation): [${symbol}] ${displayName}`));
           console.log(dim(`  Address: ${marketAddress}`));
           console.log(dim(`  Key: (not available pre-graduation)`));
           return true;
         }
         // Graduated market: compute SoothBook marketKey from address
-        currentMarketKey = keccak256(
-          encodePacked(["address"], [marketAddress as `0x${string}`]),
-        );
+        currentMarketKey = keccak256(encodePacked(['address'], [marketAddress as `0x${string}`]));
         currentMarketName = marketName;
       }
     } catch {}
@@ -421,11 +392,10 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
   currentMarketAddress = marketAddress as `0x${string}`;
   const symbol = shortAddress(marketAddress);
   const displayName = currentMarketName || deployedMarket?.name || symbol;
-  const truncatedName =
-    displayName.length > 40 ? displayName.slice(0, 37) + "..." : displayName;
+  const truncatedName = displayName.length > 40 ? displayName.slice(0, 37) + '...' : displayName;
   console.log(success(`  Market set: [${symbol}] ${truncatedName}`));
   console.log(dim(`  Address: ${marketAddress}`));
-  console.log(dim(`  Key: ${currentMarketKey || "(none)"}`));
+  console.log(dim(`  Key: ${currentMarketKey || '(none)'}`));
 
   return true;
 }
@@ -450,32 +420,32 @@ function buildContext(): CommandContext {
  */
 function printHelp(): void {
   console.log(`
-  ${bold("Launch:")}
-    ${dim("# All three are equivalent — same REPL entry point")}
-    soothcli <nodeId> [flags]                  ${dim("# global bin (after pnpm install)")}
-    pnpm dev:cli <nodeId> [flags]              ${dim("# from monorepo root")}
+  ${bold('Launch:')}
+    ${dim('# All three are equivalent — same REPL entry point')}
+    soothcli <nodeId> [flags]                  ${dim('# global bin (after pnpm install)')}
+    pnpm dev:cli <nodeId> [flags]              ${dim('# from monorepo root')}
     pnpm --filter sdk interactive <nodeId> [flags]
 
-    ${dim("# Discover available nodes")}
+    ${dim('# Discover available nodes')}
     soothcli --list
 
-  ${bold("Launch flags:")}
+  ${bold('Launch flags:')}
     --rpc=<url>          Override the registry-default RPC for this session
     --market=<key>       Pre-load a market on startup (addr | key | index | latest)
     --scenario=<name>    Run a scenario then exit (CI / non-interactive)
-    --realtime           ${dim("MegaETH only:")} use realtime_sendRawTransaction
+    --realtime           ${dim('MegaETH only:')} use realtime_sendRawTransaction
                          (single-roundtrip send + receipt). Locked at startup —
                          no runtime toggle. Ignored on non-MegaETH chains.
 
-  ${bold("Commands:")}
+  ${bold('Commands:')}
 
-  ${info("Actor Management:")}
+  ${info('Actor Management:')}
     actor <name>         Switch to actor (alice, bob, charlie, david, ellen, admin)
     actors               List all actors
 
-  ${dim("┄".repeat(62))}
+  ${dim('┄'.repeat(62))}
 
-  ${info("Wallet (global):")}
+  ${info('Wallet (global):')}
     balance              Show USDC balances
     mint <amount>        Mint MockUSDC
     approve <contract>   Approve (launchpad, all)
@@ -485,9 +455,9 @@ function printHelp(): void {
     snapshot clear       Clear stored snapshot
     checksum             Verify zero-sum: Σ(all P&L) = minted
 
-  ${dim("┄".repeat(62))}
+  ${dim('┄'.repeat(62))}
 
-  ${info("Market (TruthMarket / LaunchpadEngine):")}
+  ${info('Market (TruthMarket / LaunchpadEngine):')}
     createmarket <template>  Create new market (alien, btc100k, custom)
                              Options: --adjudicator=<actor> (default: creator)
     graduate [steps]         Graduate market via trades (default 8 steps)
@@ -502,17 +472,17 @@ function printHelp(): void {
     pnl [initial]            Show P&L summary (e.g., pnl 50000)
     transferlp <actor> <amt> Transfer LP tokens to another actor
                               Example: transferlp ellen 50
-                              ${dim("LP tokens can only be transferred pre-settlement")}
+                              ${dim('LP tokens can only be transferred pre-settlement')}
 
-    ${info("Trial Period (V11):")}
+    ${info('Trial Period (V11):')}
       trialstatus              Show trial period status and locked costs
       dismiss                  Dismiss market during trial (creator only)
       claimrefund              Claim refund after market dismissal
 
-  ${info("Orderbook (SoothBook):")}
-    ${dim("# Set market key with: setmarket <marketKey>")}
+  ${info('Orderbook (SoothBook):')}
+    ${dim('# Set market key with: setmarket <marketKey>')}
 
-    ${info("Trading:")}
+    ${info('Trading:')}
       buyyes <tick> <amount>      Buy YES shares at tick (USDC amount)
       buyno <tick> <amount>       Buy NO shares at tick
       mintset <amount>            Mint complete set (YES+NO)
@@ -521,7 +491,7 @@ function printHelp(): void {
       sbredeem                    Redeem winning tokens after resolution
       sbresolve <outcome>         Resolve market (owner only: yes/no/invalid)
 
-    ${info("State:")}
+    ${info('State:')}
       state                       Show SoothBook market state
       book [center] [window]      Show SoothBook orderbook
       positions [actor]           Show SoothBook positions (YES/NO balances)
@@ -530,25 +500,25 @@ function printHelp(): void {
       setmarket <addr|key|index|latest|created>  Set current market
       sbcreate <name>             Create new SoothBook market
 
-  ${dim("┄".repeat(62))}
+  ${dim('┄'.repeat(62))}
 
-  ${info("Scenarios:")}
+  ${info('Scenarios:')}
     scenario <name>      Run predefined scenario
     scenarios            List available scenarios
     record start         Start recording commands
     record stop <name>   Save recorded scenario
     playback <name>      Playback saved scenario
 
-  ${info("Invariants:")}
+  ${info('Invariants:')}
     invariants           Run all invariant checks
     check                Alias for invariants
 
-  ${info("Debug:")}
+  ${info('Debug:')}
     rpc                  Show RPC status and test connection
     rpc set <url>        Override RPC endpoint
     rpc reset            Reset RPC to registry default
 
-  ${info("Other:")}
+  ${info('Other:')}
     help                 Show this help
     clear                Clear screen
     exit / quit          Exit REPL
@@ -566,7 +536,7 @@ async function handleCommand(input: string): Promise<void> {
   const ctx = buildContext();
 
   // Record command if recording
-  if (recording.active && command !== "record") {
+  if (recording.active && command !== 'record') {
     const actor = actorManager.currentActor();
     if (actor) {
       recording.commands.push({
@@ -586,7 +556,7 @@ async function handleCommand(input: string): Promise<void> {
           console.log(error(`  ${res.message}`));
         }
         if (scenarioMode) {
-          throw new Error(res.message || "Command failed");
+          throw new Error(res.message || 'Command failed');
         }
       }
       return res;
@@ -594,7 +564,7 @@ async function handleCommand(input: string): Promise<void> {
 
     switch (command) {
       // Actor management
-      case "actor":
+      case 'actor':
         if (args.length < 1) {
           const current = actorManager.currentActor();
           if (current) {
@@ -606,7 +576,7 @@ async function handleCommand(input: string): Promise<void> {
           const actor = actorManager.switchActor(args[0]);
           if (actor) {
             console.log(
-              `  ${success("Switched to")} ${actor.name} (${shortAddress(actor.account.address)})`,
+              `  ${success('Switched to')} ${actor.name} (${shortAddress(actor.account.address)})`,
             );
           } else {
             console.log(error(`  Unknown actor: ${args[0]}`));
@@ -614,75 +584,73 @@ async function handleCommand(input: string): Promise<void> {
         }
         break;
 
-      case "actors":
+      case 'actors':
         actorManager.printStatus();
         break;
 
       // Wallet commands
-      case "balance":
+      case 'balance':
         await run(walletCommands.balance(ctx, args));
         break;
 
-      case "mint":
+      case 'mint':
         await run(walletCommands.mint(ctx, args));
         break;
 
-      case "approve":
+      case 'approve':
         await run(walletCommands.approve(ctx, args));
         break;
 
-      case "allowance":
+      case 'allowance':
         await run(walletCommands.allowance(ctx, args));
         break;
 
-      case "snapshot":
+      case 'snapshot':
         await run(walletCommands.snapshot(ctx, args));
         break;
 
-      case "checksum":
+      case 'checksum':
         await run(walletCommands.checksum(ctx, args));
         break;
 
-      case "state":
+      case 'state':
         await run(soothbookCommands.state(ctx, args));
         break;
 
-      case "book":
+      case 'book':
         await run(soothbookCommands.book(ctx, args));
         break;
 
-      case "positions":
+      case 'positions':
         await run(soothbookCommands.positions(ctx, args));
         break;
 
-      case "history":
+      case 'history':
         await run(soothbookCommands.history(ctx, args));
         break;
 
-      case "markets":
-      case "m": {
-        console.log("");
-        console.log(`  ${bold("Markets")}`);
-        console.log("  " + "─".repeat(72));
+      case 'markets':
+      case 'm': {
+        console.log('');
+        console.log(`  ${bold('Markets')}`);
+        console.log('  ' + '─'.repeat(72));
         if (currentMarketAddress || currentMarketKey) {
-          console.log(`  Current Address: ${currentMarketAddress || "(none)"}`);
-          console.log(`  Current Key:     ${currentMarketKey || "(none)"}`);
+          console.log(`  Current Address: ${currentMarketAddress || '(none)'}`);
+          console.log(`  Current Key:     ${currentMarketKey || '(none)'}`);
         } else {
-          console.log(`  Current: ${warn("none")}`);
+          console.log(`  Current: ${warn('none')}`);
         }
 
         // Show SoothBook seed markets from deployment config
         const soothBookMarkets = config.deployment.markets.filter(
-          (m) => (m.marketKey || m.key) && (!m.address || m.address === ""),
+          (m) => (m.marketKey || m.key) && (!m.address || m.address === ''),
         );
         if (soothBookMarkets.length > 0) {
-          console.log("");
-          console.log(
-            `  ${bold("SoothBook Markets")} (from deployment config)`,
-          );
+          console.log('');
+          console.log(`  ${bold('SoothBook Markets')} (from deployment config)`);
           soothBookMarkets.forEach((market, index) => {
             const label = market.name || `SoothBook Market ${index}`;
-            const keyValue = market.marketKey || market.key || "(none)";
+            const keyValue = market.marketKey || market.key || '(none)';
             console.log(`  [${index}] ${label}`);
             console.log(`      marketKey: ${keyValue}`);
           });
@@ -693,64 +661,52 @@ async function handleCommand(input: string): Promise<void> {
           const discovered = await discoverMarketsOnChain();
 
           if (discovered.length > 0) {
-            console.log("");
-            console.log(`  ${bold("Launchpad Markets")} (on-chain)`);
+            console.log('');
+            console.log(`  ${bold('Launchpad Markets')} (on-chain)`);
             const offset = soothBookMarkets.length;
             discovered.forEach((market, index) => {
               const label =
-                market.name.length > 70
-                  ? `${market.name.slice(0, 67)}...`
-                  : market.name;
+                market.name.length > 70 ? `${market.name.slice(0, 67)}...` : market.name;
               console.log(`  [${offset + index}] ${label}`);
               console.log(`      address:   ${market.address}`);
               console.log(`      stage:     ${market.stage}`);
+              console.log(`      graduated: ${market.isGraduated ? 'yes' : 'no'}`);
               console.log(
-                `      graduated: ${market.isGraduated ? "yes" : "no"}`,
-              );
-              console.log(
-                `      marketKey: ${market.marketKey || "(not available pre-graduation)"}`,
+                `      marketKey: ${market.marketKey || '(not available pre-graduation)'}`,
               );
             });
           } else if (soothBookMarkets.length === 0) {
-            console.log("");
-            console.log(`  ${warn("No markets found")}`);
+            console.log('');
+            console.log(`  ${warn('No markets found')}`);
           }
         } catch (err) {
           if (soothBookMarkets.length === 0) {
-            console.log(
-              error(
-                `  Failed to discover on-chain markets: ${(err as Error).message}`,
-              ),
-            );
+            console.log(error(`  Failed to discover on-chain markets: ${(err as Error).message}`));
           }
         }
 
-        console.log("");
+        console.log('');
         break;
       }
 
-      case "setmarket":
+      case 'setmarket':
         if (args.length < 1) {
-          console.log(
-            error("  Usage: setmarket <addr|key|index|latest|created>"),
-          );
+          console.log(error('  Usage: setmarket <addr|key|index|latest|created>'));
         } else {
           await setMarket(args[0]);
         }
         break;
 
-      case "rpc": {
-        if (args[0] === "set" && args[1]) {
+      case 'rpc': {
+        if (args[0] === 'set' && args[1]) {
           config.rpc = args[1];
           actorManager.setRpc(args[1]);
           console.log(success(`  RPC updated: ${args[1]}`));
-        } else if (args[0] === "reset") {
+        } else if (args[0] === 'reset') {
           const original = createConfig(config.nodeId);
           config.rpc = original.rpc;
           actorManager.setRpc(original.rpc);
-          console.log(
-            success(`  RPC reset to registry default: ${original.rpc}`),
-          );
+          console.log(success(`  RPC reset to registry default: ${original.rpc}`));
         } else {
           const publicClient = actorManager.getPublicClient();
           let block: bigint | null = null;
@@ -761,29 +717,29 @@ async function handleCommand(input: string): Promise<void> {
             blockError = (err as Error).message;
           }
 
-          console.log("");
+          console.log('');
           console.log(`  Chain: ${config.chainName} (${config.chain.id})`);
           console.log(`  RPC:   ${config.rpc}`);
           if (block !== null) {
             console.log(`  Block: ${block.toString()}`);
           } else {
-            console.log(warn("  Block: unavailable (RPC check failed)"));
+            console.log(warn('  Block: unavailable (RPC check failed)'));
             if (blockError) {
-              const firstLine = blockError.split("\n")[0];
+              const firstLine = blockError.split('\n')[0];
               console.log(dim(`  Reason: ${firstLine}`));
             }
           }
-          console.log("");
+          console.log('');
         }
         break;
       }
 
-      case "call":
-        console.log(warn("  call command is not available in this console"));
+      case 'call':
+        console.log(warn('  call command is not available in this console'));
         break;
 
       // Market lifecycle commands
-      case "createmarket":
+      case 'createmarket':
         {
           const res = await run(marketCommands.createmarket(ctx, args));
           const created = res.data?.marketAddress as string | undefined;
@@ -793,98 +749,98 @@ async function handleCommand(input: string): Promise<void> {
         }
         break;
 
-      case "graduate":
+      case 'graduate':
         await run(marketCommands.graduate(ctx, args));
         break;
 
-      case "simulate":
+      case 'simulate':
         await run(marketCommands.simulate(ctx, args));
         break;
 
-      case "marketstatus":
+      case 'marketstatus':
         await run(marketCommands.marketstatus(ctx, args));
         break;
 
-      case "settle":
+      case 'settle':
         await run(marketCommands.settle(ctx, args));
         break;
 
-      case "finalize":
+      case 'finalize':
         await run(marketCommands.finalize(ctx, args));
         break;
 
-      case "redeem":
+      case 'redeem':
         await run(marketCommands.redeem(ctx, args));
         break;
 
-      case "redeemamm":
+      case 'redeemamm':
         await run(marketCommands.redeemamm(ctx, args));
         break;
 
-      case "redeemlp":
+      case 'redeemlp':
         await run(marketCommands.redeemlp(ctx, args));
         break;
 
-      case "pnl":
+      case 'pnl':
         await run(marketCommands.pnl(ctx, args));
         break;
 
-      case "transferlp":
+      case 'transferlp':
         await run(marketCommands.transferlp(ctx, args));
         break;
 
-      case "trialstatus":
+      case 'trialstatus':
         await run(marketCommands.trialstatus(ctx, args));
         break;
 
-      case "dismiss":
+      case 'dismiss':
         await run(marketCommands.dismiss(ctx, args));
         break;
 
-      case "claimrefund":
+      case 'claimrefund':
         await run(marketCommands.claimrefund(ctx, args));
         break;
 
-      case "buyyes":
+      case 'buyyes':
         await run(soothbookCommands.buyyes(ctx, args));
         break;
 
-      case "buyno":
+      case 'buyno':
         await run(soothbookCommands.buyno(ctx, args));
         break;
 
-      case "mintset":
+      case 'mintset':
         await run(soothbookCommands.mint(ctx, args));
         break;
 
-      case "mergeset":
+      case 'mergeset':
         await run(soothbookCommands.merge(ctx, args));
         break;
 
-      case "cancelorder":
+      case 'cancelorder':
         await run(soothbookCommands.cancel(ctx, args));
         break;
 
-      case "sbredeem":
+      case 'sbredeem':
         await run(soothbookCommands.redeem(ctx, args));
         break;
 
-      case "sbresolve":
+      case 'sbresolve':
         await run(soothbookCommands.resolve(ctx, args));
         break;
 
-      case "sbcreate":
+      case 'sbcreate':
         console.log(
           warn(
-            "  sbcreate is not supported in v0.2.0 — SoothBook markets are auto-registered via OrderEngine on graduation",
+            '  sbcreate is not supported in v0.2.0 — SoothBook markets are auto-registered via OrderEngine on graduation',
           ),
         );
         break;
 
       // Scenario commands
-      case "scenario":
+      case 'scenario':
         if (args.length < 1) {
-          console.log(error("  Usage: scenario <name>"));
+          console.log(error('  Usage: scenario <name>'));
         } else {
           scenarioMode = true;
           try {
@@ -895,58 +851,58 @@ async function handleCommand(input: string): Promise<void> {
         }
         break;
 
-      case "scenarios":
+      case 'scenarios':
         scenarioEngine.list();
         break;
 
-      case "record":
-        if (args[0] === "start") {
+      case 'record':
+        if (args[0] === 'start') {
           recording = { active: true, commands: [], startTime: Date.now() };
-          console.log(success("  Recording started"));
-        } else if (args[0] === "stop") {
+          console.log(success('  Recording started'));
+        } else if (args[0] === 'stop') {
           if (!recording.active) {
-            console.log(error("  Not recording"));
+            console.log(error('  Not recording'));
           } else if (!args[1]) {
-            console.log(error("  Usage: record stop <name>"));
+            console.log(error('  Usage: record stop <name>'));
           } else {
             scenarioEngine.saveRecording(args[1], recording.commands);
             recording = { active: false, commands: [], startTime: 0 };
             console.log(success(`  Saved scenario: ${args[1]}`));
           }
         } else {
-          console.log("  Usage: record start | record stop <name>");
+          console.log('  Usage: record start | record stop <name>');
         }
         break;
 
-      case "playback":
+      case 'playback':
         if (args.length < 1) {
-          console.log(error("  Usage: playback <name>"));
+          console.log(error('  Usage: playback <name>'));
         } else {
           await scenarioEngine.playback(args[0], ctx);
         }
         break;
 
       // Invariant checks
-      case "invariants":
-      case "check":
+      case 'invariants':
+      case 'check':
         const results = await runAllInvariants(ctx);
         printInvariantResults(results);
         break;
 
       // Other
-      case "help":
-      case "?":
+      case 'help':
+      case '?':
         printHelp();
         break;
 
-      case "clear":
+      case 'clear':
         console.clear();
         break;
 
-      case "exit":
-      case "quit":
-      case "q":
-        console.log(dim("  Goodbye!"));
+      case 'exit':
+      case 'quit':
+      case 'q':
+        console.log(dim('  Goodbye!'));
         process.exit(0);
 
       default:
@@ -971,8 +927,8 @@ async function main(): Promise<void> {
   try {
     // Load registry manifest before any sync registry accessors run.
     // Tries HTTP first (with short timeout), falls back to embedded snapshot.
-    const { loadManifest } = await import("../registry-loader");
-    await loadManifest({ offline: offlineRegistry });
+    const { loadManifest } = await import('../registry-loader');
+    await loadManifest();
     config = createConfig(nodeIdArg);
     if (config.coreVersion !== SUPPORTED_CORE_VERSION) {
       console.error(
@@ -998,9 +954,7 @@ async function main(): Promise<void> {
 
   // Check for actors
   if (!actorManager.hasActors()) {
-    console.log(
-      warn("No actors loaded. Set PRIVATE_KEY or PRIVATE_KEY_ALICE in .env"),
-    );
+    console.log(warn('No actors loaded. Set PRIVATE_KEY or PRIVATE_KEY_ALICE in .env'));
   }
 
   if (marketArg) await setMarket(marketArg);
@@ -1025,24 +979,22 @@ async function main(): Promise<void> {
     headerLines.push(`Mode: MegaETH Realtime API (--realtime)`);
   }
   if (currentMarketAddress) {
-    headerLines.push(
-      `Market: ${currentMarketName || shortAddress(currentMarketAddress)}`,
-    );
+    headerLines.push(`Market: ${currentMarketName || shortAddress(currentMarketAddress)}`);
   }
   printBox(headerLines);
 
-  console.log("");
+  console.log('');
   console.log(dim('  Type "help" for available commands\n'));
 
   // Non-interactive mode: read piped commands and execute sequentially.
   if (!process.stdin.isTTY) {
     const input = await new Promise<string>((resolve) => {
-      let data = "";
-      process.stdin.setEncoding("utf8");
-      process.stdin.on("data", (chunk) => {
+      let data = '';
+      process.stdin.setEncoding('utf8');
+      process.stdin.on('data', (chunk) => {
         data += chunk;
       });
-      process.stdin.on("end", () => resolve(data));
+      process.stdin.on('end', () => resolve(data));
     });
 
     const lines = input
@@ -1063,8 +1015,8 @@ async function main(): Promise<void> {
 
   const prompt = (): void => {
     const actor = actorManager.currentActor();
-    const actorStr = actor ? info(actor.name) : dim("no-actor");
-    const recordStr = recording.active ? warn(" [REC]") : "";
+    const actorStr = actor ? info(actor.name) : dim('no-actor');
+    const recordStr = recording.active ? warn(' [REC]') : '';
 
     rl.question(`${actorStr}${recordStr}> `, async (input) => {
       await handleCommand(input);
