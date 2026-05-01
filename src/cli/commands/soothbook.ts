@@ -111,21 +111,6 @@ function parseSide(input: string): number {
   throw new Error(`Invalid side: ${input}. Use yes|no`);
 }
 
-function parseOutcome(input: string): number {
-  const normalized = input.toLowerCase();
-  if (normalized === 'no' || normalized === '0') return 0;
-  if (normalized === 'yes' || normalized === '1') return 1;
-  if (normalized === 'invalid' || normalized === '2') return 2;
-  throw new Error(`Invalid outcome: ${input}. Use no|yes|invalid`);
-}
-
-function outcomeLabel(outcome: number): string {
-  if (outcome === 0) return 'NO';
-  if (outcome === 1) return 'YES';
-  if (outcome === 2) return 'INVALID';
-  return `UNKNOWN(${outcome})`;
-}
-
 function parseHistoryPagination(args: string[]): {
   page: number;
   pageSize: number;

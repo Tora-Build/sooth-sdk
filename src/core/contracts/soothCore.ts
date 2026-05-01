@@ -402,11 +402,6 @@ export type CreateSoothCoreClientConfig =
       contracts?: SoothCoreContracts;
     };
 
-// Deployed v0.1.2 SoothBook.markets(bytes32) returns only the 3 state flags;
-// collateral/YES/NO token addresses live on the deployment manifest and on
-// the market contract itself, NOT in this tuple.
-type SoothBookMarketTuple = readonly [boolean, boolean, number];
-
 function clampProbability(value: number): number {
   if (!Number.isFinite(value)) return 0.5;
   if (value < 0) return 0;
