@@ -1,24 +1,21 @@
 import type { PublicClient, Address } from 'viem';
-import { CollateralizerABI } from '../abis/Collateralizer.js';
+import { OrderEngineABI } from '../abis/OrderEngine.js';
 
 export interface PortfolioBalances {
   yesShares: bigint;
   noShares: bigint;
 }
 
-/**
- * Fetch a user's outcome token balances for a market from the Collateralizer.
- */
 export async function getPortfolioBalances(
   client: PublicClient,
-  collateralizer: Address,
+  orderEngine: Address,
   userAddress: Address,
   marketAddress: Address,
 ): Promise<PortfolioBalances> {
   const result = (await client.readContract({
-    address: collateralizer,
-    abi: CollateralizerABI,
-    functionName: 'getBalances',
+    address: orderEngine,
+    abi: OrderEngineABI,
+    functionName: 'getPosition',
     args: [marketAddress, userAddress],
   })) as readonly [bigint, bigint];
 

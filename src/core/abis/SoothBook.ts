@@ -141,11 +141,4 @@ export const SoothBookABI = [
     outputs: [{ name: '', type: 'bool', internalType: 'bool' }],
     stateMutability: 'view',
   },
-  {
-    type: 'function',
-    name: 'feeBps',
-    inputs: [],
-    outputs: [{ name: '', type: 'uint24', internalType: 'uint24' }],
-    stateMutability: 'view',
-  },
 ] as const;
