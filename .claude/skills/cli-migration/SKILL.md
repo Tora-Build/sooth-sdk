@@ -9,6 +9,18 @@ When in doubt and the user mentions both contracts and CLI, run contract-migrati
 
 Migrate `src/cli/` (soothcli REPL) when sooth-core ships a new contract version. Pairs with `contract-migration` — that one handles registry addresses and ABI files; this one handles the CLI's behavior on top of them.
 
+## Documentation cross-link
+
+For any cross-repo migration, the long-form historical narrative (commit anchors, postmortem, decision rationale) lives in **sooth-alpha at `docs/migration/<version>/`**. This SDK repo doesn't duplicate it; instead, treat that directory as authoritative for "what actually happened" and search past entries for the same kinds of breakage. From the SDK working tree:
+
+```bash
+# Read the most recent postmortem for context before starting:
+gh api 'repos/Tora-Build/sooth-alpha/contents/docs/migration' --jq '.[].name' | sort | tail -3
+gh api 'repos/Tora-Build/sooth-alpha/contents/docs/migration/v0.X.Y/postmortem.md' --jq '.content' | base64 -d
+```
+
+The CLI-side commit you produce in this skill is one row of the cross-repo "Pre/post-migration" commit anchor table in that handoff. After tagging `v0.X.Y` here, paste the new SHA into the sooth-alpha handoff's post-migration row.
+
 ## When to use
 
 - New sooth-core version deployed and CLI commands now error
@@ -41,7 +53,7 @@ Work through these phases in order. Don't skip — a missed grep takes minutes; 
 In `src/cli/config.ts`, update:
 
 ```ts
-export const SUPPORTED_CORE_VERSION = "0.X.Y";  // the new version
+export const SUPPORTED_CORE_VERSION = '0.X.Y'; // the new version
 ```
 
 `interactive.ts` checks this at startup and refuses to launch on mismatched nodes. Without it, users hit the layer-2 ABI errors instead of a clean rejection.
@@ -63,6 +75,17 @@ For each list found, **read the corresponding full ABI** (e.g. `src/core/abis/Tr
 - **New mandatory functions**: e.g. `attest()` was added to TruthMarket in v0.2.0. If a CLI command needs to call it, the parseAbi list must include it.
 
 Add missing functions; fix renamed ones at call sites; flag arity changes for the user since those need design decisions.
+
+#### Versioned event-alias cleanup (anti-pattern)
+
+When migrating event ABIs, look for **legacy `*V2` aliases** that were added during a prior migration as a transitional shim. Pattern: a previous migration kept both `event OrderPlaced(...)` (old shape, no orderId) and `event OrderPlacedV2(...)` (new shape, with orderId) so the CLI activity scanner could read history from both eras. Once the deployed contracts are uniformly on the new shape, the `*V2` aliases are dead code that bloats `Promise.all` getLogs calls and must go.
+
+```bash
+# v0.2.1 example — caught these stale aliases:
+grep -nE 'OrderPlacedV2|OrderFilledV2|OrderCancelledV2' src/cli/commands/soothbook.ts
+```
+
+Remove the aliases, collapse the duplicated `getLogs` calls in `fetchUserHistoryFeed` (one per event instead of two), and verify the CLI still reads history from the canonical event names. v0.2.1 saw a ~80-line reduction from this single cleanup.
 
 ### Phase 3 — Audit deployment-map references
 
@@ -131,14 +154,25 @@ const CHAIN_START_BLOCKS: Record<number, bigint> = { ... };  // when sooth-core 
 
 For `CHAIN_SCAN_CHUNKS`, use slightly less than the RPC's documented max (e.g. 9_000n for a 10k-cap RPC — leaves headroom). The error you're avoiding is `-32600 ... up to a 10000 block range`. Empirical caps:
 
-| Chain | RPC cap | Safe chunk |
-|-------|---------|------------|
-| HyperEVM Testnet (998) | 10,000 | 9,000n |
-| MegaETH Testnet (6343) | 10,000 | 9,000n |
-| Monad Testnet (10143) | 1,000 | 900n |
-| Lens (37111) | unknown | 10,000n (conservative) |
+| Chain                  | RPC cap | Safe chunk             |
+| ---------------------- | ------- | ---------------------- |
+| HyperEVM Testnet (998) | 10,000  | 9,000n                 |
+| MegaETH Testnet (6343) | 10,000  | 9,000n                 |
+| Monad Testnet (10143)  | 1,000   | 900n                   |
+| Lens (37111)           | unknown | 10,000n (conservative) |
 
 For `CHAIN_START_BLOCKS`, ask the user (or check this repo's `data/nodes.snapshot.json`, or sooth-alpha's `packages/registry/nodes.json`, for the deployment block of the LaunchpadEngine).
+
+### Phase 6.5 — Pre-deploy snapshot verification (`--offline-registry`)
+
+Before sooth-alpha redeploys its `registry-api` worker, the live `registry.sooth.market/v1/manifest` still serves the OLD payload. To verify the CLI's embedded snapshot for the new version without depending on the live registry, ship and use a `--offline-registry` flag that bypasses the HTTP fetch and forces fallback to `data/nodes.snapshot.json`:
+
+```bash
+bun src/cli/interactive.ts --list --offline-registry
+# Should show only the new version's nodes with ✓ Compat — proves the snapshot prune happened correctly without the live registry's interference.
+```
+
+This pattern was added during v0.2.1 (`--offline-registry` lands in `src/cli/interactive.ts` next to the `--list` flag). Re-use it on every migration. The flag has no production cost — it's a dev-loop convenience that flips one boolean in `loadManifest({ offline })`.
 
 ### Phase 7 — Multi-chain test sweep
 
@@ -154,6 +188,7 @@ Use the `tmuxx` skill to spawn one pane per chain you support. Layout:
 ```
 
 If you spawn both `%2` and `%3`, they share alice's wallet — write commands will hit "nonce too low" on the second pane because both panes' nonce trackers are out of sync. Either:
+
 - Run write-state commands sequentially with delays, or
 - Exit one of the two ME panes before any write tests
 
@@ -176,18 +211,19 @@ Report results as a chain × command matrix. Commands that fail on every chain a
 
 Each bug class has a typical fix shape:
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| `Function "X" not found on ABI` | Stale parseAbi | Add `function X(...)` to the local list (Phase 2) |
-| `ABI encoding params/values length mismatch` | Function arity changed | Update call site to match new contract signature |
-| `Cannot read property 'abi' of undefined` / `parameters.abi.length` | Renamed contract or ABI key | Update name (Phase 3) |
-| `RPC error (returned address): 0xA42C42eC...` | SoothBook read on AMM-only market | Add registration guard (Phase 5) |
-| `soothbookCommands.X is not a function` | Dispatch typo | Update or remove case in interactive.ts (Phase 4) |
-| `up to a 10000 block range` | New chain missing chunk config | Add to `CHAIN_SCAN_CHUNKS` (Phase 6) |
+| Symptom                                                             | Likely cause                      | Fix                                               |
+| ------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------- |
+| `Function "X" not found on ABI`                                     | Stale parseAbi                    | Add `function X(...)` to the local list (Phase 2) |
+| `ABI encoding params/values length mismatch`                        | Function arity changed            | Update call site to match new contract signature  |
+| `Cannot read property 'abi' of undefined` / `parameters.abi.length` | Renamed contract or ABI key       | Update name (Phase 3)                             |
+| `RPC error (returned address): 0xA42C42eC...`                       | SoothBook read on AMM-only market | Add registration guard (Phase 5)                  |
+| `soothbookCommands.X is not a function`                             | Dispatch typo                     | Update or remove case in interactive.ts (Phase 4) |
+| `up to a 10000 block range`                                         | New chain missing chunk config    | Add to `CHAIN_SCAN_CHUNKS` (Phase 6)              |
 
 ### Phase 9 — Re-verify and report
 
 After fixes:
+
 1. Restart all panes (the bun-run CLI reads source on launch)
 2. Re-run only the commands that previously failed (don't re-do passing ones)
 3. Report the before/after table to the user
@@ -206,14 +242,14 @@ These are mistakes I (or others) have made on past CLI migrations. Avoid them.
 
 ## Files this skill touches
 
-| File | Purpose |
-|---|---|
-| `src/cli/config.ts` | `SUPPORTED_CORE_VERSION` constant |
-| `src/cli/interactive.ts` | Version gate, dispatch cases, help text |
-| `src/cli/commands/market.ts` | TruthMarketAbi/OrderEngineAbi parseAbi lists, market lifecycle commands |
-| `src/cli/commands/wallet.ts` | OrderEngineAbi parseAbi list, balance/mint/approve |
-| `src/cli/commands/soothbook.ts` | SoothBook reads + registration guards, CHAIN_SCAN_CHUNKS, CHAIN_START_BLOCKS |
-| `src/cli/assertions/invariants.ts` | Invariant checks + AMM-only short-circuit |
+| File                               | Purpose                                                                      |
+| ---------------------------------- | ---------------------------------------------------------------------------- |
+| `src/cli/config.ts`                | `SUPPORTED_CORE_VERSION` constant                                            |
+| `src/cli/interactive.ts`           | Version gate, dispatch cases, help text                                      |
+| `src/cli/commands/market.ts`       | TruthMarketAbi/OrderEngineAbi parseAbi lists, market lifecycle commands      |
+| `src/cli/commands/wallet.ts`       | OrderEngineAbi parseAbi list, balance/mint/approve                           |
+| `src/cli/commands/soothbook.ts`    | SoothBook reads + registration guards, CHAIN_SCAN_CHUNKS, CHAIN_START_BLOCKS |
+| `src/cli/assertions/invariants.ts` | Invariant checks + AMM-only short-circuit                                    |
 
 ## Pointers
 

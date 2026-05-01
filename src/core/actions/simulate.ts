@@ -143,16 +143,19 @@ export async function runSimulate(
   await publicClient.waitForTransactionReceipt({ hash: approveOEHash });
   report({ type: 'success', message: 'SoothBook + OrderEngine approved' });
 
-  // Pre-check: market must be active on SoothBook or all trades revert
-  const marketState = (await publicClient.readContract({
+  // Pre-check: market must be registered on SoothBook or all trades revert.
+  // v0.2.1 dropped the markets(bytes32)→(active,finalized,outcome) tuple in
+  // favor of registeredMarkets(bytes32)→bool; finalized/outcome moved to
+  // TruthMarket and are no longer readable from SoothBook.
+  const isRegistered = (await publicClient.readContract({
     address: soothBook,
     abi: SoothBookABI,
-    functionName: 'markets',
+    functionName: 'registeredMarkets',
     args: [marketKey],
-  })) as readonly [boolean, boolean, number];
-  if (!marketState[0]) {
+  })) as boolean;
+  if (!isRegistered) {
     throw new Error(
-      `Market not active on SoothBook. The market must graduate from Launchpad first. Run 'graduate' before 'simulate'.`,
+      `Market not registered on SoothBook. The market must graduate from Launchpad first. Run 'graduate' before 'simulate'.`,
     );
   }
 

@@ -618,26 +618,31 @@ export async function readSoothBookMarketSnapshot(
   userAddress?: Address,
 ): Promise<SoothBookMarketSnapshot | null> {
   const marketKey = computeSoothMarketKey(marketAddress);
-  const emptyMarket: SoothBookMarketTuple = [false, false, Number(OUTCOME.INVALID)];
 
-  const [marketTuple, impliedPrice, bestYesTickRaw, bestNoTickRaw, backing, feeBps, userBalances] =
+  // v0.2.1: SoothBook.markets(bytes32)→(active,finalized,outcome) was deleted.
+  // Replacement: registeredMarkets(bytes32)→bool; finalized/outcome moved to
+  // TruthMarket. Callers that need finalized/outcome should read TruthMarket
+  // directly (TruthMarket.isSettled() + TruthMarket.outcome()).
+  // Likewise getImpliedPrice(bytes32) was renamed to getImpliedPriceByKey;
+  // the bare getImpliedPrice now takes an `address market` instead.
+  const [isRegistered, impliedPrice, bestYesTickRaw, bestNoTickRaw, backing, feeBps, userBalances] =
     await Promise.all([
       readWithFallback(
         () =>
           client.readContract({
             address: soothBook,
             abi: SoothBookABI,
-            functionName: 'markets',
+            functionName: 'registeredMarkets',
             args: [marketKey],
-          }) as Promise<SoothBookMarketTuple>,
-        emptyMarket,
+          }) as Promise<boolean>,
+        false,
       ),
       readWithFallback(
         () =>
           client.readContract({
             address: soothBook,
             abi: SoothBookABI,
-            functionName: 'getImpliedPrice',
+            functionName: 'getImpliedPriceByKey',
             args: [marketKey],
           }) as Promise<readonly [bigint, bigint]>,
         [WAD / 2n, WAD / 2n] as const,
@@ -695,12 +700,13 @@ export async function readSoothBookMarketSnapshot(
         : Promise.resolve([0n, 0n] as const),
     ]);
 
-  const [isActive, isFinalized, outcome] = marketTuple;
-  // Deployed SoothBook.markets() no longer returns collateral/YES/NO token
-  // addresses. Treat "registered" as "has non-zero backing OR any state flag
-  // set". Token addresses would need a separate read against the market
-  // itself if a caller needs them.
-  const exists = backing > 0n || isActive || isFinalized;
+  const isActive = isRegistered;
+  // v0.2.1 SoothBook no longer exposes finalized/outcome — they live on
+  // TruthMarket now. Snapshot shape is preserved for callers; if they need
+  // settlement state they must read TruthMarket directly.
+  const isFinalized = false;
+  const outcome: number = Number(OUTCOME.INVALID);
+  const exists = isActive || backing > 0n;
   if (!exists) {
     return null;
   }

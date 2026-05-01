@@ -776,75 +776,26 @@ export async function cancel(ctx: CommandContext, args: string[]): Promise<Comma
   }
 }
 
-export async function redeem(ctx: CommandContext, _args: string[]): Promise<CommandResult> {
-  const marketKey = requireMarketKey(ctx);
-  const soothBook = requireSoothBook(ctx);
-  const walletClient = ctx.actorManager.currentWalletClient();
-
-  if (!walletClient) return { success: false, message: 'No actor selected' };
-  if (!marketKey)
-    return {
-      success: false,
-      message: 'No market selected. Use: setmarket <key>',
-    };
-  if (!soothBook)
-    return {
-      success: false,
-      message: 'SoothBook address not found in deployment',
-    };
-
-  try {
-    const hash = await walletClient.writeContract({
-      address: soothBook,
-      abi: ABIS.SoothBook,
-      functionName: 'redeem',
-      args: [marketKey],
-    });
-    await waitForTx(ctx, hash);
-
-    console.log(success('  ✓ Redeemed winning tokens'));
-    return { success: true, txHash: hash };
-  } catch (err) {
-    return { success: false, message: (err as Error).message };
-  }
+// sbredeem: warn-stub since v0.2.1.
+// SoothBook.redeem(bytes32) was deleted upstream — redemption now flows through
+// OrderEngine.redeem(market, outcome, amount) on a different command path.
+export async function redeem(_ctx: CommandContext, _args: string[]): Promise<CommandResult> {
+  return {
+    success: false,
+    message:
+      'sbredeem deprecated in v0.2.1: SoothBook.redeem was deleted. Use the OrderEngine redeem path (OrderEngine.redeem(market, outcome, amount)).',
+  };
 }
 
-export async function resolve(ctx: CommandContext, args: string[]): Promise<CommandResult> {
-  if (args.length < 1) {
-    return { success: false, message: 'Usage: resolve <outcome>' };
-  }
-
-  const marketKey = requireMarketKey(ctx);
-  const soothBook = requireSoothBook(ctx);
-  const walletClient = ctx.actorManager.currentWalletClient();
-
-  if (!walletClient) return { success: false, message: 'No actor selected' };
-  if (!marketKey)
-    return {
-      success: false,
-      message: 'No market selected. Use: setmarket <key>',
-    };
-  if (!soothBook)
-    return {
-      success: false,
-      message: 'SoothBook address not found in deployment',
-    };
-
-  try {
-    const outcome = parseOutcome(args[0]);
-    const hash = await walletClient.writeContract({
-      address: soothBook,
-      abi: ABIS.SoothBook,
-      functionName: 'resolveMarket',
-      args: [marketKey, outcome],
-    });
-    await waitForTx(ctx, hash);
-
-    console.log(success(`  ✓ Market resolved: ${outcomeLabel(outcome)}`));
-    return { success: true, txHash: hash };
-  } catch (err) {
-    return { success: false, message: (err as Error).message };
-  }
+// sbresolve: warn-stub since v0.2.1.
+// SoothBook.resolveMarket(bytes32, uint8) was deleted upstream — resolution now
+// flows through the adjudicator lifecycle: setmarket then marketstatus / settle.
+export async function resolve(_ctx: CommandContext, _args: string[]): Promise<CommandResult> {
+  return {
+    success: false,
+    message:
+      'sbresolve deprecated in v0.2.1: SoothBook.resolveMarket was deleted. Use the adjudicator lifecycle instead — setmarket, then marketstatus / settle / finalize.',
+  };
 }
 
 export async function book(ctx: CommandContext, args: string[]): Promise<CommandResult> {
@@ -862,22 +813,20 @@ export async function book(ctx: CommandContext, args: string[]): Promise<Command
     };
 
   try {
-    const marketInfo = await readContractWithRpcFallback<
-      readonly [`0x${string}`, `0x${string}`, `0x${string}`, boolean, boolean, number]
-    >(ctx.config.chain, ctx.config.rpc, {
-      address: soothBook,
-      abi: ABIS.SoothBook,
-      functionName: 'markets',
-      args: [marketKey],
-    }).catch((err) => {
-      const msg = (err as Error).message.toLowerCase();
-      if (msg.includes('no data') || msg.includes('returned address')) {
-        return null;
-      }
-      throw err;
-    });
+    // v0.2.1: SoothBook.markets(bytes32) was deleted. Gate on the new
+    // registeredMarkets(bytes32)→bool instead.
+    const isRegistered = await readContractWithRpcFallback<boolean>(
+      ctx.config.chain,
+      ctx.config.rpc,
+      {
+        address: soothBook,
+        abi: ABIS.SoothBook,
+        functionName: 'registeredMarkets',
+        args: [marketKey],
+      },
+    ).catch(() => false);
 
-    if (!marketInfo || marketInfo[0] === '0x0000000000000000000000000000000000000000') {
+    if (!isRegistered) {
       return {
         success: false,
         message: `Market not registered in SoothBook (orderbook). This is an AMM-only market — try: marketstatus`,
@@ -977,30 +926,22 @@ export async function state(ctx: CommandContext, _args: string[]): Promise<Comma
       message: 'SoothBook address not found in deployment',
     };
 
-  let marketInfo: readonly [`0x${string}`, `0x${string}`, `0x${string}`, boolean, boolean, number];
-  try {
-    marketInfo = await readContractWithRpcFallback<
-      readonly [`0x${string}`, `0x${string}`, `0x${string}`, boolean, boolean, number]
-    >(ctx.config.chain, ctx.config.rpc, {
+  // v0.2.1: SoothBook.markets(bytes32) was deleted. The collateral / YES / NO
+  // token addresses + finalized + outcome no longer live on SoothBook —
+  // collateral/YES/NO read from the deployment manifest, finalized + outcome
+  // moved to TruthMarket. Use registeredMarkets(bytes32)→bool as the gate.
+  const isRegistered = await readContractWithRpcFallback<boolean>(
+    ctx.config.chain,
+    ctx.config.rpc,
+    {
       address: soothBook,
       abi: ABIS.SoothBook,
-      functionName: 'markets',
+      functionName: 'registeredMarkets',
       args: [marketKey],
-    });
-  } catch (err) {
-    const msg = (err as Error).message.toLowerCase();
-    if (msg.includes('no data') || msg.includes('returned address')) {
-      return {
-        success: false,
-        message: `Market not registered in SoothBook (orderbook). This is an AMM-only market — try: marketstatus`,
-      };
-    }
-    return { success: false, message: (err as Error).message };
-  }
+    },
+  ).catch(() => false);
 
-  const [collateral, yesToken, noToken, active, finalized, outcome] = marketInfo;
-
-  if (collateral === '0x0000000000000000000000000000000000000000') {
+  if (!isRegistered) {
     return {
       success: false,
       message: `Market not registered in SoothBook (orderbook). This is an AMM-only market — try: marketstatus`,
@@ -1030,25 +971,21 @@ export async function state(ctx: CommandContext, _args: string[]): Promise<Comma
       readContractWithRpcFallback<readonly [bigint, bigint]>(ctx.config.chain, ctx.config.rpc, {
         address: soothBook,
         abi: ABIS.SoothBook,
-        functionName: 'getImpliedPrice',
+        functionName: 'getImpliedPriceByKey',
         args: [marketKey],
       }),
     ]);
     console.log(`\n  ${bold('Market State')}`);
     console.log('  ' + '-'.repeat(56));
     console.log(`  Market Key:      ${marketKey}`);
-    console.log(`  Collateral:      ${shortAddress(collateral)}`);
-    console.log(`  YES Token:       ${shortAddress(yesToken)}`);
-    console.log(`  NO Token:        ${shortAddress(noToken)}`);
-    console.log(`  Active:          ${active ? success('true') : warn('false')}`);
-    console.log(`  Finalized:       ${finalized ? success('true') : dim('false')}`);
-    console.log(`  Outcome:         ${outcomeLabel(outcome)}`);
+    console.log(`  Registered:      ${success('true')}`);
     console.log(`  Collateral Back: ${formatWad(collateralBacking)} USDC`);
     console.log(`  Best YES Tick:   ${bestYesTick}`);
     console.log(`  Best NO Tick:    ${bestNoTick}`);
     console.log(
       `  Implied Price:   YES ${(Number(impliedPrice[0]) / 1e16).toFixed(2)}% | NO ${(Number(impliedPrice[1]) / 1e16).toFixed(2)}%`,
     );
+    console.log(`  ${dim('finalized/outcome moved to TruthMarket — use marketstatus')}`);
     console.log('');
 
     return { success: true };
