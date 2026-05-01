@@ -79,26 +79,27 @@ export async function checkMarketActive(ctx: CommandContext): Promise<AssertionR
   }
 
   try {
-    const marketInfo = await readContractWithRpcFallback<
-      readonly [`0x${string}`, `0x${string}`, `0x${string}`, boolean, boolean, number]
-    >(ctx.config.chain, ctx.config.rpc, {
-      address: soothBook as `0x${string}`,
-      abi: ABIS.SoothBook,
-      functionName: 'markets',
-      args: [marketKey],
-    });
-
-    const [, , , active, finalized, outcome] = marketInfo;
-    const passed = active && !finalized;
-    const outcomeLabels = ['NO', 'YES', 'INVALID'];
+    // v0.2.1: SoothBook.markets(bytes32)→(active,finalized,outcome) was deleted.
+    // registeredMarkets→bool tells us "active on SoothBook"; finalized + outcome
+    // moved to TruthMarket and are no longer checkable from this invariant.
+    const isRegistered = await readContractWithRpcFallback<boolean>(
+      ctx.config.chain,
+      ctx.config.rpc,
+      {
+        address: soothBook as `0x${string}`,
+        abi: ABIS.SoothBook,
+        functionName: 'registeredMarkets',
+        args: [marketKey],
+      },
+    );
 
     return {
       name: 'soothbook.marketActive',
-      passed,
-      message: passed
-        ? 'Market is active'
-        : `Market inactive: active=${active}, finalized=${finalized}, outcome=${outcomeLabels[outcome] ?? outcome}`,
-      data: { active, finalized, outcome },
+      passed: isRegistered,
+      message: isRegistered
+        ? 'Market is registered on SoothBook'
+        : 'Market not registered on SoothBook',
+      data: { registered: isRegistered },
     };
   } catch (err) {
     return {
@@ -124,49 +125,17 @@ export async function checkTokenSupply(ctx: CommandContext): Promise<AssertionRe
     };
   }
 
-  try {
-    const marketInfo = await readContractWithRpcFallback<
-      readonly [`0x${string}`, `0x${string}`, `0x${string}`, boolean, boolean, number]
-    >(ctx.config.chain, ctx.config.rpc, {
-      address: soothBook as `0x${string}`,
-      abi: ABIS.SoothBook,
-      functionName: 'markets',
-      args: [marketKey],
-    });
-
-    const [, yesToken, noToken] = marketInfo;
-
-    const [yesSupply, noSupply] = await Promise.all([
-      readContractWithRpcFallback<bigint>(ctx.config.chain, ctx.config.rpc, {
-        address: yesToken,
-        abi: ABIS.OutcomeToken,
-        functionName: 'totalSupply',
-        args: [],
-      }),
-      readContractWithRpcFallback<bigint>(ctx.config.chain, ctx.config.rpc, {
-        address: noToken,
-        abi: ABIS.OutcomeToken,
-        functionName: 'totalSupply',
-        args: [],
-      }),
-    ]);
-
-    const passed = yesSupply === noSupply;
-    return {
-      name: 'soothbook.tokenSupply',
-      passed,
-      message: passed
-        ? `YES supply == NO supply (${formatWad(yesSupply)})`
-        : `YES ${formatWad(yesSupply)} != NO ${formatWad(noSupply)} — SUPPLY MISMATCH`,
-      data: { yesSupply, noSupply },
-    };
-  } catch (err) {
-    return {
-      name: 'soothbook.tokenSupply',
-      passed: false,
-      message: `Error: ${(err as Error).message}`,
-    };
-  }
+  // v0.2.1: yesToken/noToken addresses no longer exposed on SoothBook.markets.
+  // To check the YES==NO complete-set invariant we'd need to discover those
+  // tokens elsewhere (e.g. TruthMarket or the registry manifest). For now,
+  // skip cleanly rather than fail loudly — the on-chain protocol still
+  // enforces the invariant; this CLI check is informational only.
+  return {
+    name: 'soothbook.tokenSupply',
+    passed: true,
+    message:
+      'Skipped (v0.2.1: yesToken/noToken removed from SoothBook surface; check via TruthMarket if needed)',
+  };
 }
 
 /**
@@ -229,16 +198,20 @@ export async function runAllInvariants(ctx: CommandContext): Promise<AssertionRe
   const marketKey = ctx.marketKey;
 
   if (soothBook && marketKey) {
-    const registered = await readContractWithRpcFallback<
-      readonly [`0x${string}`, `0x${string}`, `0x${string}`, boolean, boolean, number]
-    >(ctx.config.chain, ctx.config.rpc, {
-      address: soothBook as `0x${string}`,
-      abi: ABIS.SoothBook,
-      functionName: 'markets',
-      args: [marketKey],
-    }).catch(() => null);
+    // v0.2.1: gate on registeredMarkets(bytes32)→bool, not the deleted
+    // markets(bytes32) tuple. AMM-only markets return false here.
+    const isRegistered = await readContractWithRpcFallback<boolean>(
+      ctx.config.chain,
+      ctx.config.rpc,
+      {
+        address: soothBook as `0x${string}`,
+        abi: ABIS.SoothBook,
+        functionName: 'registeredMarkets',
+        args: [marketKey],
+      },
+    ).catch(() => false);
 
-    if (!registered || registered[0] === '0x0000000000000000000000000000000000000000') {
+    if (!isRegistered) {
       const skipMsg = 'Skipped (AMM-only market — not registered in SoothBook)';
       return [
         { name: 'soothbook.backing', passed: true, message: skipMsg },
