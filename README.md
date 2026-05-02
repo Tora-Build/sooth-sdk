@@ -7,14 +7,9 @@ TypeScript SDK and `soothcli` REPL for the Sooth Protocol. Pairs with [`Tora-Bui
 
 This repo:
 
-- Ships `@sooth/sdk` (npm) — programmatic access to LaunchpadEngine, AMMEngine, SoothBook, OrderEngine, TruthMarket, FeeRouter.
+- Ships `@sooth/sdk` — programmatic access to LaunchpadEngine, AMMEngine, SoothBook, OrderEngine, TruthMarket, FeeRouter.
 - Ships `soothcli` — interactive REPL for Sooth nodes (`soothcli <nodeId>`, `soothcli --list`).
 - SDK version is locked to the sooth-core contract version it targets. The CLI rejects nodes whose `coreVersion` doesn't match [`SUPPORTED_CORE_VERSION`](src/cli/config.ts).
-- Migration playbook: `.claude/skills/cli-migration/` (covers ABI drift, parseAbi audits, per-chain RPC config, multi-chain test sweeps).
-
-## Consumed by
-
-- Anyone integrating Sooth markets via `npm install @sooth/sdk`.
 
 ## Registry data
 
@@ -36,39 +31,6 @@ bun src/cli/interactive.ts c30c6b15
 
 ---
 
-## Integration Guide
-
-Single canonical protocol interaction layer for Launchpad + AMM + SoothBook + settlement flows.
-
-Primary goals:
-
-1. No missing features.
-2. No missing calculations.
-3. No missing protocol know-how across app surfaces.
-
-This SDK layer is built from parity review across:
-
-- `apps/demo` (reference-heavy Launchpad/AMM surface + Geek terminal)
-- `apps/telegram/webapp` (current live integration testbed)
-- `apps/market` (market discovery surface)
-
-## Phase Status
-
-`Phase 1`, `Phase 2`, and `Phase 3` roadmap items are implemented in one shot.
-
-Implemented scope:
-
-- SoothBook quote helper (indicative, centralized math).
-- SoothBook write builders (buy/sell/cancel/mint/merge).
-- Pre-bound client factory with shared API surface.
-- Batch snapshot API.
-- Snapshot-based quote convenience path.
-- Claim/settlement request builder.
-- AMM user position in snapshot.
-- Trade preflight + error classification.
-- Approval helper.
-- Indexed provider architecture hooks.
-
 ## Canonical Source Files
 
 **Public API (snapshot, quote, trade builders — consumed by app hooks):**
@@ -77,13 +39,13 @@ Implemented scope:
 - `src/core/contracts/soothCore.ts`
 - `src/core/contracts/index.ts`
 
-**Imperative actions (shared write logic — consumed by CLI + Geek terminal):**
+**Imperative actions (shared write logic — consumed by CLI and app surfaces):**
 
 - `src/core/actions/simulate.ts` — `runSimulate`
-- `src/core/actions/writes.ts` — `runCreateMarket`, `runGraduate`, `runApprove`, `runMintUsdc`, `runRedeemLp`, `runTransferLp`, `runDismiss`, `runClaimRefund`, `runSoothBook{BuyYes,BuyNo,Mint,Merge,Cancel}`
+- `src/core/actions/writes.ts` — `runCreateMarket`, `runGraduate`, `runApprove`, `runMintUsdc`, `runRedeemLp`, `runTransferLp`, `runDismiss` (→ `TruthMarket.invalidate`), `runClaimRefund` (→ `AMMEngine.settlePosition`), `runSoothBook{BuyYes,BuyNo,Mint,Merge,Cancel}`
 - `src/core/actions/types.ts` — `ActionContext`, `ActionEvent`, `ActionReporter`
 
-See `src/core/actions/` for the full action surface.
+---
 
 ## Non-Negotiable Protocol Invariants
 
@@ -143,6 +105,8 @@ Canonical venue route:
 
 Use `selectTradingVenue(...)`.
 
+---
+
 ## Core API
 
 Import path:
@@ -163,6 +127,8 @@ import {
 
 ### 1) Pre-Bound Client Factory
 
+**Creates a single client instance** that binds all SDK operations — snapshot reads, quote computation, request builders, preflight, and approval helpers — to your deployed contract addresses and public client. Use this as your single entry point rather than calling individual functions directly.
+
 ```ts
 const sooth = createSoothClient({
   mode: "rpc",
@@ -181,7 +147,7 @@ const snapshots = await sooth.getSnapshots([marketA, marketB, marketC]);
 
 ### 2) Indexed Provider Mode Hook
 
-`createSoothClient` supports `mode: 'indexed'` with a provider contract.
+**Swap the data source without changing app code.** In `mode: 'indexed'`, snapshot and quote reads route through your custom provider (indexer backend, database cache, etc.) while all builders, preflight, and approval helpers remain identical. Falls back to RPC for quote recomputation and tx preparation when needed.
 
 ```ts
 const sooth = createSoothClient({
@@ -198,20 +164,18 @@ const sooth = createSoothClient({
 });
 ```
 
-This keeps app hooks stable while data source changes from direct RPC to indexer-backed reads.
-
 ### 3) Snapshot APIs
 
-Single:
+**Read complete market state in one call.** A snapshot includes AMM reserves and price, Launchpad graduation and trial status, TruthMarket settlement state, OrderEngine user balances (shares held post-graduation), and SoothBook book state (best ticks, implied price, user balances). Snapshots are the canonical input for all quote helpers, trade builders, and preflight checks.
+
+Single market:
 
 ```ts
 const snapshot = await readSoothCoreSnapshot(
   publicClient,
   contracts,
   marketAddress,
-  {
-    userAddress,
-  },
+  { userAddress },
 );
 ```
 
@@ -222,20 +186,22 @@ const snapshots = await readSoothCoreSnapshots(
   publicClient,
   contracts,
   marketAddresses,
-  {
-    userAddress,
-  },
+  { userAddress },
 );
 ```
 
-AMM user positions are included in snapshot when `userAddress` is provided:
+AMM user positions are included when `userAddress` is provided:
 
 - `snapshot.launchpadAmm.amm.userYesShares`
 - `snapshot.launchpadAmm.amm.userNoShares`
 
 ### 4) Quote APIs
 
-#### AMM Quote from Snapshot (preferred app path)
+**Compute trade cost or proceeds before submitting a tx.** Three paths are available depending on venue and available data.
+
+#### AMM Quote from Snapshot (preferred path)
+
+Exact LMSR cost computed from on-chain reserve state. Fee-adjusted via Launchpad pre/post-grad fee tiers.
 
 ```ts
 const quote = await sooth.getAmmQuote(snapshot.launchpadAmm, {
@@ -247,16 +213,19 @@ const quote = await sooth.getAmmQuote(snapshot.launchpadAmm, {
 
 #### SoothBook Quote (indicative)
 
+Tick-price-based estimate: `amount × tick / 1000`. Returns `isIndicative: true` — not an execution guarantee since the actual fill depends on resting order depth.
+
 ```ts
 const quote = await readSoothBookQuote(publicClient, contracts, marketAddress, {
   action: "buy",
   outcome: 1,
   shares: 5n * 10n ** 18n,
 });
-// quote.isIndicative === true
 ```
 
 #### Unified Venue-Aware Quote
+
+Auto-routes to AMM or SoothBook based on market state. Always returns `venue` and `isIndicative` fields so the caller doesn't need to know the venue.
 
 ```ts
 const quote = await readSoothQuote(publicClient, contracts, marketAddress, {
@@ -266,11 +235,11 @@ const quote = await readSoothQuote(publicClient, contracts, marketAddress, {
 });
 ```
 
-`readSoothQuote` uses canonical venue routing and returns AMM or SoothBook quote shape with explicit `venue` and `isIndicative`.
-
 ### 5) Trade Request Builders
 
-Unified:
+**Assemble contract call arguments** for AMM and SoothBook trades without duplicating protocol encoding. Each builder returns a typed `{ functionName, args }` tuple ready to pass directly to viem's `writeContract`. Never build these args by hand.
+
+Unified (auto-routes via snapshot venue):
 
 ```ts
 const request = buildTradeRequest({
@@ -279,11 +248,11 @@ const request = buildTradeRequest({
   outcome: 1,
   shares,
   maxCostOrMinProceeds,
-  snapshot, // optional; used for venue + default SoothBook tick
+  snapshot, // optional — used for venue selection + default SoothBook tick
 });
 ```
 
-AMM-only:
+AMM only:
 
 ```ts
 const request = buildLaunchpadTradeRequest({
@@ -303,7 +272,6 @@ const request = buildSoothBookBuyRequest({
   outcome: 1,
   tick: 540,
   amount: shares,
-  maxCost,
 });
 ```
 
@@ -312,8 +280,8 @@ SoothBook sell/cancel/mint/merge:
 ```ts
 const sell = buildSoothBookSellRequest({
   marketAddress,
-  outcome: 1, // selling YES
-  tick: 540, // YES-side desired price; SDK inverts to NO-buy at 1000−540
+  outcome: 1, // selling YES — SDK inverts to NO-buy at 1000−tick
+  tick: 540,
   amount: shares,
 });
 
@@ -340,14 +308,16 @@ const maxCost = computeSoothBookMaxCost({
 
 ### 6) Claim / Settlement Builder
 
-Canonical lifecycle routing:
+**Routes settlement transactions to the correct contract** based on market lifecycle state. The claim route is selected automatically from the snapshot — do not re-implement this logic in app code.
 
-1. Dismissed trial => `LaunchpadEngine.claimRefund`
-2. SoothBook finalized position => `OrderEngine.settlePosition`
-3. Graduated collateral redemption => `OrderEngine.settlePosition`
-4. Pre-grad AMM position => `AMMEngine.settlePosition`
+Lifecycle routing:
 
-All non-AMM settlement flows go through `OrderEngine.settlePosition(market)` — no outcome or amount args; the contract auto-calculates payout from the caller's registered position.
+1. Trial expired without graduation → `AMMEngine.settlePosition(market)`
+2. SoothBook finalized position → `OrderEngine.settlePosition(market)`
+3. Graduated collateral position → `OrderEngine.settlePosition(market)`
+4. Pre-grad AMM share position → `AMMEngine.settlePosition(market)`
+
+All non-AMM settlement flows use `OrderEngine.settlePosition(market)` — no outcome or amount args; the contract auto-calculates payout from the caller's registered position.
 
 ```ts
 const plan = buildClaimRequest(snapshot, contracts);
@@ -360,6 +330,8 @@ if (plan) {
 
 ### 7) Trade Preflight and Error Classification
 
+**Validate trade inputs before sending a tx.** `preflightTrade` checks market state, outcome validity, venue availability, and balance sufficiency in a single synchronous call — no RPC required. Use it to gate the submit button in UIs.
+
 ```ts
 const preflight = preflightTrade(snapshot, {
   action: "buy",
@@ -370,7 +342,7 @@ const preflight = preflightTrade(snapshot, {
 });
 ```
 
-Possible failures include:
+Possible failure reasons:
 
 - `invalid_outcome`
 - `invalid_shares`
@@ -381,7 +353,7 @@ Possible failures include:
 - `insufficient_balance`
 - `invalid_guard`
 
-Error parser:
+**Error classification** — parses viem revert messages into structured codes for display:
 
 ```ts
 const parsed = classifyTradeError(error);
@@ -390,7 +362,9 @@ const parsed = classifyTradeError(error);
 
 ### 8) Approval Helper
 
-Read + build in one step:
+**Check allowance and build an ERC-20 approve tx in one step.** Returns `null` if the current allowance already covers the required amount — no unnecessary approvals.
+
+Read + build in one step (performs on-chain allowance read):
 
 ```ts
 const approval = await readApprovalRequest(publicClient, {
@@ -405,7 +379,7 @@ if (approval) {
 }
 ```
 
-Pure builder (if allowance already known):
+Pure builder (if allowance is already known):
 
 ```ts
 const approval = buildApprovalRequest({
@@ -415,6 +389,8 @@ const approval = buildApprovalRequest({
   allowance,
 });
 ```
+
+---
 
 ## Decimal Handling
 
@@ -429,20 +405,17 @@ SDK economics use WAD (`1e18`) for:
 
 ### Contract Boundary
 
-Boundary conversion must be explicit (token units <-> WAD):
+Conversion between token units and WAD must be explicit at all system boundaries:
 
-- use `tokenUnitsToWad(...)` and `wadToTokenUnits(...)` from `@sooth/sdk/core/utils`
-- never silently mix token decimals in quote/trade math
+- `tokenUnitsToWad(...)` and `wadToTokenUnits(...)` from `@sooth/sdk/core/utils`
+- Never silently mix token decimals in quote or trade math
+- Do not hardcode collateral decimals — read them from the token contract
 
-### Practical Notes
-
-- Base Sepolia MockUSDC in current environments may be 18 decimals.
-- Real USDC is 6 decimals.
-- Do not hardcode collateral decimals in app logic.
+---
 
 ## Adapter Rules (Mandatory)
 
-App hooks/components are adapters, not protocol logic engines.
+App hooks and components are adapters, not protocol logic engines.
 
 Allowed in app layer:
 
@@ -459,6 +432,8 @@ Not allowed in app layer:
 - trade arg assembly duplication
 - claim route re-implementation
 
+---
+
 ## Conformance Checklist
 
 An app is conformant only if all pass:
@@ -469,9 +444,4 @@ An app is conformant only if all pass:
 4. Uses `applySlippageToAmount`.
 5. Uses `buildClaimRequest` for claim route selection.
 6. Uses SDK preflight + approval helpers instead of local duplicates.
-7. Keeps decimals handling at boundaries only.
-
-## Notes
-
-- SoothBook quote remains indicative until full depth simulation is introduced on-chain or in indexer execution.
-- Indexed mode is an abstraction hook; it intentionally does not force a specific backend implementation.
+7. Keeps decimal handling at boundaries only.
