@@ -78,6 +78,19 @@ export const SoothBookABI = [
   },
   {
     type: 'function',
+    name: 'getPosition',
+    inputs: [
+      { name: 'market', type: 'address', internalType: 'address' },
+      { name: 'user', type: 'address', internalType: 'address' },
+    ],
+    outputs: [
+      { name: 'yesShares', type: 'uint256', internalType: 'uint256' },
+      { name: 'noShares', type: 'uint256', internalType: 'uint256' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     name: 'getBestTick',
     inputs: [
       { name: 'marketKey', type: 'bytes32', internalType: 'bytes32' },

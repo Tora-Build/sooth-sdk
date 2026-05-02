@@ -403,10 +403,14 @@ export const LaunchpadEngineABI = [
     type: 'function',
     name: 'predictMarketAddress',
     inputs: [
-      { name: 'creator', type: 'address', internalType: 'address' },
+      { name: '_creator', type: 'address', internalType: 'address' },
+      { name: '_adjudicator', type: 'address', internalType: 'address' },
+      { name: '_question', type: 'string', internalType: 'string' },
       { name: 'nonce', type: 'uint256', internalType: 'uint256' },
+      { name: '_startTime', type: 'uint64', internalType: 'uint64' },
+      { name: '_deadline', type: 'uint64', internalType: 'uint64' },
     ],
-    outputs: [{ name: 'market', type: 'address', internalType: 'address' }],
+    outputs: [{ name: '', type: 'address', internalType: 'address' }],
     stateMutability: 'view',
   },
   {

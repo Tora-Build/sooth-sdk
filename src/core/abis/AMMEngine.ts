@@ -164,6 +164,13 @@ export const AMMEngineABI = [
   },
   {
     type: 'function',
+    name: 'claimAdjudicatorFees',
+    inputs: [{ name: 'market', type: 'address', internalType: 'address' }],
+    outputs: [{ name: 'amount', type: 'uint256', internalType: 'uint256' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
     name: 'claimProtocolFees',
     inputs: [{ name: 'market', type: 'address', internalType: 'address' }],
     outputs: [{ name: 'claimed', type: 'uint256', internalType: 'uint256' }],
@@ -195,6 +202,9 @@ export const AMMEngineABI = [
     inputs: [
       { name: 'market', type: 'address', internalType: 'address' },
       { name: 'initialLiquidity', type: 'uint256', internalType: 'uint256' },
+      { name: 'initialQYes', type: 'uint256', internalType: 'uint256' },
+      { name: 'initialQNo', type: 'uint256', internalType: 'uint256' },
+      { name: 'creatorDeposit', type: 'uint256', internalType: 'uint256' },
     ],
     outputs: [],
     stateMutability: 'nonpayable',
@@ -235,7 +245,7 @@ export const AMMEngineABI = [
       { name: 'adjustedPayout', type: 'uint256', internalType: 'uint256' },
       { name: 'merkleProof', type: 'bytes32[]', internalType: 'bytes32[]' },
     ],
-    outputs: [{ name: 'payout', type: 'uint256', internalType: 'uint256' }],
+    outputs: [],
     stateMutability: 'nonpayable',
   },
   {
