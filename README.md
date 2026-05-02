@@ -95,9 +95,9 @@ See `src/core/actions/` for the full action surface.
 
 Do not remap outcome values in app adapters.
 
-### Launchpad Trade Encoding
+### AMM Trade Encoding
 
-Launchpad/AMM uses signed shares:
+`AMMEngine.tradePositions` uses signed shares:
 
 - Buy => `deltaShares > 0`
 - Sell => `deltaShares < 0`
