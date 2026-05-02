@@ -92,27 +92,6 @@ export const TruthMarketABI = [
   },
   {
     type: 'function',
-    name: 'isFinalized',
-    inputs: [],
-    outputs: [{ name: '', type: 'bool' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'isSettling',
-    inputs: [],
-    outputs: [{ name: '', type: 'bool' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'question',
-    inputs: [],
-    outputs: [{ name: '', type: 'string' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
     name: 'state',
     inputs: [],
     outputs: [{ name: '', type: 'uint8' }],
@@ -120,7 +99,7 @@ export const TruthMarketABI = [
   },
   {
     type: 'function',
-    name: 'finalize',
+    name: 'invalidate',
     inputs: [],
     outputs: [],
     stateMutability: 'nonpayable',
@@ -218,12 +197,5 @@ export const TruthMarketABI = [
       { name: 'caller', type: 'address', indexed: true },
     ],
     anonymous: false,
-  },
-  {
-    type: 'function',
-    name: 'guardian',
-    inputs: [],
-    outputs: [{ name: '', type: 'address', internalType: 'address' }],
-    stateMutability: 'view',
   },
 ] as const;

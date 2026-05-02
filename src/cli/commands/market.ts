@@ -66,17 +66,15 @@ const TruthMarketAbi = parseAbi([
   'function resolve(uint8 outcome, uint64 tStar) external',
   'function attest() external',
   'function settle() external',
-  'function finalize() external',
+  'function invalidate() external',
   'function veto() external',
   'event MarketCreated(address indexed market, bytes32 questionHash, string question, uint64 startTime, uint64 deadline)',
 ]);
 
 const OrderEngineAbi = parseAbi([
   'function getPosition(address market, address user) view returns (uint256 yesShares, uint256 noShares)',
-  'function getBalances(address market, address user) view returns (uint256 yesBalance, uint256 noBalance)',
   'function isMarketRegistered(address market) view returns (bool)',
-  'function getCollateralBacking(address market) view returns (uint256)',
-  'function redeem(address market, uint256 amount) external',
+  'function settlePosition(address market) external returns (uint256 payout)',
 ]);
 
 const ERC20Abi = parseAbi([
@@ -1444,46 +1442,11 @@ export async function settle(ctx: CommandContext, args: string[]): Promise<Comma
 }
 
 /**
- * Finalize a settled market (adjudicator only)
+ * Settle a resolved market — alias for `settle` (finalize was removed in v0.2.1)
  * Usage: finalize
  */
-export async function finalize(ctx: CommandContext, _args: string[]): Promise<CommandResult> {
-  const { actorManager, marketAddress } = ctx;
-  const walletClient = actorManager.currentWalletClient();
-  const address = actorManager.currentAddress();
-
-  if (!walletClient || !address) {
-    return { success: false, message: 'No actor selected' };
-  }
-
-  if (!marketAddress) {
-    return {
-      success: false,
-      message: 'No market selected. Use setmarket first.',
-    };
-  }
-
-  const spinner = new Spinner(`Finalizing market...`);
-  spinner.start();
-
-  try {
-    const finalizeHash = await walletClient.writeContract({
-      address: marketAddress,
-      abi: TruthMarketAbi,
-      functionName: 'finalize',
-      args: [],
-      gas: 500000n,
-    });
-    await actorManager.waitForTransactionReceipt(finalizeHash);
-    spinner.succeed(`Market finalized ${dim(`(tx: ${finalizeHash.slice(0, 10)}...)`)}`);
-    return { success: true, txHash: finalizeHash };
-  } catch (err) {
-    spinner.fail(`Finalization failed`);
-    return {
-      success: false,
-      message: `Finalization failed: ${(err as Error).message}`,
-    };
-  }
+export async function finalize(ctx: CommandContext, args: string[]): Promise<CommandResult> {
+  return settle(ctx, args);
 }
 
 /**
@@ -1531,32 +1494,32 @@ export async function redeem(ctx: CommandContext, _args: string[]): Promise<Comm
   const [yesBalance, noBalance] = (await publicClient.readContract({
     address: deployment.contracts.OrderEngine as `0x${string}`,
     abi: OrderEngineAbi,
-    functionName: 'getBalances',
+    functionName: 'getPosition',
     args: [marketAddress, address],
   })) as [bigint, bigint];
 
-  console.log(`  ERC20 YES:    ${formatWad(yesBalance)}`);
-  console.log(`  ERC20 NO:     ${formatWad(noBalance)}`);
+  console.log(`  OrderEngine YES:  ${formatWad(yesBalance)}`);
+  console.log(`  OrderEngine NO:   ${formatWad(noBalance)}`);
 
-  const totalTokens = yesBalance + noBalance;
+  const hasPosition = yesBalance > 0n || noBalance > 0n;
 
-  if (totalTokens > 0n) {
-    const spinner = new Spinner('Redeeming ERC20 outcome tokens...');
+  if (hasPosition) {
+    const spinner = new Spinner('Settling position via OrderEngine...');
     spinner.start();
 
     try {
       const hash = await walletClient.writeContract({
         address: deployment.contracts.OrderEngine as `0x${string}`,
         abi: OrderEngineAbi,
-        functionName: 'redeem',
-        args: [marketAddress, totalTokens],
+        functionName: 'settlePosition',
+        args: [marketAddress],
         gas: 500000n,
       });
       await actorManager.waitForTransactionReceipt(hash);
 
-      spinner.succeed(`Redeemed ${formatWad(totalTokens)} tokens ${dim(`(tx: ${shortTx(hash)})`)}`);
+      spinner.succeed(`Position settled ${dim(`(tx: ${shortTx(hash)})`)}`);
     } catch (err) {
-      spinner.fail(`Token redeem failed: ${(err as Error).message.slice(0, 50)}`);
+      spinner.fail(`Settlement failed: ${(err as Error).message.slice(0, 50)}`);
     }
   }
 
@@ -1783,7 +1746,7 @@ export async function pnl(ctx: CommandContext, args: string[]): Promise<CommandR
     [yesTokens, noTokens] = (await publicClient.readContract({
       address: deployment.contracts.OrderEngine as `0x${string}`,
       abi: OrderEngineAbi,
-      functionName: 'getBalances',
+      functionName: 'getPosition',
       args: [marketAddress, address],
     })) as [bigint, bigint];
   } catch {}

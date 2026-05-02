@@ -151,10 +151,6 @@ export interface BuildSoothBookMergeRequestInput {
   amount: bigint;
 }
 
-export interface BuildSoothBookRedeemRequestInput {
-  marketAddress: Address;
-}
-
 export interface ComputeSoothBookMaxCostInput {
   tick: number;
   amount: bigint;
@@ -213,7 +209,7 @@ export type ClaimTxRequest =
   | {
       route: 'dismissed_refund';
       contract: Address;
-      functionName: 'claimRefund';
+      functionName: 'settlePosition';
       args: readonly [Address];
     }
   | {
@@ -346,9 +342,6 @@ export interface SoothCoreClient {
   buildSoothBookMerge: (
     input: BuildSoothBookMergeRequestInput,
   ) => ReturnType<typeof buildSoothBookMergeRequest>;
-  buildSoothBookRedeem: (
-    input: BuildSoothBookRedeemRequestInput,
-  ) => ReturnType<typeof buildSoothBookRedeemRequest>;
   buildClaim: (snapshot: SoothCoreSnapshot) => ClaimRequestPlan | null;
   preflightTrade: (snapshot: SoothCoreSnapshot, input: TradePreflightInput) => TradePreflightResult;
   readApprovalRequest: (input: ReadApprovalRequestInput) => Promise<ApprovalRequest | null>;
@@ -385,8 +378,7 @@ export type SoothBookWriteRequest =
   | ReturnType<typeof buildSoothBookCancelRequest>
   | ReturnType<typeof buildSoothBookCancelByIdRequest>
   | ReturnType<typeof buildSoothBookMintRequest>
-  | ReturnType<typeof buildSoothBookMergeRequest>
-  | ReturnType<typeof buildSoothBookRedeemRequest>;
+  | ReturnType<typeof buildSoothBookMergeRequest>;
 
 export type CreateSoothCoreClientConfig =
   | {
@@ -1008,19 +1000,6 @@ export function buildSoothBookMergeRequest(input: BuildSoothBookMergeRequestInpu
   };
 }
 
-export function buildSoothBookRedeemRequest(input: BuildSoothBookRedeemRequestInput): {
-  marketKey: `0x${string}`;
-  functionName: 'redeem';
-  args: readonly [`0x${string}`];
-} {
-  const marketKey = computeSoothMarketKey(input.marketAddress);
-  return {
-    marketKey,
-    functionName: 'redeem',
-    args: [marketKey] as const,
-  };
-}
-
 export function buildTradeRequest(input: BuildTradeRequestInput): SoothTradeRequest {
   const venue = input.venue ?? input.snapshot?.tradingVenue ?? 'amm';
 
@@ -1089,8 +1068,8 @@ export function buildClaimRequest(
       requests: [
         {
           route: 'dismissed_refund',
-          contract: contracts.launchpadEngine,
-          functionName: 'claimRefund',
+          contract: contracts.ammEngine,
+          functionName: 'settlePosition',
           args: [snapshot.marketAddress] as const,
         },
       ] as const,
@@ -1365,7 +1344,6 @@ export function createSoothCoreClient(config: CreateSoothCoreClientConfig): Soot
     buildSoothBookCancelById: buildSoothBookCancelByIdRequest,
     buildSoothBookMint: buildSoothBookMintRequest,
     buildSoothBookMerge: buildSoothBookMergeRequest,
-    buildSoothBookRedeem: buildSoothBookRedeemRequest,
     buildClaim: (snapshot: SoothCoreSnapshot) =>
       buildClaimRequest(snapshot, requireRpc().contracts),
     preflightTrade,

@@ -140,16 +140,6 @@ const LaunchpadDiscoveryAbi = [
   },
 ] as const;
 
-const TruthMarketQuestionAbi = [
-  {
-    name: 'question',
-    type: 'function',
-    inputs: [],
-    outputs: [{ type: 'string', name: '' }],
-    stateMutability: 'view',
-  },
-] as const;
-
 async function discoverMarketsOnChain(): Promise<DiscoveredMarket[]> {
   const publicClient = actorManager.getPublicClient();
   const launchpadAddress = config.deployment.contracts.LaunchpadEngine as `0x${string}`;
@@ -201,21 +191,9 @@ async function discoverMarketsOnChain(): Promise<DiscoveredMarket[]> {
         return null;
       }
 
-      let marketName: string = marketAddress;
-      try {
-        const question = (await publicClient.readContract({
-          address: marketAddress,
-          abi: TruthMarketQuestionAbi,
-          functionName: 'question',
-        })) as string;
-        if (question && question.trim().length > 0) {
-          marketName = question.trim();
-        }
-      } catch {}
-
       return {
         address: marketAddress,
-        name: marketName,
+        name: marketAddress,
         isGraduated,
         stage: isGraduated ? 'graduated' : 'pre-graduation',
         marketKey: isGraduated ? keccak256(encodePacked(['address'], [marketAddress])) : null,
@@ -353,14 +331,7 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
       if (creator !== '0x0000000000000000000000000000000000000000') {
         isLaunchpadMarket = true;
 
-        let marketName: string | null = null;
-        try {
-          marketName = (await publicClient.readContract({
-            address: marketAddress as `0x${string}`,
-            abi: TruthMarketQuestionAbi,
-            functionName: 'question',
-          })) as string;
-        } catch {}
+        const marketName: string | null = null;
 
         if (!isGraduated) {
           currentMarketAddress = marketAddress as `0x${string}`;

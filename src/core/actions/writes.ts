@@ -20,6 +20,7 @@ import {
 } from 'viem';
 import { LaunchpadEngineABI } from '../abis/LaunchpadEngine.js';
 import { AMMEngineABI } from '../abis/AMMEngine.js';
+import { TruthMarketABI } from '../abis/TruthMarket.js';
 import { SoothBookABI } from '../abis/SoothBook.js';
 import { type ActionContext, type ActionReporter, noopReporter } from './types.js';
 
@@ -32,14 +33,6 @@ const ERC20_ABI = parseAbi([
   'function mint(address to, uint256 amount)',
   'function totalSupply() view returns (uint256)',
   'function transfer(address to, uint256 amount) returns (bool)',
-]);
-
-// Local extended ABI for write functions the minimal core LaunchpadEngine
-// ABI in core/abis/LaunchpadEngine.ts doesn't declare. Declared here so
-// actions don't need a broader ABI change.
-const LAUNCHPAD_WRITE_ABI = parseAbi([
-  'function dismissMarket(address market)',
-  'function claimRefund(address market) returns (uint256)',
 ]);
 
 function formatWad(value: bigint): string {
@@ -596,33 +589,19 @@ export async function runDismiss(
   report: ActionReporter = noopReporter,
 ): Promise<`0x${string}`> {
   const account = requireWallet(ctx);
-  // Preflight: trial expired and not graduated. LaunchpadEngine revert
-  // messages are more actionable than silent failures.
-  let isTrialExpired = false;
-  try {
-    isTrialExpired = (await ctx.publicClient.readContract({
-      address: ctx.contracts.LaunchpadEngine,
-      abi: LaunchpadEngineABI,
-      functionName: 'isTrialExpiredWithoutGraduation',
-      args: [params.marketAddress],
-    })) as boolean;
-  } catch {
-    // fall through — let contract produce authoritative revert
-  }
-  if (!isTrialExpired) {
-    throw new Error('Market cannot be dismissed (trial not expired or already graduated)');
-  }
-  report({ type: 'info', message: 'Dismissing market...' });
+  report({ type: 'info', message: 'Invalidating market...' });
+  // v0.2.1: LaunchpadEngine.dismissMarket was removed. Invalidation is now
+  // performed by the adjudicator calling TruthMarket.invalidate().
   const hash = await ctx.walletClient.writeContract({
-    address: ctx.contracts.LaunchpadEngine,
-    abi: LAUNCHPAD_WRITE_ABI,
-    functionName: 'dismissMarket',
-    args: [params.marketAddress],
+    address: params.marketAddress,
+    abi: TruthMarketABI,
+    functionName: 'invalidate',
+    args: [],
     account,
     chain: null,
   });
   await ctx.publicClient.waitForTransactionReceipt({ hash });
-  report({ type: 'success', message: 'Market dismissed' });
+  report({ type: 'success', message: 'Market invalidated' });
   return hash;
 }
 
@@ -632,17 +611,19 @@ export async function runClaimRefund(
   report: ActionReporter = noopReporter,
 ): Promise<`0x${string}`> {
   const account = requireWallet(ctx);
-  report({ type: 'info', message: 'Claiming refund...' });
+  report({ type: 'info', message: 'Settling position...' });
+  // v0.2.1: LaunchpadEngine.claimRefund was removed. AMM position settlement
+  // now flows through AMMEngine.settlePosition(market).
   const hash = await ctx.walletClient.writeContract({
-    address: ctx.contracts.LaunchpadEngine,
-    abi: LAUNCHPAD_WRITE_ABI,
-    functionName: 'claimRefund',
+    address: ctx.contracts.AMMEngine,
+    abi: AMMEngineABI,
+    functionName: 'settlePosition',
     args: [params.marketAddress],
     account,
     chain: null,
   });
   await ctx.publicClient.waitForTransactionReceipt({ hash });
-  report({ type: 'success', message: 'Refund claimed' });
+  report({ type: 'success', message: 'Position settled' });
   return hash;
 }
 

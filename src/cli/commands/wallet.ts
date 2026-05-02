@@ -23,7 +23,7 @@ import { parseAbi } from 'viem';
 
 // Additional ABIs for complete position tracking
 const OrderEngineAbi = parseAbi([
-  'function getBalances(address market, address user) view returns (uint256 yesBalance, uint256 noBalance)',
+  'function getPosition(address market, address user) view returns (uint256 yesShares, uint256 noShares)',
   'function isMarketRegistered(address market) view returns (bool)',
 ]);
 
@@ -421,7 +421,7 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
         [erc20Yes, erc20No] = (await publicClient.readContract({
           address: deployment.contracts.OrderEngine as `0x${string}`,
           abi: OrderEngineAbi,
-          functionName: 'getBalances',
+          functionName: 'getPosition',
           args: [marketAddress, actorAddr],
         })) as [bigint, bigint];
       } catch {}
@@ -723,7 +723,7 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
         [erc20Yes, erc20No] = (await publicClient.readContract({
           address: deployment.contracts.OrderEngine as `0x${string}`,
           abi: OrderEngineAbi,
-          functionName: 'getBalances',
+          functionName: 'getPosition',
           args: [marketAddress, actorAddr],
         })) as [bigint, bigint];
       } catch {}
