@@ -1,6 +1,8 @@
 # sooth-sdk
 
 ![CI](https://github.com/Tora-Build/sooth-sdk/actions/workflows/ci.yml/badge.svg)
+[![npm version](https://img.shields.io/npm/v/@sooth/sdk)](https://www.npmjs.com/package/@sooth/sdk)
+[![sooth-core](https://img.shields.io/github/package-json/v/Tora-Build/sooth-sdk?label=sooth-core)](https://github.com/Tora-Build/sooth-core)
 
 TypeScript SDK and `soothcli` REPL for the Sooth Protocol. Pairs with [`Tora-Build/sooth-core`](https://github.com/Tora-Build/sooth-core) (Solidity contracts).
 
@@ -8,7 +10,7 @@ This repo:
 
 - Ships `@sooth/sdk` (npm) — programmatic access to LaunchpadEngine, AMMEngine, SoothBook, OrderEngine, TruthMarket, FeeRouter.
 - Ships `soothcli` — interactive REPL for Sooth nodes (`soothcli <nodeId>`, `soothcli --list`).
-- Versioning is locked to the contract version it speaks. v0.2.1 of this SDK targets [`sooth-core`](https://github.com/Tora-Build/sooth-core) v0.2.1; the CLI rejects nodes whose `coreVersion` doesn't match (see `src/cli/config.ts:SUPPORTED_CORE_VERSION`).
+- SDK version is locked to the sooth-core contract version it targets. The CLI rejects nodes whose `coreVersion` doesn't match [`SUPPORTED_CORE_VERSION`](src/cli/config.ts).
 - Migration playbook: `.claude/skills/cli-migration/` (covers ABI drift, parseAbi audits, per-chain RPC config, multi-chain test sweeps).
 
 ## Consumed by
@@ -58,7 +60,7 @@ This SDK layer is built from parity review across:
 Implemented scope:
 
 - SoothBook quote helper (indicative, centralized math).
-- SoothBook write builders (buy/sell/cancel/mint/merge/redeem).
+- SoothBook write builders (buy/sell/cancel/mint/merge).
 - Pre-bound client factory with shared API surface.
 - Batch snapshot API.
 - Snapshot-based quote convenience path.
@@ -79,7 +81,7 @@ Implemented scope:
 **Imperative actions (shared write logic — consumed by CLI + Geek terminal):**
 
 - `src/core/actions/simulate.ts` — `runSimulate`
-- `src/core/actions/writes.ts` — `runCreateMarket`, `runGraduate`, `runApprove`, `runMintUsdc`, `runRedeemLp`, `runTransferLp`, `runDismiss`, `runClaimRefund`, `runSoothBook{BuyYes,BuyNo,Mint,Merge,Cancel,Redeem}`
+- `src/core/actions/writes.ts` — `runCreateMarket`, `runGraduate`, `runApprove`, `runMintUsdc`, `runRedeemLp`, `runTransferLp`, `runDismiss`, `runClaimRefund`, `runSoothBook{BuyYes,BuyNo,Mint,Merge,Cancel}`
 - `src/core/actions/types.ts` — `ActionContext`, `ActionEvent`, `ActionReporter`
 
 See `src/core/actions/` for the full action surface.
@@ -169,7 +171,7 @@ const sooth = createSoothClient({
   contracts: {
     launchpadEngine: "0x...",
     ammEngine: "0x...",
-    collateralizer: "0x...",
+    orderEngine: "0x...",
     soothBook: "0x...",
   },
 });
@@ -306,7 +308,7 @@ const request = buildSoothBookBuyRequest({
 });
 ```
 
-SoothBook sell/cancel/mint/merge/redeem:
+SoothBook sell/cancel/mint/merge:
 
 ```ts
 const sell = buildSoothBookSellRequest({
@@ -325,7 +327,6 @@ const cancel = buildSoothBookCancelRequest({
 const cancelById = buildSoothBookCancelByIdRequest({ orderId: 42n });
 const mint = buildSoothBookMintRequest({ marketAddress, amount: shares });
 const merge = buildSoothBookMergeRequest({ marketAddress, amount: shares });
-const redeem = buildSoothBookRedeemRequest({ marketAddress });
 ```
 
 Max-cost helper for SoothBook limit/taker paths:
@@ -343,9 +344,11 @@ const maxCost = computeSoothBookMaxCost({
 Canonical lifecycle routing:
 
 1. Dismissed trial => `LaunchpadEngine.claimRefund`
-2. SoothBook finalized position => `SoothBook.redeem`
-3. Graduated collateral redemption => `Collateralizer.redeemOutcome` (handles INVALID dual-redeem case)
+2. SoothBook finalized position => `OrderEngine.settlePosition`
+3. Graduated collateral redemption => `OrderEngine.settlePosition`
 4. Pre-grad AMM position => `AMMEngine.settlePosition`
+
+All non-AMM settlement flows go through `OrderEngine.settlePosition(market)` — no outcome or amount args; the contract auto-calculates payout from the caller's registered position.
 
 ```ts
 const plan = buildClaimRequest(snapshot, contracts);
