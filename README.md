@@ -2,7 +2,6 @@
 
 ![CI](https://github.com/Tora-Build/sooth-sdk/actions/workflows/ci.yml/badge.svg)
 [![npm version](https://img.shields.io/npm/v/@sooth/sdk)](https://www.npmjs.com/package/@sooth/sdk)
-[![sooth-core](https://img.shields.io/github/package-json/v/Tora-Build/sooth-sdk?label=sooth-core)](https://github.com/Tora-Build/sooth-core)
 
 TypeScript SDK and `soothcli` REPL for the Sooth Protocol. Pairs with [`Tora-Build/sooth-core`](https://github.com/Tora-Build/sooth-core) (Solidity contracts).
 
