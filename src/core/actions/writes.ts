@@ -158,6 +158,8 @@ export interface CreateMarketParams {
   initialProbabilityWad: bigint;
   /** encoded (resolver, deadline, typeConfig) per v0.2.0 AdjudicatorBase.configureMarket; pass null to build a default from the caller's address + deadline */
   adjudicatorConfig?: `0x${string}`;
+  /** scalar strike S in WAD; omit or 0 for a binary market, > 0 for a scalar-option market */
+  strike?: bigint;
 }
 
 export interface CreateMarketResult {
@@ -211,6 +213,7 @@ export async function runCreateMarket(
       params.bBase,
       params.initialProbabilityWad,
       adjConfig,
+      params.strike ?? 0n, // 0 = binary, > 0 = scalar-option
     ],
     account,
     chain: null,

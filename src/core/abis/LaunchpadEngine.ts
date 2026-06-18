@@ -29,6 +29,8 @@ export const LaunchpadEngineABI = [
         type: 'bytes',
         internalType: 'bytes',
       },
+      // 0 = binary market, > 0 = scalar-option market (strike S in WAD)
+      { name: 'strike', type: 'uint256', internalType: 'uint256' },
     ],
     outputs: [
       { name: 'market', type: 'address', internalType: 'address' },

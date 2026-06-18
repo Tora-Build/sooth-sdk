@@ -62,8 +62,10 @@ const TruthMarketAbi = parseAbi([
   'function isSettled() view returns (bool)',
   'function winningOutcome() view returns (uint8)',
   'function tStar() view returns (uint64)',
-  'function getRedemptionValue(uint8 outcome) view returns (uint256)',
-  'function resolve(uint8 outcome, uint64 tStar) external',
+  'function payoutPerShare(uint8 outcome) view returns (uint256)',
+  'function strike() view returns (uint256)',
+  'function resolvedValue() view returns (uint256)',
+  'function resolve(uint256 value, uint64 tStar) external',
   'function attest() external',
   'function settle() external',
   'function finalize() external',
@@ -85,7 +87,7 @@ const ERC20Abi = parseAbi([
 ]);
 
 const LaunchpadEngineAbi = parseAbi([
-  'function createMarket(string question, uint64 startTime, uint64 deadline, address adjudicator, uint256 bBase, uint256 initialProbabilityWad, bytes adjudicatorConfig) external returns (address market, address lpToken)',
+  'function createMarket(string question, uint64 startTime, uint64 deadline, address adjudicator, uint256 bBase, uint256 initialProbabilityWad, bytes adjudicatorConfig, uint256 strike) external returns (address market, address lpToken)',
   'function markets(address) view returns (address creator, address lpToken, uint256 bBase, uint256 creatorDeposit, uint64 graduatedAt)',
   'function isGraduated(address market) view returns (bool)',
   'function isTrialExpiredWithoutGraduation(address market) view returns (bool)',
@@ -349,6 +351,7 @@ export async function createmarket(ctx: CommandContext, args: string[]): Promise
       liquidityWad,
       500000000000000000n,
       adjConfig,
+      0n, // strike — 0 = binary market (scalar-option markets pass a WAD strike)
     ] as const;
     let createGas: bigint;
     try {
@@ -1423,7 +1426,7 @@ export async function settle(ctx: CommandContext, args: string[]): Promise<Comma
       address: marketAddress,
       abi: TruthMarketAbi,
       functionName: 'resolve',
-      args: [outcome, tStar],
+      args: [BigInt(outcome), tStar], // resolve(uint256 value, uint64 tStar); binary value <= 2
       gas: 500000n,
     });
     await actorManager.waitForTransactionReceipt(resolveHash);

@@ -126,17 +126,38 @@ export const TruthMarketABI = [
     stateMutability: 'nonpayable',
   },
   {
+    // Per-share payoff (WAD). Binary: {0, 1e18, 0.5e18 on INVALID}.
+    // Scalar (strike > 0): P = min(1, S/x), N = 1 - P. outcome 1 = YES/P, 0 = NO/N.
+    // Redemption math: payout = shares * payoutPerShare(outcome) / 1e18.
     type: 'function',
-    name: 'getRedemptionValue',
+    name: 'payoutPerShare',
     inputs: [{ name: 'outcome', type: 'uint8' }],
     outputs: [{ name: '', type: 'uint256' }],
     stateMutability: 'view',
   },
   {
+    // Scalar strike S (WAD). 0 = binary market, > 0 = scalar-option.
+    type: 'function',
+    name: 'strike',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    // Resolved scalar price x (WAD); meaningful only for scalar markets.
+    type: 'function',
+    name: 'resolvedValue',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    // Unified resolve: `value` is the outcome (binary, <= 2) or the resolved
+    // scalar price x in WAD (scalar). Meaning depends on strike().
     type: 'function',
     name: 'resolve',
     inputs: [
-      { name: 'outcome', type: 'uint8' },
+      { name: 'value', type: 'uint256' },
       { name: '_tStar', type: 'uint64' },
     ],
     outputs: [],
@@ -181,6 +202,18 @@ export const TruthMarketABI = [
     inputs: [
       { name: 'market', type: 'address', indexed: true },
       { name: 'outcome', type: 'uint8', indexed: false },
+      { name: 'tStar', type: 'uint64', indexed: false },
+    ],
+    anonymous: false,
+  },
+  {
+    // Scalar-option resolution: resolver posts the resolved price x (WAD)
+    // rather than a discrete outcome. Per-share payoff derived via payoutPerShare.
+    type: 'event',
+    name: 'MarketResolvedScalar',
+    inputs: [
+      { name: 'market', type: 'address', indexed: true },
+      { name: 'resolvedValue', type: 'uint256', indexed: false },
       { name: 'tStar', type: 'uint64', indexed: false },
     ],
     anonymous: false,

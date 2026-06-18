@@ -52,6 +52,7 @@ const LaunchpadAbi = [
       { type: 'uint256', name: 'bBase' },
       { type: 'uint256', name: 'initialProbabilityWad' },
       { type: 'bytes', name: 'adjudicatorConfig' },
+      { type: 'uint256', name: 'strike' }, // 0 = binary, > 0 = scalar-option
     ],
     outputs: [{ type: 'address' }, { type: 'address' }],
     stateMutability: 'nonpayable',
@@ -173,22 +174,25 @@ export class Markets {
     });
   }
 
-  /** Create a new market */
+  /** Create a new market. Pass `strike` (WAD) > 0 for a scalar-option market;
+   *  omit or 0 for a binary market. */
   async create(params: {
     question: string;
     initialLiquidity: string;
     adjudicator?: `0x${string}`;
     deadline?: bigint;
+    strike?: bigint;
   }): Promise<`0x${string}`> {
     const bBase = parseUnits(params.initialLiquidity, 18);
     const adjudicator = params.adjudicator ?? (this.client.account as `0x${string}`);
     const deadline = params.deadline ?? 7258118399n; // year 2199
+    const strike = params.strike ?? 0n; // 0 = binary
 
     return this.client.writeContract({
       address: this.client.contracts.launchpadEngine,
       abi: LaunchpadAbi,
       functionName: 'createMarket',
-      args: [params.question, 0n, deadline, adjudicator, bBase, 500000000000000000n, '0x'],
+      args: [params.question, 0n, deadline, adjudicator, bBase, 500000000000000000n, '0x', strike],
     });
   }
 }
