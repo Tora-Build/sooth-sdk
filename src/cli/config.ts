@@ -8,6 +8,7 @@
  *   3. Registry public RPC (default)
  */
 
+import { readFileSync } from 'node:fs';
 import type { Chain } from 'viem';
 import { getAllNodes, getNodeById, getChain, toViemChain } from '../registry-loader';
 import type { SoothNode, ChainMeta } from '../registry-types';
@@ -168,10 +169,25 @@ function getPostTxWait(chainId: number): number {
 // (e.g. settle() arity, isMarketSettled vs isSettled). Refuse to start.
 export const SUPPORTED_CORE_VERSION = '0.2.1';
 
-// SDK version tracks the contract version it speaks. Bump both together.
-// If we ever need a patch release without a contract change, append `-N`
-// (e.g. "0.2.0-1") so the major.minor.patch still encodes contract compat.
-export const SDK_VERSION = SUPPORTED_CORE_VERSION;
+// SDK_VERSION is the published npm package version — read from package.json so
+// `soothcli vX` never drifts from what `npm install @sooth/sdk` resolves.
+// This is a DISTINCT concept from SUPPORTED_CORE_VERSION (the sooth-core
+// contract version the CLI speaks): release-please bumps the package version
+// independently, which is why aliasing the two used to print a stale version.
+// dist/cli/config.js → ../../package.json resolves to the package root both in
+// the built tree and the published tarball.
+function readPackageVersion(): string {
+  try {
+    const pkg = JSON.parse(
+      readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
+    ) as { version?: string };
+    return pkg.version ?? '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+}
+
+export const SDK_VERSION = readPackageVersion();
 
 export interface InteractiveConfig {
   nodeId: string;
