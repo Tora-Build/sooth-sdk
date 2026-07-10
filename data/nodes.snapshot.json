@@ -1,5 +1,5 @@
 {
-  "version": "0.2.2",
+  "version": "0.2.3",
   "updatedAt": "2026-05-02T00:00:00.000Z",
   "nodes": [
     {
@@ -52,7 +52,7 @@
       },
       "deployedAt": "2026-04-30T00:00:00.000Z",
       "deployedBy": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
-      "startBlock": 10749016,
+      "startBlock": 10749019,
       "indexed": true,
       "label": "Eth Sepolia · v0.2.1"
 
@@ -81,8 +81,8 @@
       "deployedAt": "2026-05-02T00:00:00.000Z",
       "deployedBy": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
       "startBlock": 40933166,
-      "indexed": true,
-      "label": "Base Sepolia · v0.2.1"
+      "indexed": false,
+      "label": "Base Sepolia · v0.2.1 (recorded, not indexed/shown)"
     }
   ],
   "chains": {
