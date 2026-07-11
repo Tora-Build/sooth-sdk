@@ -1,6 +1,7 @@
 {
   "name": "@sooth/sdk",
   "version": "0.2.1",
+  "packageManager": "pnpm@9.15.9",
   "description": "Sooth Protocol SDK — programmatic access, core utilities, and CLI for prediction markets",
   "type": "module",
   "main": "./dist/index.js",
