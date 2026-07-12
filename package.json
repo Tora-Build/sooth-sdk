@@ -46,6 +46,10 @@
     "./core/contracts": {
       "types": "./dist/core/contracts/index.d.ts",
       "import": "./dist/core/contracts/index.js"
+    },
+    "./sqf": {
+      "types": "./dist/lib/sqf.d.ts",
+      "import": "./dist/lib/sqf.js"
     }
   },
   "files": [
@@ -64,7 +68,8 @@
     "fmt:check": "prettier --check 'src/**/*.ts'",
     "typecheck": "tsc --noEmit",
     "check": "pnpm lint:check && pnpm fmt:check",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test": "vitest run"
   },
   "lint-staged": {
     "*.ts": [

@@ -42,6 +42,18 @@ jobs:
       - name: Type check
         run: pnpm typecheck
 
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'pull_request' || !contains(github.event.pull_request.labels.*.name, 'early-stage') }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/setup
+      - name: Test
+        # Until 2026-07-12 the spec files were never executed anywhere (no
+        # test script, no CI step) and three of them had silently rotted.
+        run: pnpm test
+
   build:
     name: Build
     runs-on: ubuntu-latest
