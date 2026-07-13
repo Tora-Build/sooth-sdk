@@ -148,4 +148,139 @@ export const SoothBookABI = [
     outputs: [{ name: '', type: 'uint24', internalType: 'uint24' }],
     stateMutability: 'view',
   },
+  // Events + custom errors — vendored from the deployed v0.2.1 contract.
+  // OrderPlaced's 7-field shape and the OrderNotActive selector (0x1d4ecc5b)
+  // were verified against on-chain logs/reverts (sooth-alpha PR #121).
+  {
+    type: 'event',
+    name: 'OrderPlaced',
+    inputs: [
+      { name: 'marketKey', type: 'bytes32', internalType: 'bytes32', indexed: true },
+      { name: 'side', type: 'uint8', internalType: 'uint8', indexed: false },
+      { name: 'tick', type: 'uint16', internalType: 'uint16', indexed: false },
+      { name: 'maker', type: 'address', internalType: 'address', indexed: true },
+      { name: 'amount', type: 'uint128', internalType: 'uint128', indexed: false },
+      { name: 'escrow', type: 'bool', internalType: 'bool', indexed: false },
+      { name: 'orderId', type: 'uint64', internalType: 'uint64', indexed: false },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'OrderFilled',
+    inputs: [
+      { name: 'marketKey', type: 'bytes32', internalType: 'bytes32', indexed: true },
+      { name: 'takerSide', type: 'uint8', internalType: 'uint8', indexed: false },
+      { name: 'yesTick', type: 'uint16', internalType: 'uint16', indexed: false },
+      { name: 'noTick', type: 'uint16', internalType: 'uint16', indexed: false },
+      { name: 'taker', type: 'address', internalType: 'address', indexed: true },
+      { name: 'maker', type: 'address', internalType: 'address', indexed: true },
+      { name: 'amount', type: 'uint128', internalType: 'uint128', indexed: false },
+      { name: 'surplus', type: 'uint256', internalType: 'uint256', indexed: false },
+      { name: 'makerOrderId', type: 'uint64', internalType: 'uint64', indexed: false },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'OrderCancelled',
+    inputs: [
+      { name: 'marketKey', type: 'bytes32', internalType: 'bytes32', indexed: true },
+      { name: 'side', type: 'uint8', internalType: 'uint8', indexed: false },
+      { name: 'tick', type: 'uint16', internalType: 'uint16', indexed: false },
+      { name: 'maker', type: 'address', internalType: 'address', indexed: true },
+      { name: 'amount', type: 'uint128', internalType: 'uint128', indexed: false },
+      { name: 'orderId', type: 'uint64', internalType: 'uint64', indexed: false },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'Minted',
+    inputs: [
+      { name: 'marketKey', type: 'bytes32', internalType: 'bytes32', indexed: true },
+      { name: 'user', type: 'address', internalType: 'address', indexed: true },
+      { name: 'amount', type: 'uint256', internalType: 'uint256', indexed: false },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'Merged',
+    inputs: [
+      { name: 'marketKey', type: 'bytes32', internalType: 'bytes32', indexed: true },
+      { name: 'user', type: 'address', internalType: 'address', indexed: true },
+      { name: 'amount', type: 'uint256', internalType: 'uint256', indexed: false },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'Redeemed',
+    inputs: [
+      { name: 'marketKey', type: 'bytes32', internalType: 'bytes32', indexed: true },
+      { name: 'user', type: 'address', internalType: 'address', indexed: true },
+      { name: 'payout', type: 'uint256', internalType: 'uint256', indexed: false },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'MarketResolved',
+    inputs: [
+      { name: 'marketKey', type: 'bytes32', internalType: 'bytes32', indexed: true },
+      { name: 'outcome', type: 'uint8', internalType: 'uint8', indexed: false },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'error',
+    name: 'InvalidTick',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'ZeroAmount',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'MarketNotActive',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'MarketAlreadyExists',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'OrderNotActive',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'ZeroAddress',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'UnsupportedBaseTokenDecimals',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'AmountTooSmallForBaseTokenDecimals',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'InsufficientShares',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'NotAuthorized',
+    inputs: [],
+  },
 ] as const;
