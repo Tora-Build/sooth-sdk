@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/Tora-Build/sooth-sdk/compare/sdk-v0.2.2...sdk-v0.3.0) (2026-07-12)
+
+
+### ✨ Features
+
+* **sqf:** canonical SQF parser + generator; run tests in CI ([#11](https://github.com/Tora-Build/sooth-sdk/issues/11)) ([cec74a5](https://github.com/Tora-Build/sooth-sdk/commit/cec74a54c94e3ee7c964cd75ae2a8867b4bb0aab))
+
 ## [0.2.2](https://github.com/Tora-Build/sooth-sdk/compare/sdk-v0.2.1...sdk-v0.2.2) (2026-07-11)
 
 
