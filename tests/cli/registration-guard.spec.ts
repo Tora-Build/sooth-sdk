@@ -82,6 +82,27 @@ describe("SoothBook registration guard", () => {
     expect(result.message).toContain("not registered in SoothBook");
   });
 
+  it("book reads the market-key implied price function", async () => {
+    readContractWithRpcFallback
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(693)
+      .mockResolvedValueOnce(306)
+      .mockResolvedValueOnce([693000000000000000n, 306000000000000000n])
+      .mockResolvedValue([0n, 0n]);
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const { book } = await import("../../src/cli/commands/soothbook");
+
+    const result = await book(ctx(), ["500", "1"]);
+    const functionNames = readContractWithRpcFallback.mock.calls.map(
+      (call) => call[2].functionName,
+    );
+
+    expect(result.success).toBe(true);
+    expect(functionNames).toContain("getImpliedPriceByKey");
+    expect(functionNames).not.toContain("getImpliedPrice");
+    consoleSpy.mockRestore();
+  });
+
   it("invariants short-circuit via registeredMarkets", async () => {
     readContractWithRpcFallback.mockResolvedValue(false);
     const { runAllInvariants } = await import("../../src/cli/assertions/invariants");

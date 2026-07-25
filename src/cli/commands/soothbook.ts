@@ -16,6 +16,8 @@ import {
 
 const DEFAULT_SCAN_CHUNK_SIZE = 400_000n;
 const DEFAULT_HISTORY_PAGE_SIZE = 50;
+const DEFAULT_HISTORY_LOOKBACK_BLOCKS = 100_000n;
+const HISTORY_RANGE_CONCURRENCY = 3;
 
 // Chain-specific log scan chunk sizes (some RPCs limit range)
 const CHAIN_SCAN_CHUNKS: Record<number, bigint> = {
@@ -25,32 +27,20 @@ const CHAIN_SCAN_CHUNKS: Record<number, bigint> = {
   6343: 9_000n, // MegaETH Testnet: 10k cap
 };
 
-const CHAIN_START_BLOCKS: Record<number, bigint> = {
-  84532: 39_474_167n, // Base Sepolia — v0.1.2 deployment
-  10143: 6_558_931n,
-  5042002: 21_983_342n,
-  6343: 8_855_921n,
-  37111: 4_291_440n,
-  998: 50_251_573n, // HyperEVM Testnet
+const CHAIN_HISTORY_LOOKBACK_BLOCKS: Record<number, bigint> = {
+  84532: 200_000n,
+  10143: 20_000n,
+  37111: 50_000n,
 };
 
 const ORDER_PLACED = parseAbiItem(
-  'event OrderPlaced(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount, bool escrow)',
-);
-const ORDER_PLACED_V2 = parseAbiItem(
-  'event OrderPlacedV2(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount, bool escrow, uint64 orderId)',
+  'event OrderPlaced(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount, bool escrow, uint64 orderId)',
 );
 const ORDER_FILLED = parseAbiItem(
-  'event OrderFilled(bytes32 indexed marketKey, uint8 takerSide, uint16 yesTick, uint16 noTick, address indexed taker, address indexed maker, uint128 amount, uint256 surplus)',
-);
-const ORDER_FILLED_V2 = parseAbiItem(
-  'event OrderFilledV2(bytes32 indexed marketKey, uint8 takerSide, uint16 yesTick, uint16 noTick, address indexed taker, address indexed maker, uint128 amount, uint256 surplus, uint64 makerOrderId)',
+  'event OrderFilled(bytes32 indexed marketKey, uint8 takerSide, uint16 yesTick, uint16 noTick, address indexed taker, address indexed maker, uint128 amount, uint256 surplus, uint64 makerOrderId)',
 );
 const ORDER_CANCELLED = parseAbiItem(
-  'event OrderCancelled(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount)',
-);
-const ORDER_CANCELLED_V2 = parseAbiItem(
-  'event OrderCancelledV2(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount, uint64 orderId)',
+  'event OrderCancelled(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount, uint64 orderId)',
 );
 
 type HistoryFeedItem = {
@@ -161,8 +151,13 @@ function isCanonicalOrderId(orderId?: string): orderId is string {
 }
 
 function getTxHashFromFeedItemId(id: string): string | null {
-  const [txHash] = id.split('-');
+  const parts = id.split(':');
+  const txHash = parts.length >= 3 ? parts[1] : id.split('-')[0];
   return /^0x[a-fA-F0-9]{64}$/.test(txHash) ? txHash : null;
+}
+
+function getEventIdentity(chainId: number, txHash: string, logIndex: number): string {
+  return `${chainId}:${txHash}:${logIndex}`;
 }
 
 function shortRef(value: string): string {
@@ -257,96 +252,66 @@ async function fetchUserHistoryFeed(
   soothBook: `0x${string}`,
   marketKey: `0x${string}`,
   owner: `0x${string}`,
-): Promise<HistoryFeedItem[]> {
+): Promise<{
+  items: HistoryFeedItem[];
+  fromBlock: bigint;
+  toBlock: bigint;
+}> {
   const publicClient = ctx.actorManager.getPublicClient();
   const latest = await publicClient.getBlockNumber();
-  const fallbackStart = latest > 2_000_000n ? latest - 2_000_000n : 0n;
-  const startBlock = CHAIN_START_BLOCKS[ctx.config.chain.id] ?? fallbackStart;
+  const lookback =
+    CHAIN_HISTORY_LOOKBACK_BLOCKS[ctx.config.chain.id] ?? DEFAULT_HISTORY_LOOKBACK_BLOCKS;
+  const windowStart = latest > lookback ? latest - lookback : 0n;
+  const deploymentStart = BigInt(ctx.deployment.startBlock ?? 0);
+  const startBlock = deploymentStart > windowStart ? deploymentStart : windowStart;
   const chunkSize = CHAIN_SCAN_CHUNKS[ctx.config.chain.id] ?? DEFAULT_SCAN_CHUNK_SIZE;
   const ranges = getScanRanges(startBlock, latest, chunkSize);
 
   const placed: Array<any> = [];
-  const placedV2: Array<any> = [];
   const filled: Array<any> = [];
-  const filledV2: Array<any> = [];
   const cancelled: Array<any> = [];
-  const cancelledV2: Array<any> = [];
 
-  for (const range of ranges) {
-    const [
-      chunkPlaced,
-      chunkPlacedV2,
-      chunkFilledAsTaker,
-      chunkFilledV2AsTaker,
-      chunkFilledAsMaker,
-      chunkFilledV2AsMaker,
-      chunkCancelled,
-      chunkCancelledV2,
-    ] = await Promise.all([
-      publicClient.getLogs({
-        address: soothBook,
-        event: ORDER_PLACED,
-        args: { marketKey, maker: owner },
-        fromBlock: range.from,
-        toBlock: range.to,
-      }),
-      publicClient.getLogs({
-        address: soothBook,
-        event: ORDER_PLACED_V2,
-        args: { marketKey, maker: owner },
-        fromBlock: range.from,
-        toBlock: range.to,
-      }),
-      publicClient.getLogs({
-        address: soothBook,
-        event: ORDER_FILLED,
-        args: { marketKey, taker: owner },
-        fromBlock: range.from,
-        toBlock: range.to,
-      }),
-      publicClient.getLogs({
-        address: soothBook,
-        event: ORDER_FILLED_V2,
-        args: { marketKey, taker: owner },
-        fromBlock: range.from,
-        toBlock: range.to,
-      }),
-      publicClient.getLogs({
-        address: soothBook,
-        event: ORDER_FILLED,
-        args: { marketKey, maker: owner },
-        fromBlock: range.from,
-        toBlock: range.to,
-      }),
-      publicClient.getLogs({
-        address: soothBook,
-        event: ORDER_FILLED_V2,
-        args: { marketKey, maker: owner },
-        fromBlock: range.from,
-        toBlock: range.to,
-      }),
-      publicClient.getLogs({
-        address: soothBook,
-        event: ORDER_CANCELLED,
-        args: { marketKey, maker: owner },
-        fromBlock: range.from,
-        toBlock: range.to,
-      }),
-      publicClient.getLogs({
-        address: soothBook,
-        event: ORDER_CANCELLED_V2,
-        args: { marketKey, maker: owner },
-        fromBlock: range.from,
-        toBlock: range.to,
-      }),
-    ]);
+  for (let offset = 0; offset < ranges.length; offset += HISTORY_RANGE_CONCURRENCY) {
+    const batch = await Promise.all(
+      ranges.slice(offset, offset + HISTORY_RANGE_CONCURRENCY).map(async (range) =>
+        Promise.all([
+          publicClient.getLogs({
+            address: soothBook,
+            event: ORDER_PLACED,
+            args: { marketKey, maker: owner },
+            fromBlock: range.from,
+            toBlock: range.to,
+          }),
+          publicClient.getLogs({
+            address: soothBook,
+            event: ORDER_FILLED,
+            args: { marketKey, taker: owner },
+            fromBlock: range.from,
+            toBlock: range.to,
+          }),
+          publicClient.getLogs({
+            address: soothBook,
+            event: ORDER_FILLED,
+            args: { marketKey, maker: owner },
+            fromBlock: range.from,
+            toBlock: range.to,
+          }),
+          publicClient.getLogs({
+            address: soothBook,
+            event: ORDER_CANCELLED,
+            args: { marketKey, maker: owner },
+            fromBlock: range.from,
+            toBlock: range.to,
+          }),
+        ]),
+      ),
+    );
 
-    placed.push(...chunkPlaced);
-    placedV2.push(...chunkPlacedV2);
-    filled.push(...chunkFilledAsTaker, ...chunkFilledAsMaker);
-    filledV2.push(...chunkFilledV2AsTaker, ...chunkFilledV2AsMaker);
-    cancelled.push(...chunkCancelled);
-    cancelledV2.push(...chunkCancelledV2);
+    for (const [chunkPlaced, chunkFilledAsTaker, chunkFilledAsMaker, chunkCancelled] of batch) {
+      placed.push(...chunkPlaced);
+      filled.push(...chunkFilledAsTaker, ...chunkFilledAsMaker);
+      cancelled.push(...chunkCancelled);
+    }
   }
 
   const items: HistoryFeedItem[] = [];
@@ -354,22 +319,7 @@ async function fetchUserHistoryFeed(
   for (const log of placed) {
     const side = Number(log.args.side) === 1 ? 'YES' : 'NO';
     items.push({
-      id: `${log.transactionHash}-${log.logIndex}-p`,
-      type: 'placed',
-      side,
-      tick: String(log.args.tick),
-      amount: log.args.amount ?? 0n,
-      escrow: Boolean(log.args.escrow),
-      who: log.args.maker as `0x${string}`,
-      block: log.blockNumber ?? 0n,
-      logIndex: Number(log.logIndex),
-    });
-  }
-
-  for (const log of placedV2) {
-    const side = Number(log.args.side) === 1 ? 'YES' : 'NO';
-    items.push({
-      id: `${log.transactionHash}-${log.logIndex}-p2`,
+      id: getEventIdentity(ctx.config.chain.id, log.transactionHash, Number(log.logIndex)),
       type: 'placed',
       side,
       tick: String(log.args.tick),
@@ -388,28 +338,7 @@ async function fetchUserHistoryFeed(
     const makerSide: 'YES' | 'NO' = takerSide === 1 ? 'NO' : 'YES';
     const makerTick = takerSide === 1 ? String(log.args.noTick) : String(log.args.yesTick);
     items.push({
-      id: `${log.transactionHash}-${log.logIndex}-f`,
-      type: 'filled',
-      side,
-      tick: `${log.args.yesTick}/${log.args.noTick}`,
-      amount: log.args.amount ?? 0n,
-      surplus: log.args.surplus ?? 0n,
-      who: log.args.taker as `0x${string}`,
-      maker: log.args.maker as `0x${string}`,
-      makerSide,
-      makerTick,
-      block: log.blockNumber ?? 0n,
-      logIndex: Number(log.logIndex),
-    });
-  }
-
-  for (const log of filledV2) {
-    const takerSide = Number(log.args.takerSide);
-    const side = takerSide === 1 ? 'YES' : 'NO';
-    const makerSide: 'YES' | 'NO' = takerSide === 1 ? 'NO' : 'YES';
-    const makerTick = takerSide === 1 ? String(log.args.noTick) : String(log.args.yesTick);
-    items.push({
-      id: `${log.transactionHash}-${log.logIndex}-f2`,
+      id: getEventIdentity(ctx.config.chain.id, log.transactionHash, Number(log.logIndex)),
       type: 'filled',
       side,
       tick: `${log.args.yesTick}/${log.args.noTick}`,
@@ -428,21 +357,7 @@ async function fetchUserHistoryFeed(
   for (const log of cancelled) {
     const side = Number(log.args.side) === 1 ? 'YES' : 'NO';
     items.push({
-      id: `${log.transactionHash}-${log.logIndex}-c`,
-      type: 'cancelled',
-      side,
-      tick: String(log.args.tick),
-      amount: log.args.amount ?? 0n,
-      who: log.args.maker as `0x${string}`,
-      block: log.blockNumber ?? 0n,
-      logIndex: Number(log.logIndex),
-    });
-  }
-
-  for (const log of cancelledV2) {
-    const side = Number(log.args.side) === 1 ? 'YES' : 'NO';
-    items.push({
-      id: `${log.transactionHash}-${log.logIndex}-c2`,
+      id: getEventIdentity(ctx.config.chain.id, log.transactionHash, Number(log.logIndex)),
       type: 'cancelled',
       side,
       tick: String(log.args.tick),
@@ -474,7 +389,7 @@ async function fetchUserHistoryFeed(
     if (a.block === b.block) return b.logIndex - a.logIndex;
     return a.block > b.block ? -1 : 1;
   });
-  return finalItems;
+  return { items: finalItems, fromBlock: startBlock, toBlock: latest };
 }
 
 function buildHistoryEntries(feed: HistoryFeedItem[], userLower: string): HistoryEntry[] {
@@ -856,7 +771,7 @@ export async function book(ctx: CommandContext, args: string[]): Promise<Command
       readContractWithRpcFallback<readonly [bigint, bigint]>(ctx.config.chain, ctx.config.rpc, {
         address: soothBook,
         abi: ABIS.SoothBook,
-        functionName: 'getImpliedPrice',
+        functionName: 'getImpliedPriceByKey',
         args: [marketKey],
       }),
     ]);
@@ -1092,7 +1007,7 @@ export async function history(ctx: CommandContext, args: string[]): Promise<Comm
     const { page, pageSize } = parseHistoryPagination(args);
     const address = actor.account.address;
     const feed = await fetchUserHistoryFeed(ctx, soothBook, marketKey, address);
-    const entries = buildHistoryEntries(feed, address.toLowerCase());
+    const entries = buildHistoryEntries(feed.items, address.toLowerCase());
     const total = entries.length;
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
     const safePage = Math.min(page, totalPages);
@@ -1102,6 +1017,9 @@ export async function history(ctx: CommandContext, args: string[]): Promise<Comm
     console.log(`\n  ${bold('Order History')} ${dim(`(${actor.name})`)}`);
     console.log(`  Page ${safePage}/${totalPages} • Showing ${paged.length} of ${total}`);
     console.log(
+      `  ${dim(`Source: RPC • completeness: windowed • blocks ${feed.fromBlock}-${feed.toBlock}`)}`,
+    );
+    console.log(
       `  ${dim('Refund Amt = taker surplus on fills, or returned collateral on non-escrow cancels.')}`,
     );
 
@@ -1110,7 +1028,17 @@ export async function history(ctx: CommandContext, args: string[]): Promise<Comm
       console.log('');
       return {
         success: true,
-        data: { page: safePage, pageSize, total, totalPages, rows: [] },
+        data: {
+          page: safePage,
+          pageSize,
+          total,
+          totalPages,
+          rows: [],
+          source: 'rpc',
+          completeness: 'windowed',
+          fromBlock: feed.fromBlock.toString(),
+          toBlock: feed.toBlock.toString(),
+        },
       };
     }
 
@@ -1132,7 +1060,17 @@ export async function history(ctx: CommandContext, args: string[]): Promise<Comm
 
     return {
       success: true,
-      data: { page: safePage, pageSize, total, totalPages, rows: paged },
+      data: {
+        page: safePage,
+        pageSize,
+        total,
+        totalPages,
+        rows: paged,
+        source: 'rpc',
+        completeness: 'windowed',
+        fromBlock: feed.fromBlock.toString(),
+        toBlock: feed.toBlock.toString(),
+      },
     };
   } catch (err) {
     return { success: false, message: (err as Error).message };
