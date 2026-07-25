@@ -5,7 +5,8 @@
  * RPC resolution order:
  *   1. --rpc=<url> CLI flag
  *   2. `rpc set <url>` interactive command
- *   3. Registry public RPC (default)
+ *   3. Registry RPCs (native MegaETH first because the Sooth proxy can reject
+ *      CLI JSON-RPC requests)
  */
 
 import { readFileSync } from 'node:fs';
@@ -110,6 +111,7 @@ export interface Deployment {
   chainId: number;
   chainName: string;
   coreVersion: string;
+  startBlock?: number;
   contracts: {
     SoothBook?: string;
     BaseToken: string;
@@ -143,6 +145,7 @@ function nodeToDeployment(node: SoothNode, chain: ChainMeta): Deployment {
     chainId: node.chainId,
     chainName: chain.name,
     coreVersion: node.coreVersion,
+    startBlock: node.startBlock,
     contracts: {
       SoothBook: node.contracts.soothBook,
       BaseToken: node.contracts.baseToken,
@@ -189,6 +192,13 @@ function readPackageVersion(): string {
 
 export const SDK_VERSION = readPackageVersion();
 
+function getDefaultRpcCandidates(chainId: number, registryRpcs: string[]): string[] {
+  if (chainId !== megaethTestnet.id) return [...registryRpcs];
+
+  const nativeRpc = megaethTestnet.rpcUrls.default.http[0];
+  return [nativeRpc, ...registryRpcs.filter((rpc) => rpc !== nativeRpc)];
+}
+
 export interface InteractiveConfig {
   nodeId: string;
   chainName: string;
@@ -213,8 +223,9 @@ export function createConfig(nodeIdInput: string): InteractiveConfig {
     throw new Error(`Chain metadata not found for chainId ${node.chainId}`);
   }
 
-  const rpc = chainMeta.rpcUrls[0];
-  const chain = toViemChain(node.chainId, [rpc]);
+  const rpcCandidates = getDefaultRpcCandidates(node.chainId, chainMeta.rpcUrls);
+  const rpc = rpcCandidates[0];
+  const chain = toViemChain(node.chainId, rpcCandidates);
 
   return {
     nodeId,
@@ -454,6 +465,23 @@ export const ABIS = {
         { type: 'uint256', name: 'totalAmount' },
         { type: 'uint256', name: 'orderCount' },
       ],
+      stateMutability: 'view',
+    },
+    {
+      name: 'getImpliedPriceByKey',
+      type: 'function',
+      inputs: [{ type: 'bytes32', name: 'marketKey' }],
+      outputs: [
+        { type: 'uint256', name: 'yesPrice' },
+        { type: 'uint256', name: 'noPrice' },
+      ],
+      stateMutability: 'view',
+    },
+    {
+      name: 'registeredMarkets',
+      type: 'function',
+      inputs: [{ type: 'bytes32', name: 'marketKey' }],
+      outputs: [{ type: 'bool' }],
       stateMutability: 'view',
     },
     {
