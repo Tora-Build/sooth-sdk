@@ -4,9 +4,9 @@
  */
 
 import { parseUnits } from 'viem';
-import type { SoothClient } from './client';
-import type { MarketInfo, Position, TradeParams } from './types';
-import { LaunchpadEngineABI, AMMEngineABI } from './core/abis';
+import type { SoothClient } from './client.js';
+import type { MarketInfo, Position, TradeParams } from './types.js';
+import { LaunchpadEngineABI, AMMEngineABI } from './core/abis/index.js';
 
 const WAD = 1_000_000_000_000_000_000n; // 1e18
 

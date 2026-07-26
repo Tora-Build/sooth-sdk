@@ -3,7 +3,7 @@
  */
 
 import { formatUnits, parseUnits, maxUint256 } from 'viem';
-import type { SoothClient } from './client';
+import type { SoothClient } from './client.js';
 
 const ERC20Abi = [
   {

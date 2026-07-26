@@ -7,8 +7,8 @@
  */
 
 import { keccak256, encodePacked, parseUnits } from 'viem';
-import type { SoothClient } from './client';
-import { SoothBookABI } from './core/abis';
+import type { SoothClient } from './client.js';
+import { SoothBookABI } from './core/abis/index.js';
 
 /** Default max maker orders a taker will cross in one call. */
 const DEFAULT_MATCH_LIMIT = 100;

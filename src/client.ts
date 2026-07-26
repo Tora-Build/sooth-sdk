@@ -18,12 +18,12 @@ import {
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
-import { Registry } from './registry';
-import { Markets } from './market';
-import { Orderbook } from './orderbook';
-import { Wallet } from './wallet';
-import type { SoothClientOptions } from './types';
-import type { SoothNode, ChainMeta } from './registry-types';
+import { Registry } from './registry.js';
+import { Markets } from './market.js';
+import { Orderbook } from './orderbook.js';
+import { Wallet } from './wallet.js';
+import type { SoothClientOptions } from './types.js';
+import type { SoothNode, ChainMeta } from './registry-types.js';
 
 function toViemChain(meta: ChainMeta, chainId: number, rpcUrls: string[]): Chain {
   return defineChain({
