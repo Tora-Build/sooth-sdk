@@ -16,7 +16,7 @@ export interface SoothClientOptions {
 // Node/chain shapes come from the registry — re-exported from a single source
 // (registry-types) rather than redeclared here, so fields like `coreVersion`,
 // `adjudicators`, and `multicall3` can't silently drop out.
-export type { SoothNode, ChainMeta } from './registry-types';
+export type { SoothNode, ChainMeta } from './registry-types.js';
 
 export interface MarketInfo {
   address: `0x${string}`;

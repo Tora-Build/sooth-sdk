@@ -12,8 +12,8 @@
  *   import { ABIS, computeLMSR } from 'sooth/core'
  */
 
-export { SoothClient } from './client';
-export { Registry } from './registry';
+export { SoothClient } from './client.js';
+export { Registry } from './registry.js';
 export type {
   SoothNode,
   SoothContracts,
@@ -21,7 +21,7 @@ export type {
   ChainMeta,
   NodesManifest,
   Address,
-} from './registry-types';
+} from './registry-types.js';
 // Registry resolution: injected → HTTP (2s timeout) → embedded snapshot.
 // Exported so consumers can inject a manifest (setManifest / setManifestProvider)
 // or drive resolution directly (loadManifest) — the same robust path the SDK uses.
@@ -31,10 +31,10 @@ export {
   setManifestProvider,
   resetManifest,
   refreshManifestInBackground,
-} from './registry-loader';
-export { Markets } from './market';
-export { Orderbook } from './orderbook';
-export { Wallet } from './wallet';
+} from './registry-loader.js';
+export { Markets } from './market.js';
+export { Orderbook } from './orderbook.js';
+export { Wallet } from './wallet.js';
 export type {
   SoothClientOptions,
   MarketInfo,
@@ -42,4 +42,4 @@ export type {
   TradeParams,
   OrderbookOrder,
   SoothClients,
-} from './types';
+} from './types.js';

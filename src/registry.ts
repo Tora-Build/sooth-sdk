@@ -8,8 +8,8 @@
  * clients on different URLs can't read each other's data.
  */
 
-import { loadManifest } from './registry-loader';
-import type { SoothNode, ChainMeta, NodesManifest } from './registry-types';
+import { loadManifest } from './registry-loader.js';
+import type { SoothNode, ChainMeta, NodesManifest } from './registry-types.js';
 
 export type {
   SoothNode,
@@ -17,7 +17,7 @@ export type {
   ChainMeta,
   NodesManifest,
   Address,
-} from './registry-types';
+} from './registry-types.js';
 
 export class Registry {
   private url?: string;

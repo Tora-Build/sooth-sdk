@@ -20,7 +20,7 @@
  */
 
 import { defineChain, type Chain } from 'viem';
-import type { ChainMeta, NodesManifest, SoothNode } from './registry-types';
+import type { ChainMeta, NodesManifest, SoothNode } from './registry-types.js';
 // Embedded snapshot — shipped with every SDK release as the offline fallback.
 // Must be re-vendored whenever packages/registry/nodes.json changes (CI guard).
 import embeddedSnapshot from '../data/nodes.snapshot.json' with { type: 'json' };
