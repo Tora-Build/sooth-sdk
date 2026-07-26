@@ -1,110 +1,17 @@
 /**
- * Orderbook — SoothBook read/write operations
+ * Orderbook — SoothBook read/write operations.
+ * Uses the canonical, unit-tested SoothBookABI from ./core/abis (no inline
+ * redeclaration). The prior inline ABI had drifted from the deployed v0.2.1
+ * contract — buyYes/buyNo's 5th arg is matchLimit (uint32), markets() was
+ * removed, and the keyed price getter is getImpliedPriceByKey.
  */
 
 import { keccak256, encodePacked, parseUnits } from 'viem';
 import type { SoothClient } from './client';
+import { SoothBookABI } from './core/abis';
 
-const SoothBookAbi = [
-  {
-    name: 'buyYes',
-    type: 'function',
-    inputs: [
-      { type: 'bytes32', name: 'marketKey' },
-      { type: 'uint16', name: 'tick' },
-      { type: 'uint128', name: 'amount' },
-      { type: 'bool', name: 'escrow' },
-      { type: 'uint256', name: 'maxCost' },
-    ],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    name: 'buyNo',
-    type: 'function',
-    inputs: [
-      { type: 'bytes32', name: 'marketKey' },
-      { type: 'uint16', name: 'tick' },
-      { type: 'uint128', name: 'amount' },
-      { type: 'bool', name: 'escrow' },
-      { type: 'uint256', name: 'maxCost' },
-    ],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    name: 'cancel',
-    type: 'function',
-    inputs: [
-      { type: 'bytes32', name: 'marketKey' },
-      { type: 'uint8', name: 'side' },
-      { type: 'uint16', name: 'tick' },
-    ],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    name: 'getBalance',
-    type: 'function',
-    inputs: [
-      { type: 'bytes32', name: 'marketKey' },
-      { type: 'address', name: 'user' },
-    ],
-    outputs: [
-      { type: 'uint256', name: 'yes' },
-      { type: 'uint256', name: 'no' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    name: 'getBestTick',
-    type: 'function',
-    inputs: [
-      { type: 'bytes32', name: 'marketKey' },
-      { type: 'uint8', name: 'side' },
-    ],
-    outputs: [{ type: 'uint16' }],
-    stateMutability: 'view',
-  },
-  {
-    name: 'getOrdersAtTick',
-    type: 'function',
-    inputs: [
-      { type: 'bytes32', name: 'marketKey' },
-      { type: 'uint8', name: 'side' },
-      { type: 'uint16', name: 'tick' },
-    ],
-    outputs: [
-      { type: 'uint256', name: 'totalAmount' },
-      { type: 'uint256', name: 'orderCount' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    name: 'getImpliedPrice',
-    type: 'function',
-    inputs: [{ type: 'bytes32', name: 'marketKey' }],
-    outputs: [
-      { type: 'uint256', name: 'yesPrice' },
-      { type: 'uint256', name: 'noPrice' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    name: 'markets',
-    type: 'function',
-    inputs: [{ type: 'bytes32' }],
-    outputs: [
-      { type: 'address', name: 'collateral' },
-      { type: 'address', name: 'yesToken' },
-      { type: 'address', name: 'noToken' },
-      { type: 'bool', name: 'active' },
-      { type: 'bool', name: 'finalized' },
-      { type: 'uint8', name: 'outcome' },
-    ],
-    stateMutability: 'view',
-  },
-] as const;
+/** Default max maker orders a taker will cross in one call. */
+const DEFAULT_MATCH_LIMIT = 100;
 
 export class Orderbook {
   private client: SoothClient;
@@ -113,67 +20,73 @@ export class Orderbook {
     this.client = client;
   }
 
-  /** Compute market key from address: keccak256(encodePacked(address)) */
+  /** Compute market key from address: keccak256(encodePacked(address)). */
   marketKey(market: `0x${string}`): `0x${string}` {
     return keccak256(encodePacked(['address'], [market]));
   }
 
-  /** Get SoothBook market state */
-  async getMarket(marketKey: `0x${string}`) {
-    const result = (await this.client.publicClient.readContract({
+  /** Whether a market key is registered on SoothBook. Replaces the removed
+   *  `markets(bytes32)` struct getter (v0.2.1 no longer exposes it). */
+  async isRegistered(marketKey: `0x${string}`): Promise<boolean> {
+    return (await this.client.publicClient.readContract({
       address: this.client.contracts.soothBook,
-      abi: SoothBookAbi,
-      functionName: 'markets',
+      abi: SoothBookABI,
+      functionName: 'registeredMarkets',
       args: [marketKey],
-    })) as [`0x${string}`, `0x${string}`, `0x${string}`, boolean, boolean, number];
-    return {
-      collateral: result[0],
-      yesToken: result[1],
-      noToken: result[2],
-      active: result[3],
-      finalized: result[4],
-      outcome: result[5],
-    };
+    })) as boolean;
   }
 
-  /** Get best tick for a side (0=YES, 1=NO) */
+  /** Best resting tick for a side (0=YES, 1=NO). */
   async getBestTick(marketKey: `0x${string}`, side: 'yes' | 'no'): Promise<number> {
     const sideNum = side === 'yes' ? 0 : 1;
     const result = await this.client.publicClient.readContract({
       address: this.client.contracts.soothBook,
-      abi: SoothBookAbi,
+      abi: SoothBookABI,
       functionName: 'getBestTick',
       args: [marketKey, sideNum],
     });
     return Number(result);
   }
 
-  /** Get implied price */
+  /** Implied YES/NO price for a market key (bytes32). */
   async getImpliedPrice(marketKey: `0x${string}`): Promise<{ yesPrice: bigint; noPrice: bigint }> {
     const result = (await this.client.publicClient.readContract({
       address: this.client.contracts.soothBook,
-      abi: SoothBookAbi,
-      functionName: 'getImpliedPrice',
+      abi: SoothBookABI,
+      functionName: 'getImpliedPriceByKey',
       args: [marketKey],
-    })) as [bigint, bigint];
+    })) as readonly [bigint, bigint];
     return { yesPrice: result[0], noPrice: result[1] };
   }
 
-  /** Get user balances in SoothBook */
+  /** Implied YES/NO price for a market address. */
+  async getImpliedPriceByMarket(
+    market: `0x${string}`,
+  ): Promise<{ yesPrice: bigint; noPrice: bigint }> {
+    const result = (await this.client.publicClient.readContract({
+      address: this.client.contracts.soothBook,
+      abi: SoothBookABI,
+      functionName: 'getImpliedPrice',
+      args: [market],
+    })) as readonly [bigint, bigint];
+    return { yesPrice: result[0], noPrice: result[1] };
+  }
+
+  /** User YES/NO balances held in SoothBook. */
   async getBalance(
     marketKey: `0x${string}`,
     user: `0x${string}`,
   ): Promise<{ yes: bigint; no: bigint }> {
     const result = (await this.client.publicClient.readContract({
       address: this.client.contracts.soothBook,
-      abi: SoothBookAbi,
+      abi: SoothBookABI,
       functionName: 'getBalance',
       args: [marketKey, user],
-    })) as [bigint, bigint];
+    })) as readonly [bigint, bigint];
     return { yes: result[0], no: result[1] };
   }
 
-  /** Get orders at a specific tick */
+  /** Resting depth at a specific tick. */
   async getOrdersAtTick(
     marketKey: `0x${string}`,
     side: 'yes' | 'no',
@@ -182,51 +95,71 @@ export class Orderbook {
     const sideNum = side === 'yes' ? 0 : 1;
     const result = (await this.client.publicClient.readContract({
       address: this.client.contracts.soothBook,
-      abi: SoothBookAbi,
+      abi: SoothBookABI,
       functionName: 'getOrdersAtTick',
       args: [marketKey, sideNum, tick],
-    })) as [bigint, bigint];
+    })) as readonly [bigint, bigint];
     return { totalAmount: result[0], orderCount: result[1] };
   }
 
-  /** Place a YES buy order */
+  /** Place a YES buy/limit order. `matchLimit` caps maker orders crossed. */
   async buyYes(
     marketKey: `0x${string}`,
-    params: { tick: number; amount: string; escrow?: boolean; maxCost?: string },
+    params: { tick: number; amount: string; escrow?: boolean; matchLimit?: number },
   ): Promise<`0x${string}`> {
     const amount = parseUnits(params.amount, 18);
-    const maxCost = params.maxCost ? parseUnits(params.maxCost, 18) : amount;
     return this.client.writeContract({
       address: this.client.contracts.soothBook,
-      abi: SoothBookAbi,
+      abi: SoothBookABI,
       functionName: 'buyYes',
-      args: [marketKey, params.tick, amount, params.escrow ?? false, maxCost],
+      args: [
+        marketKey,
+        params.tick,
+        amount,
+        params.escrow ?? false,
+        params.matchLimit ?? DEFAULT_MATCH_LIMIT,
+      ],
     });
   }
 
-  /** Place a NO buy order */
+  /** Place a NO buy/limit order. `matchLimit` caps maker orders crossed. */
   async buyNo(
     marketKey: `0x${string}`,
-    params: { tick: number; amount: string; escrow?: boolean; maxCost?: string },
+    params: { tick: number; amount: string; escrow?: boolean; matchLimit?: number },
   ): Promise<`0x${string}`> {
     const amount = parseUnits(params.amount, 18);
-    const maxCost = params.maxCost ? parseUnits(params.maxCost, 18) : amount;
     return this.client.writeContract({
       address: this.client.contracts.soothBook,
-      abi: SoothBookAbi,
+      abi: SoothBookABI,
       functionName: 'buyNo',
-      args: [marketKey, params.tick, amount, params.escrow ?? false, maxCost],
+      args: [
+        marketKey,
+        params.tick,
+        amount,
+        params.escrow ?? false,
+        params.matchLimit ?? DEFAULT_MATCH_LIMIT,
+      ],
     });
   }
 
-  /** Cancel an order */
+  /** Cancel a resting order by (side, tick). */
   async cancel(marketKey: `0x${string}`, side: 'yes' | 'no', tick: number): Promise<`0x${string}`> {
     const sideNum = side === 'yes' ? 0 : 1;
     return this.client.writeContract({
       address: this.client.contracts.soothBook,
-      abi: SoothBookAbi,
+      abi: SoothBookABI,
       functionName: 'cancel',
       args: [marketKey, sideNum, tick],
+    });
+  }
+
+  /** Cancel a resting order by its order id. */
+  async cancelById(orderId: bigint): Promise<`0x${string}`> {
+    return this.client.writeContract({
+      address: this.client.contracts.soothBook,
+      abi: SoothBookABI,
+      functionName: 'cancelById',
+      args: [orderId],
     });
   }
 }

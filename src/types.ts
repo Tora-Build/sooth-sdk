@@ -13,42 +13,20 @@ export interface SoothClientOptions {
   registryUrl?: string;
 }
 
-export interface NodeInfo {
-  id: string;
-  chainId: number;
-  contracts: {
-    launchpadEngine: `0x${string}`;
-    soothBook: `0x${string}`;
-    ammEngine: `0x${string}`;
-    orderEngine: `0x${string}`;
-    truthMarket: `0x${string}`;
-    feeRouter: `0x${string}`;
-    adjudicatorRegistry: `0x${string}`;
-    baseToken: `0x${string}`;
-  };
-  deployedAt: string;
-  deployedBy: `0x${string}`;
-  startBlock?: number;
-  indexed?: boolean;
-}
-
-export interface ChainInfo {
-  name: string;
-  nativeCurrency: { name: string; symbol: string; decimals: number };
-  rpcUrls: string[];
-  explorer: { name: string; url: string };
-  testnet: boolean;
-}
+// Node/chain shapes come from the registry — re-exported from a single source
+// (registry-types) rather than redeclared here, so fields like `coreVersion`,
+// `adjudicators`, and `multicall3` can't silently drop out.
+export type { SoothNode, ChainMeta } from './registry-types';
 
 export interface MarketInfo {
   address: `0x${string}`;
   creator: `0x${string}`;
+  lpToken: `0x${string}`;
   bBase: bigint;
-  bCurrent: bigint;
-  feesAccrued: bigint;
-  totalLPSupply: bigint;
+  creatorDeposit: bigint;
+  /** 0 until the market graduates; the block-timestamp of graduation after. */
+  graduatedAt: bigint;
   isGraduated: boolean;
-  createdAt: bigint;
 }
 
 export interface Position {
@@ -58,8 +36,13 @@ export interface Position {
 
 export interface TradeParams {
   outcome: 'yes' | 'no';
+  /** 'buy' (default) increases the position; 'sell' decreases it. */
+  side?: 'buy' | 'sell';
   shares: string;
-  maxCost: string;
+  /** Max cost for a buy. Required for a buy; ignored on a sell. */
+  maxCost?: string;
+  /** Min proceeds for a sell. Defaults to 0 (accept any proceeds). */
+  minProceeds?: string;
 }
 
 export interface OrderbookOrder {
