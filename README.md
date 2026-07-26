@@ -6,7 +6,8 @@ TypeScript SDK and `soothcli` REPL for the Sooth Protocol. Pairs with [`Tora-Bui
 
 This repo:
 
-- Ships `sooth` (npm) — programmatic access to LaunchpadEngine, AMMEngine, SoothBook, OrderEngine, TruthMarket, FeeRouter.
+- Ships `sooth` (npm) — programmatic access to LaunchpadEngine, AMMEngine,
+  ManualAdjudicator, SoothBook, OrderEngine, TruthMarket, and FeeRouter.
 - Ships `soothcli` — interactive REPL for Sooth nodes (`soothcli <nodeId>`, `soothcli --list`).
 - Versioning is locked to the contract version it speaks. v0.2.1 of this SDK targets [`sooth-core`](https://github.com/Tora-Build/sooth-core) v0.2.1; the CLI rejects nodes whose `coreVersion` doesn't match (see `src/cli/config.ts:SUPPORTED_CORE_VERSION`).
 - Migration playbook: `.claude/skills/cli-migration/` (covers ABI drift, parseAbi audits, per-chain RPC config, multi-chain test sweeps).

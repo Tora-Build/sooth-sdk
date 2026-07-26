@@ -1,9 +1,27 @@
+// AMMEngine v0.2.1 — complete ABI (constructor, functions, events, custom errors).
+// Vendored from the canonical sooth-core artifact and verified against deployed
+// Ethereum Sepolia bytecode at 0x1Bab97dBCE105E8715A29B33cd18F0d8B9871383 on 2026-07-27.
 export const AMMEngineABI = [
   {
     type: 'constructor',
     inputs: [
       {
-        name: '_usdc',
+        name: '_baseToken',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: '_launchpadEngine',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: '_orderEngine',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: '_feeRouter',
         type: 'address',
         internalType: 'address',
       },
@@ -11,6 +29,62 @@ export const AMMEngineABI = [
         name: '_owner',
         type: 'address',
         internalType: 'address',
+      },
+      {
+        name: '_lockDuration',
+        type: 'uint64',
+        internalType: 'uint64',
+      },
+    ],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'baseToken',
+    inputs: [],
+    outputs: [
+      {
+        name: '',
+        type: 'address',
+        internalType: 'contract IERC20',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'claimAdjudicatorFees',
+    inputs: [
+      {
+        name: 'market',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    outputs: [
+      {
+        name: 'amount',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+    ],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'claimProtocolFees',
+    inputs: [
+      {
+        name: 'market',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    outputs: [
+      {
+        name: 'amount',
+        type: 'uint256',
+        internalType: 'uint256',
       },
     ],
     stateMutability: 'nonpayable',
@@ -36,43 +110,13 @@ export const AMMEngineABI = [
   },
   {
     type: 'function',
-    name: 'claimProtocolFees',
-    inputs: [
-      {
-        name: 'market',
-        type: 'address',
-        internalType: 'address',
-      },
-    ],
+    name: 'feeRouter',
+    inputs: [],
     outputs: [
       {
-        name: 'claimed',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
-    ],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    name: 'getBalances',
-    inputs: [
-      {
-        name: 'user',
+        name: '',
         type: 'address',
-        internalType: 'address',
-      },
-    ],
-    outputs: [
-      {
-        name: 'available',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
-      {
-        name: 'locked',
-        type: 'uint256',
-        internalType: 'uint256',
+        internalType: 'contract IFeeRouter',
       },
     ],
     stateMutability: 'view',
@@ -163,6 +207,44 @@ export const AMMEngineABI = [
   },
   {
     type: 'function',
+    name: 'getMarketCollateral',
+    inputs: [
+      {
+        name: 'market',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    outputs: [
+      {
+        name: '',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getMarketLockedLiability',
+    inputs: [
+      {
+        name: 'market',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    outputs: [
+      {
+        name: '',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     name: 'getMarketState',
     inputs: [
       {
@@ -184,6 +266,25 @@ export const AMMEngineABI = [
       },
       {
         name: 'price',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getPendingLocks',
+    inputs: [
+      {
+        name: 'user',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    outputs: [
+      {
+        name: 'totalLocked',
         type: 'uint256',
         internalType: 'uint256',
       },
@@ -283,6 +384,24 @@ export const AMMEngineABI = [
   },
   {
     type: 'function',
+    name: 'increaseLiquidityFromCreator',
+    inputs: [
+      {
+        name: 'market',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: 'additionalB',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
     name: 'initializeMarket',
     inputs: [
       {
@@ -295,9 +414,105 @@ export const AMMEngineABI = [
         type: 'uint256',
         internalType: 'uint256',
       },
+      {
+        name: 'initialQYes',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+      {
+        name: 'initialQNo',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+      {
+        name: 'creatorDeposit',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
     ],
     outputs: [],
     stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'launchpadEngine',
+    inputs: [],
+    outputs: [
+      {
+        name: '',
+        type: 'address',
+        internalType: 'contract ILaunchpadEngine',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'lockDuration',
+    inputs: [],
+    outputs: [
+      {
+        name: '',
+        type: 'uint64',
+        internalType: 'uint64',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'lpTokens',
+    inputs: [
+      {
+        name: '',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    outputs: [
+      {
+        name: '',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'mintLPTokens',
+    inputs: [
+      {
+        name: 'market',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: 'to',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: 'amount',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'orderEngine',
+    inputs: [],
+    outputs: [
+      {
+        name: '',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    stateMutability: 'view',
   },
   {
     type: 'function',
@@ -314,6 +529,24 @@ export const AMMEngineABI = [
   },
   {
     type: 'function',
+    name: 'postSettlementRoot',
+    inputs: [
+      {
+        name: 'market',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: 'merkleRoot',
+        type: 'bytes32',
+        internalType: 'bytes32',
+      },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
     name: 'protocolTreasury',
     inputs: [],
     outputs: [
@@ -324,6 +557,24 @@ export const AMMEngineABI = [
       },
     ],
     stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'recordOrderEngineFeeRevenue',
+    inputs: [
+      {
+        name: 'market',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: 'amount',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
   },
   {
     type: 'function',
@@ -358,23 +609,15 @@ export const AMMEngineABI = [
   },
   {
     type: 'function',
-    name: 'router',
-    inputs: [],
-    outputs: [
+    name: 'setLPToken',
+    inputs: [
       {
-        name: '',
+        name: 'market',
         type: 'address',
         internalType: 'address',
       },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'setRouter',
-    inputs: [
       {
-        name: '_router',
+        name: 'lpToken',
         type: 'address',
         internalType: 'address',
       },
@@ -384,78 +627,16 @@ export const AMMEngineABI = [
   },
   {
     type: 'function',
-    name: 'settleLockedProceeds',
+    name: 'setProtocolTreasury',
     inputs: [
       {
-        name: 'maxEntries',
-        type: 'uint256',
-        internalType: 'uint256',
+        name: 'treasury',
+        type: 'address',
+        internalType: 'address',
       },
     ],
-    outputs: [
-      {
-        name: 'released',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
-      {
-        name: 'voided',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
-    ],
+    outputs: [],
     stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    name: 'getTradeLog',
-    inputs: [
-      {
-        name: 'market',
-        type: 'address',
-        internalType: 'address',
-      },
-      {
-        name: 'user',
-        type: 'address',
-        internalType: 'address',
-      },
-    ],
-    outputs: [
-      {
-        name: 'entries',
-        type: 'tuple[]',
-        internalType: 'struct AMMEngine.TradeEntry[]',
-        components: [
-          {
-            name: 'absDelta',
-            type: 'uint128',
-            internalType: 'uint128',
-          },
-          {
-            name: 'costOrProceeds',
-            type: 'uint128',
-            internalType: 'uint128',
-          },
-          {
-            name: 'timestamp',
-            type: 'uint64',
-            internalType: 'uint64',
-          },
-          {
-            name: 'outcome',
-            type: 'uint8',
-            internalType: 'uint8',
-          },
-          {
-            name: 'isBuy',
-            type: 'bool',
-            internalType: 'bool',
-          },
-        ],
-      },
-    ],
-    stateMutability: 'view',
   },
   {
     type: 'function',
@@ -478,27 +659,45 @@ export const AMMEngineABI = [
   },
   {
     type: 'function',
-    name: 'spendBalanceFor',
+    name: 'settlePositionRetroactive',
     inputs: [
       {
-        name: 'user',
+        name: 'market',
         type: 'address',
         internalType: 'address',
       },
       {
-        name: 'amount',
+        name: 'adjustedPayout',
         type: 'uint256',
         internalType: 'uint256',
+      },
+      {
+        name: 'merkleProof',
+        type: 'bytes32[]',
+        internalType: 'bytes32[]',
+      },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'settlementRoots',
+    inputs: [
+      {
+        name: '',
+        type: 'address',
+        internalType: 'address',
       },
     ],
     outputs: [
       {
-        name: 'spent',
-        type: 'uint256',
-        internalType: 'uint256',
+        name: '',
+        type: 'bytes32',
+        internalType: 'bytes32',
       },
     ],
-    stateMutability: 'nonpayable',
+    stateMutability: 'view',
   },
   {
     type: 'function',
@@ -536,50 +735,6 @@ export const AMMEngineABI = [
   },
   {
     type: 'function',
-    name: 'tradePositionsFor',
-    inputs: [
-      {
-        name: 'user',
-        type: 'address',
-        internalType: 'address',
-      },
-      {
-        name: 'market',
-        type: 'address',
-        internalType: 'address',
-      },
-      {
-        name: 'outcome',
-        type: 'uint8',
-        internalType: 'uint8',
-      },
-      {
-        name: 'deltaShares',
-        type: 'int256',
-        internalType: 'int256',
-      },
-      {
-        name: 'maxCostOrMinProceeds',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
-      {
-        name: 'fee',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
-    ],
-    outputs: [
-      {
-        name: 'actualCost',
-        type: 'uint256',
-        internalType: 'uint256',
-      },
-    ],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
     name: 'transferOwnership',
     inputs: [
       {
@@ -592,24 +747,61 @@ export const AMMEngineABI = [
     stateMutability: 'nonpayable',
   },
   {
-    type: 'function',
-    name: 'usdc',
-    inputs: [],
-    outputs: [
+    type: 'event',
+    name: 'AdjudicatorFeesClaimed',
+    inputs: [
       {
-        name: '',
+        name: 'market',
         type: 'address',
-        internalType: 'contract IERC20',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'adjudicator',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'amount',
+        type: 'uint256',
+        indexed: false,
+        internalType: 'uint256',
       },
     ],
-    stateMutability: 'view',
+    anonymous: false,
   },
   {
     type: 'event',
-    name: 'BalanceUsed',
+    name: 'InvalidatedLiabilityRestored',
     inputs: [
       {
-        name: 'user',
+        name: 'market',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'amount',
+        type: 'uint256',
+        indexed: false,
+        internalType: 'uint256',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'LPMinted',
+    inputs: [
+      {
+        name: 'market',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'to',
         type: 'address',
         indexed: true,
         internalType: 'address',
@@ -621,7 +813,38 @@ export const AMMEngineABI = [
         internalType: 'uint256',
       },
       {
-        name: 'remaining',
+        name: 'newTotalSupply',
+        type: 'uint256',
+        indexed: false,
+        internalType: 'uint256',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'LPRedeemed',
+    inputs: [
+      {
+        name: 'user',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'market',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'lpAmount',
+        type: 'uint256',
+        indexed: false,
+        internalType: 'uint256',
+      },
+      {
+        name: 'tokenAmount',
         type: 'uint256',
         indexed: false,
         internalType: 'uint256',
@@ -656,6 +879,99 @@ export const AMMEngineABI = [
   },
   {
     type: 'event',
+    name: 'LiquidityIncreasedFromCreator',
+    inputs: [
+      {
+        name: 'market',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'additionalB',
+        type: 'uint256',
+        indexed: false,
+        internalType: 'uint256',
+      },
+      {
+        name: 'depositRequired',
+        type: 'uint256',
+        indexed: false,
+        internalType: 'uint256',
+      },
+      {
+        name: 'newLiquidity',
+        type: 'uint256',
+        indexed: false,
+        internalType: 'uint256',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'LockEntryRemoved',
+    inputs: [
+      {
+        name: 'user',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'market',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'amount',
+        type: 'uint256',
+        indexed: false,
+        internalType: 'uint256',
+      },
+      {
+        name: 'unlockTime',
+        type: 'uint64',
+        indexed: false,
+        internalType: 'uint64',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'LockEntryVoided',
+    inputs: [
+      {
+        name: 'user',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'market',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'amount',
+        type: 'uint256',
+        indexed: false,
+        internalType: 'uint256',
+      },
+      {
+        name: 'expiry',
+        type: 'uint64',
+        indexed: false,
+        internalType: 'uint64',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
     name: 'LocksProcessed',
     inputs: [
       {
@@ -672,6 +988,25 @@ export const AMMEngineABI = [
       },
       {
         name: 'totalUnlocked',
+        type: 'uint256',
+        indexed: false,
+        internalType: 'uint256',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'MarketInitialized',
+    inputs: [
+      {
+        name: 'market',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'initialLiquidity',
         type: 'uint256',
         indexed: false,
         internalType: 'uint256',
@@ -743,6 +1078,37 @@ export const AMMEngineABI = [
   },
   {
     type: 'event',
+    name: 'PositionSettledRetroactive',
+    inputs: [
+      {
+        name: 'user',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'market',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'adjustedPayout',
+        type: 'uint256',
+        indexed: false,
+        internalType: 'uint256',
+      },
+      {
+        name: 'reclaimedLocks',
+        type: 'uint256',
+        indexed: false,
+        internalType: 'uint256',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
     name: 'PositionTraded',
     inputs: [
       {
@@ -792,31 +1158,6 @@ export const AMMEngineABI = [
   },
   {
     type: 'event',
-    name: 'ProceedsClaimed',
-    inputs: [
-      {
-        name: 'user',
-        type: 'address',
-        indexed: true,
-        internalType: 'address',
-      },
-      {
-        name: 'market',
-        type: 'address',
-        indexed: true,
-        internalType: 'address',
-      },
-      {
-        name: 'amount',
-        type: 'uint256',
-        indexed: false,
-        internalType: 'uint256',
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: 'event',
     name: 'ProceedsLocked',
     inputs: [
       {
@@ -848,23 +1189,10 @@ export const AMMEngineABI = [
   },
   {
     type: 'event',
-    name: 'RouterUpdated',
+    name: 'ProtocolFeesClaimed',
     inputs: [
       {
-        name: 'router',
-        type: 'address',
-        indexed: true,
-        internalType: 'address',
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: 'event',
-    name: 'WalletPull',
-    inputs: [
-      {
-        name: 'user',
+        name: 'treasury',
         type: 'address',
         indexed: true,
         internalType: 'address',
@@ -877,6 +1205,178 @@ export const AMMEngineABI = [
       },
     ],
     anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'ProtocolTreasuryUpdated',
+    inputs: [
+      {
+        name: 'treasury',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'SettlementRootPosted',
+    inputs: [
+      {
+        name: 'market',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'merkleRoot',
+        type: 'bytes32',
+        indexed: false,
+        internalType: 'bytes32',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'error',
+    name: 'AlreadyInitialized',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'AlreadySettledRetroactive',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'CostTooHigh',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'DeadlinePassed',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'InsufficientLP',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'InsufficientMarketCollateral',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'InsufficientMarketNo',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'InsufficientMarketYes',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'InsufficientNoShares',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'InsufficientYesShares',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'InvalidLockDuration',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'InvalidMaxClaims',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'InvalidMerkleProof',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'InvalidOutcome',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'LPTokenAlreadySet',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'MarketNotLive',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'MustUseRetroactiveSettlement',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'NegativeCost',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'NegativeInput',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'NoLocks',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'NoPosition',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'NoSettlementRoot',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'NoUnlockedProceeds',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'NonPositiveInput',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'NotAuthorized',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'NotFinalized',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'NotInitialized',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'NothingToClaim',
+    inputs: [],
   },
   {
     type: 'error',
@@ -902,6 +1402,16 @@ export const AMMEngineABI = [
   },
   {
     type: 'error',
+    name: 'Paused',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'RedeemNotAvailable',
+    inputs: [],
+  },
+  {
+    type: 'error',
     name: 'ReentrancyGuardReentrantCall',
     inputs: [],
   },
@@ -916,48 +1426,64 @@ export const AMMEngineABI = [
       },
     ],
   },
-  // ── AMMEngine custom errors (zero-arg) ──────────────────────────────────
-  // Mirrored from packages/contracts-core (Tora-Build/sooth-core @ develop)
-  // src/AMMEngine.sol so viem can decode reverts surfaced through
-  // tradePositions / claim / settle. Without these, viem reports
-  // "Encoded error signature 0x… not found on ABI" and the trading panel
-  // shows a meaningless decode error instead of the real reason.
-  { type: 'error', name: 'ZeroBaseToken', inputs: [] },
-  { type: 'error', name: 'ZeroLaunchpadEngine', inputs: [] },
-  { type: 'error', name: 'ZeroMarket', inputs: [] },
-  { type: 'error', name: 'ZeroLiquidity', inputs: [] },
-  { type: 'error', name: 'AlreadyInitialized', inputs: [] },
-  { type: 'error', name: 'InvalidMaxClaims', inputs: [] },
-  { type: 'error', name: 'NoLocks', inputs: [] },
-  { type: 'error', name: 'NoUnlockedProceeds', inputs: [] },
-  { type: 'error', name: 'NotFinalized', inputs: [] },
-  { type: 'error', name: 'NoPosition', inputs: [] },
-  { type: 'error', name: 'InvalidOutcome', inputs: [] },
-  { type: 'error', name: 'NotInitialized', inputs: [] },
-  { type: 'error', name: 'Paused', inputs: [] },
-  { type: 'error', name: 'ZeroDelta', inputs: [] },
-  { type: 'error', name: 'MarketNotLive', inputs: [] },
-  { type: 'error', name: 'InsufficientYesShares', inputs: [] },
-  { type: 'error', name: 'InsufficientNoShares', inputs: [] },
-  { type: 'error', name: 'InsufficientMarketYes', inputs: [] },
-  { type: 'error', name: 'InsufficientMarketNo', inputs: [] },
-  { type: 'error', name: 'CostTooHigh', inputs: [] },
-  { type: 'error', name: 'SlippageExceeded', inputs: [] },
-  { type: 'error', name: 'NotAuthorized', inputs: [] },
-  { type: 'error', name: 'ZeroFeeRouter', inputs: [] },
-  { type: 'error', name: 'DeadlinePassed', inputs: [] },
-  { type: 'error', name: 'InsufficientLP', inputs: [] },
-  { type: 'error', name: 'NothingToClaim', inputs: [] },
-  { type: 'error', name: 'LPTokenAlreadySet', inputs: [] },
-  { type: 'error', name: 'RedeemNotAvailable', inputs: [] },
-  { type: 'error', name: 'ZeroTreasury', inputs: [] },
-  { type: 'error', name: 'TrialEndedNotGraduated', inputs: [] },
-  { type: 'error', name: 'MustUseRetroactiveSettlement', inputs: [] },
-  { type: 'error', name: 'NoSettlementRoot', inputs: [] },
-  { type: 'error', name: 'InvalidMerkleProof', inputs: [] },
-  { type: 'error', name: 'SettlementRootAlreadyPosted', inputs: [] },
-  { type: 'error', name: 'AlreadySettledRetroactive', inputs: [] },
-  { type: 'error', name: 'UnsupportedDecimals', inputs: [] },
-  { type: 'error', name: 'InsufficientMarketCollateral', inputs: [] },
-  { type: 'error', name: 'InvalidLockDuration', inputs: [] },
+  {
+    type: 'error',
+    name: 'SettlementRootAlreadyPosted',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'SlippageExceeded',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'TrialEndedNotGraduated',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'UnsupportedDecimals',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'ZeroBaseToken',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'ZeroDelta',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'ZeroFeeRouter',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'ZeroLaunchpadEngine',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'ZeroLiquidity',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'ZeroMarket',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'ZeroOrderEngine',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'ZeroTreasury',
+    inputs: [],
+  },
 ] as const;

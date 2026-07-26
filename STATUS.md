@@ -2,13 +2,17 @@
 
 ## Current Focus
 
-npm publishing is fully set up: the SDK ships as the unscoped **`sooth`**
-package (`npm i sooth`), published automatically by CI via npm **Trusted
-Publishing (OIDC)** when release-please cuts a release — no long-lived npm
-token exists anywhere. `sooth@0.5.1` is live and resolves in plain Node ESM.
+Prepare the next patch release for XAPP: `sooth@0.5.1` shipped a stale
+AMMEngine ABI with 25 functions instead of the deployed contract's 35 and no
+ManualAdjudicator ABI. The source now vendors the complete deployed ABIs and
+pins their function/event/error surfaces with regression tests. npm publishing
+remains automated through Trusted Publishing (OIDC).
 
 ## Recent Changes (Last 5 Sessions)
 
+- 2026-07-27 — Replaced the stale AMMEngine ABI with the complete deployed
+  v0.2.1 surface and added/exported the complete ManualAdjudicator ABI,
+  including parity and XAPP `getPhase` / `getOutcome` encoding tests.
 - 2026-07-27 — `sooth@0.5.1`: fixed plain-Node ESM resolution (NodeNext +
   explicit `.js` extensions; dist shipped 14 extensionless imports that only
   bundlers could resolve) with a CI import-smoke regression guard (#29).
@@ -29,8 +33,9 @@ token exists anywhere. `sooth@0.5.1` is live and resolves in plain Node ESM.
 
 ## Pending / Blocked
 
-- XAPP (Telegram mini app) plans to wire the `sooth` dependency now that 0.5.1
-  carries the ESM fix; `sooth-client` was their interim path.
+- XAPP (Telegram mini app) should wire the `sooth` dependency after the ABI
+  parity fix is published in the next patch; `sooth-client` remains its
+  interim path.
 
 ## Known Issues
 
