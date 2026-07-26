@@ -173,7 +173,7 @@ function getPostTxWait(chainId: number): number {
 export const SUPPORTED_CORE_VERSION = '0.2.1';
 
 // SDK_VERSION is the published npm package version — read from package.json so
-// `soothcli vX` never drifts from what `npm install @sooth/sdk` resolves.
+// `soothcli vX` never drifts from what `npm install sooth` resolves.
 // This is a DISTINCT concept from SUPPORTED_CORE_VERSION (the sooth-core
 // contract version the CLI speaks): release-please bumps the package version
 // independently, which is why aliasing the two used to print a stale version.

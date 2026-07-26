@@ -1,15 +1,15 @@
 /**
- * @sooth/sdk — Sooth Protocol SDK
+ * sooth — Sooth Protocol SDK
  *
  * Programmatic access to Sooth prediction markets.
  *
  * Usage:
- *   import { SoothClient } from '@sooth/sdk'
+ *   import { SoothClient } from 'sooth'
  *   const client = await SoothClient.create('a7f3b2e1', { privateKey: '0x...' })
  *   const markets = await client.markets.list()
  *
  * Core utilities (ABIs, math, config):
- *   import { ABIS, computeLMSR } from '@sooth/sdk/core'
+ *   import { ABIS, computeLMSR } from 'sooth/core'
  */
 
 export { SoothClient } from './client';

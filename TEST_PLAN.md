@@ -1,12 +1,12 @@
-# @sooth/sdk Test Plan
+# sooth Test Plan
 
-**Task: Heavy-test the merged `@sooth/sdk` package, fix all bugs, re-test until clean.**
+**Task: Heavy-test the merged `sooth` package, fix all bugs, re-test until clean.**
 
 Working directory: `/Users/danieltang/GitHub/sooth-alpha/packages/sdk`
 
 ## Context
 
-Three packages were merged into one `@sooth/sdk`:
+Three packages were merged into one `sooth`:
 
 - `packages/sdk/src/core/` — ABIs, math, config, contracts, errors, utils, **actions** (shared write logic)
 - `packages/sdk/src/cli/` — Interactive REPL, 40+ commands, actors, scenarios
