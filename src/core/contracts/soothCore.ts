@@ -2,6 +2,7 @@ import { encodePacked, erc20Abi, keccak256, type Address, type PublicClient } fr
 import { AMMEngineABI } from '../abis/AMMEngine.js';
 import { CollateralizerABI } from '../abis/Collateralizer.js';
 import { LaunchpadEngineABI } from '../abis/LaunchpadEngine.js';
+import { OrderEngineABI } from '../abis/OrderEngine.js';
 import { SoothBookABI } from '../abis/SoothBook.js';
 import { TruthMarketABI } from '../abis/TruthMarket.js';
 import {
@@ -205,9 +206,8 @@ export interface SoothQuote {
 
 export type ClaimRoute =
   | 'dismissed_refund'
-  | 'soothbook_redeem'
-  | 'collateral_redeem'
-  | 'amm_settle';
+  | 'order_settle' // OrderEngine unified custody (SoothBook + graduated/collateral positions)
+  | 'amm_settle'; // AMMEngine LMSR positions
 
 export type ClaimTxRequest =
   | {
@@ -217,16 +217,10 @@ export type ClaimTxRequest =
       args: readonly [Address];
     }
   | {
-      route: 'soothbook_redeem';
+      route: 'order_settle';
       contract: Address;
-      functionName: 'redeem';
-      args: readonly [`0x${string}`];
-    }
-  | {
-      route: 'collateral_redeem';
-      contract: Address;
-      functionName: 'redeemOutcome';
-      args: readonly [Address, BinaryOutcome, bigint];
+      functionName: 'settlePosition';
+      args: readonly [Address];
     }
   | {
       route: 'amm_settle';
@@ -1110,14 +1104,17 @@ export function buildClaimRequest(
   const soothBookNo = snapshot.soothBook?.userNoBalance ?? 0n;
   const hasSoothBookPosition = soothBookYes > 0n || soothBookNo > 0n;
   if (snapshot.soothBook?.isFinalized && hasSoothBookPosition) {
+    // SoothBook has no redeem(): positions are custodied by OrderEngine
+    // (unified custody). Redemption is OrderEngine.settlePosition(market),
+    // which settles the caller's whole position and returns the payout.
     return {
-      route: 'soothbook_redeem',
+      route: 'order_settle',
       requests: [
         {
-          route: 'soothbook_redeem',
-          contract: assertAddress('soothBook', contracts.soothBook),
-          functionName: 'redeem',
-          args: [snapshot.marketKey] as const,
+          route: 'order_settle',
+          contract: assertAddress('orderEngine', contracts.orderEngine),
+          functionName: 'settlePosition',
+          args: [snapshot.marketAddress] as const,
         },
       ] as const,
     };
@@ -1131,44 +1128,34 @@ export function buildClaimRequest(
     const yesBalance = snapshot.collateralizer.userYesBalance;
     const noBalance = snapshot.collateralizer.userNoBalance;
     const winningOutcome = snapshot.truth.winningOutcome;
-    const requests: ClaimTxRequest[] = [];
 
+    // OrderEngine (which replaced the Collateralizer) has no redeemOutcome().
+    // Redemption is a single settlePosition(market) — it pays out the caller's
+    // whole position for the settled outcome. We only need to check there is a
+    // redeemable balance for the winning side (or either side, if INVALID).
+    let hasRedeemable = false;
     if (winningOutcome === OUTCOME.INVALID) {
-      if (yesBalance > 0n) {
-        requests.push({
-          route: 'collateral_redeem',
-          contract: assertAddress('collateralizer', contracts.orderEngine),
-          functionName: 'redeemOutcome',
-          args: [snapshot.marketAddress, OUTCOME.YES, yesBalance] as const,
-        });
-      }
-      if (noBalance > 0n) {
-        requests.push({
-          route: 'collateral_redeem',
-          contract: assertAddress('collateralizer', contracts.orderEngine),
-          functionName: 'redeemOutcome',
-          args: [snapshot.marketAddress, OUTCOME.NO, noBalance] as const,
-        });
-      }
-    } else if (winningOutcome === OUTCOME.YES || winningOutcome === OUTCOME.NO) {
-      const winningBalance = winningOutcome === OUTCOME.YES ? yesBalance : noBalance;
-      if (winningBalance > 0n) {
-        requests.push({
-          route: 'collateral_redeem',
-          contract: assertAddress('collateralizer', contracts.orderEngine),
-          functionName: 'redeemOutcome',
-          args: [snapshot.marketAddress, winningOutcome, winningBalance] as const,
-        });
-      }
+      hasRedeemable = yesBalance > 0n || noBalance > 0n;
+    } else if (winningOutcome === OUTCOME.YES) {
+      hasRedeemable = yesBalance > 0n;
+    } else if (winningOutcome === OUTCOME.NO) {
+      hasRedeemable = noBalance > 0n;
     }
 
-    if (requests.length === 0) {
+    if (!hasRedeemable) {
       return null;
     }
 
     return {
-      route: 'collateral_redeem',
-      requests,
+      route: 'order_settle',
+      requests: [
+        {
+          route: 'order_settle',
+          contract: assertAddress('orderEngine', contracts.orderEngine),
+          functionName: 'settlePosition',
+          args: [snapshot.marketAddress] as const,
+        },
+      ] as const,
     };
   }
 
@@ -1456,8 +1443,14 @@ export function resolveDefaultApprovalToken(snapshot: SoothCoreSnapshot): Addres
 }
 
 export function getClaimAbiForRequest(request: ClaimTxRequest) {
-  if (request.functionName === 'claimRefund') return LaunchpadEngineABI;
-  if (request.functionName === 'settlePosition') return AMMEngineABI;
-  if (request.functionName === 'redeemOutcome') return CollateralizerABI;
-  return SoothBookABI;
+  // Keyed on route, not functionName — order_settle and amm_settle both call
+  // settlePosition(address) but on different contracts (OrderEngine vs AMMEngine).
+  switch (request.route) {
+    case 'dismissed_refund':
+      return LaunchpadEngineABI;
+    case 'order_settle':
+      return OrderEngineABI;
+    case 'amm_settle':
+      return AMMEngineABI;
+  }
 }

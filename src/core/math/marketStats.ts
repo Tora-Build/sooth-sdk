@@ -105,9 +105,11 @@ export function computeMarketStats(input: MarketStatsInput): MarketStats {
   const pnlStr = pnlNum.toFixed(usdcDecimals);
   const pnl = parseFixedToBigInt(pnlStr, usdcDecimals);
 
-  // 2. Cash = MaxLoss + Yield + P&L
-  const maxLossNum = (Number(bCurrent) / 1e18) * LN2;
-  const maxLoss = parseFixedToBigInt(maxLossNum.toFixed(usdcDecimals), usdcDecimals);
+  // 2. Cash = MaxLoss + Yield + P&L. Max loss = the creator deposit, which is
+  //    the LMSR worst case b·-ln(min(p,1-p)) and is passed in as `seed`. Using
+  //    b·ln2 here would be wrong for skewed (non-50/50) markets and inconsistent
+  //    with `gross` below, which already uses the real deposit.
+  const maxLoss = seed;
   const cash = maxLoss + lpYieldPool + pnl;
 
   const gross = seed + fees + pnl;
