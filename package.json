@@ -70,10 +70,6 @@
       "types": "./dist/core/math/index.d.ts",
       "import": "./dist/core/math/index.js"
     },
-    "./core/config": {
-      "types": "./dist/core/config/index.d.ts",
-      "import": "./dist/core/config/index.js"
-    },
     "./core/contracts": {
       "types": "./dist/core/contracts/index.d.ts",
       "import": "./dist/core/contracts/index.js"
@@ -86,6 +82,7 @@
   "files": [
     "dist",
     "bin",
+    "data",
     "src/cli"
   ],
   "scripts": {
@@ -99,7 +96,8 @@
     "fmt:check": "prettier --check 'src/**/*.ts'",
     "typecheck": "tsc --noEmit",
     "check": "pnpm lint:check && pnpm fmt:check",
-    "prepare": "husky",
+    "prepare": "husky || true",
+    "prepublishOnly": "pnpm build",
     "test": "vitest run"
   },
   "lint-staged": {
