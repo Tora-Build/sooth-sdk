@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.1](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.5.0...sooth-v0.5.1) (2026-07-26)
+
+
+### 🐛 Bug Fixes
+
+* **pkg:** make dist resolvable by plain Node ESM ([4214257](https://github.com/Tora-Build/sooth-sdk/commit/42142572aebfbffb4660154ef8b0a884335746c2))
+* **pkg:** plain-Node ESM resolution + Trusted Publishing ([8739c3a](https://github.com/Tora-Build/sooth-sdk/commit/8739c3a82f4502a223cb37d380d771ca721b00fa))
+
+
+### 🤖 CI
+
+* verify plain-Node ESM resolution; publish via npm Trusted Publishing ([ac48c22](https://github.com/Tora-Build/sooth-sdk/commit/ac48c2245055e2513d4a627538326c7aa8d36818))
+
 ## [0.5.0](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.4.1...sooth-v0.5.0) (2026-07-26)
 
 
