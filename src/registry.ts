@@ -1,9 +1,15 @@
 /**
- * Registry — fetches node/chain data from the Sooth Registry API
+ * Registry — node/chain lookups over the Sooth registry.
+ *
+ * Thin wrapper around `registry-loader.loadManifest`, which owns the real
+ * resolution policy: injected manifest → HTTP (2s timeout) → embedded snapshot,
+ * and never rejects. This class exists only to bind a `registryUrl` and expose
+ * ergonomic lookups; it deliberately holds no manifest cache of its own so two
+ * clients on different URLs can't read each other's data.
  */
 
-import type { NodesManifest } from './registry-types';
-import type { NodeInfo, ChainInfo } from './types';
+import { loadManifest } from './registry-loader';
+import type { SoothNode, ChainMeta, NodesManifest } from './registry-types';
 
 export type {
   SoothNode,
@@ -13,66 +19,45 @@ export type {
   Address,
 } from './registry-types';
 
-const DEFAULT_REGISTRY_URL = 'https://registry.sooth.market';
-const CACHE_TTL_MS = 60_000;
-
-let cachedManifest: NodesManifest | null = null;
-let cachedAt = 0;
-
-async function fetchManifest(registryUrl: string): Promise<NodesManifest> {
-  const now = Date.now();
-  if (cachedManifest && now - cachedAt < CACHE_TTL_MS) {
-    return cachedManifest;
-  }
-
-  const res = await fetch(`${registryUrl}/v1/manifest`);
-  if (!res.ok) throw new Error(`Registry API error: HTTP ${res.status}`);
-  const json = (await res.json()) as { data: NodesManifest };
-  cachedManifest = json.data;
-  cachedAt = now;
-  return cachedManifest;
-}
-
 export class Registry {
-  private url: string;
+  private url?: string;
 
   constructor(registryUrl?: string) {
-    this.url = registryUrl ?? DEFAULT_REGISTRY_URL;
+    this.url = registryUrl;
+  }
+
+  private manifest(): Promise<NodesManifest> {
+    return loadManifest(this.url ? { registryUrl: this.url } : undefined);
   }
 
   async getManifest(): Promise<NodesManifest> {
-    return fetchManifest(this.url);
+    return this.manifest();
   }
 
-  async getNode(id: string): Promise<NodeInfo | undefined> {
-    const manifest = await fetchManifest(this.url);
-    return manifest.nodes.find((n) => n.id === id) as NodeInfo | undefined;
+  async getNode(id: string): Promise<SoothNode | undefined> {
+    return (await this.manifest()).nodes.find((n) => n.id === id);
   }
 
-  async getNodeByChainId(chainId: number): Promise<NodeInfo | undefined> {
-    const manifest = await fetchManifest(this.url);
-    return manifest.nodes.find((n) => n.chainId === chainId) as NodeInfo | undefined;
+  async getNodeByChainId(chainId: number): Promise<SoothNode | undefined> {
+    return (await this.manifest()).nodes.find((n) => n.chainId === chainId);
   }
 
-  async getAllNodes(): Promise<NodeInfo[]> {
-    const manifest = await fetchManifest(this.url);
-    return manifest.nodes as NodeInfo[];
+  async getAllNodes(): Promise<SoothNode[]> {
+    return (await this.manifest()).nodes;
   }
 
-  async getChain(chainId: number): Promise<ChainInfo | undefined> {
-    const manifest = await fetchManifest(this.url);
-    return manifest.chains[String(chainId)] as ChainInfo | undefined;
+  async getChain(chainId: number): Promise<ChainMeta | undefined> {
+    return (await this.manifest()).chains[String(chainId)];
   }
 
-  async getAllChains(): Promise<Record<string, ChainInfo>> {
-    const manifest = await fetchManifest(this.url);
-    return manifest.chains as Record<string, ChainInfo>;
+  async getAllChains(): Promise<Record<string, ChainMeta>> {
+    return (await this.manifest()).chains;
   }
 
   async listNodes(): Promise<
     Array<{ id: string; chainId: number; chainName: string; indexed: boolean }>
   > {
-    const manifest = await fetchManifest(this.url);
+    const manifest = await this.manifest();
     return manifest.nodes.map((n) => ({
       id: n.id,
       chainId: n.chainId,

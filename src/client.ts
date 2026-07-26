@@ -11,6 +11,7 @@ import {
   createWalletClient,
   defineChain,
   http,
+  type Abi,
   type Chain,
   type PublicClient,
   type WalletClient,
@@ -21,9 +22,10 @@ import { Registry } from './registry';
 import { Markets } from './market';
 import { Orderbook } from './orderbook';
 import { Wallet } from './wallet';
-import type { SoothClientOptions, NodeInfo, ChainInfo } from './types';
+import type { SoothClientOptions } from './types';
+import type { SoothNode, ChainMeta } from './registry-types';
 
-function toViemChain(meta: ChainInfo, chainId: number, rpcUrls: string[]): Chain {
+function toViemChain(meta: ChainMeta, chainId: number, rpcUrls: string[]): Chain {
   return defineChain({
     id: chainId,
     name: meta.name,
@@ -38,8 +40,8 @@ function toViemChain(meta: ChainInfo, chainId: number, rpcUrls: string[]): Chain
 
 export class SoothClient {
   readonly nodeId: string;
-  readonly node: NodeInfo;
-  readonly chainInfo: ChainInfo;
+  readonly node: SoothNode;
+  readonly chainInfo: ChainMeta;
   readonly chain: Chain;
   readonly publicClient: PublicClient;
   readonly walletClient: WalletClient | null;
@@ -51,8 +53,8 @@ export class SoothClient {
 
   private constructor(
     nodeId: string,
-    node: NodeInfo,
-    chainInfo: ChainInfo,
+    node: SoothNode,
+    chainInfo: ChainMeta,
     chain: Chain,
     publicClient: PublicClient,
     walletClient: WalletClient | null,
@@ -144,14 +146,15 @@ export class SoothClient {
   /** Write contract call with chain set */
   async writeContract(params: {
     address: `0x${string}`;
-    abi: any;
+    abi: Abi;
     functionName: string;
-    args: any[];
+    args?: readonly unknown[];
   }): Promise<`0x${string}`> {
     const walletClient = this.requireWallet();
     return walletClient.writeContract({
       ...params,
+      account: this.account,
       chain: this.chain,
-    } as any);
+    } as Parameters<WalletClient['writeContract']>[0]);
   }
 }

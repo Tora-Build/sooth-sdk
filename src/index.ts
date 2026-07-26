@@ -17,17 +17,26 @@ export { Registry } from './registry';
 export type {
   SoothNode,
   SoothContracts,
+  SoothAdjudicators,
   ChainMeta,
   NodesManifest,
   Address,
 } from './registry-types';
+// Registry resolution: injected → HTTP (2s timeout) → embedded snapshot.
+// Exported so consumers can inject a manifest (setManifest / setManifestProvider)
+// or drive resolution directly (loadManifest) — the same robust path the SDK uses.
+export {
+  loadManifest,
+  setManifest,
+  setManifestProvider,
+  resetManifest,
+  refreshManifestInBackground,
+} from './registry-loader';
 export { Markets } from './market';
 export { Orderbook } from './orderbook';
 export { Wallet } from './wallet';
 export type {
   SoothClientOptions,
-  NodeInfo,
-  ChainInfo,
   MarketInfo,
   Position,
   TradeParams,
