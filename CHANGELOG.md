@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.2](https://github.com/Tora-Build/sooth-sdk/compare/sdk-v0.4.1...sdk-v0.4.2) (2026-07-26)
+
+
+### 🤖 CI
+
+* publish to npm after release-please creates a release ([21195fd](https://github.com/Tora-Build/sooth-sdk/commit/21195fddf61fa1979b9df7cb10467ea2d9560687))
+* publish to npm after release-please creates a release ([baad6f3](https://github.com/Tora-Build/sooth-sdk/commit/baad6f351ebfee7bc7c739b1ce38ad872aaad5b9))
+
 ## [0.4.1](https://github.com/Tora-Build/sooth-sdk/compare/sdk-v0.4.0...sdk-v0.4.1) (2026-07-26)
 
 
