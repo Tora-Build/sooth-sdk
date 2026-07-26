@@ -20,7 +20,7 @@
 ## ADR-002: Automated npm publishing via release-please + granular token
 
 - **Date**: 2026-07-26
-- **Status**: Accepted (interim — migrate to Trusted Publishing)
+- **Status**: Superseded by ADR-003
 - **Context**: Releases were tagged by release-please but nothing published to
   npm. The npm account has no 2FA, and npm requires 2FA or a bypass-2FA
   granular token to publish.
@@ -36,3 +36,23 @@
   which removes the long-lived secret entirely. Note that unpublish/delete
   operations require a real 2FA session in the npm web UI — tokens cannot do
   them.
+
+## ADR-003: npm Trusted Publishing (OIDC) replaces the granular token
+
+- **Date**: 2026-07-27
+- **Status**: Accepted
+- **Context**: The ADR-002 token had a 90-day expiry (2026-10-24) and npm is
+  ending bypass-2FA publishing in Jan 2027 — a hard deadline. OIDC removes the
+  long-lived credential entirely.
+- **Decision**: Configured a Trusted Publisher on the `sooth` package:
+  GitHub Actions, `Tora-Build/sooth-sdk`, workflow `release-please.yml`,
+  action "npm publish" only. The `npm-publish` job uses `id-token: write` and
+  Node 24 (npm ≥ 11.5.1 required for OIDC) with no token env. Verified by the
+  `sooth@0.5.1` publish; the `sooth-sdk-ci` token and `NPM_TOKEN` secret were
+  then revoked/deleted.
+- **Consequences**: Only this exact repo + workflow filename can publish —
+  renaming `release-please.yml` or publishing from a fork breaks trust and
+  requires updating the publisher config on npmjs.com. `workflow_dispatch`
+  re-runs of the same workflow remain trusted. Provenance attestations stay
+  unavailable while the repo is private. npm package settings changes sit
+  behind a passkey sudo-gate (see STATUS.md known issues).
