@@ -6,14 +6,14 @@ TypeScript SDK and `soothcli` REPL for the Sooth Protocol. Pairs with [`Tora-Bui
 
 This repo:
 
-- Ships `@sooth/sdk` (npm) — programmatic access to LaunchpadEngine, AMMEngine, SoothBook, OrderEngine, TruthMarket, FeeRouter.
+- Ships `sooth-sdk` (npm) — programmatic access to LaunchpadEngine, AMMEngine, SoothBook, OrderEngine, TruthMarket, FeeRouter.
 - Ships `soothcli` — interactive REPL for Sooth nodes (`soothcli <nodeId>`, `soothcli --list`).
 - Versioning is locked to the contract version it speaks. v0.2.1 of this SDK targets [`sooth-core`](https://github.com/Tora-Build/sooth-core) v0.2.1; the CLI rejects nodes whose `coreVersion` doesn't match (see `src/cli/config.ts:SUPPORTED_CORE_VERSION`).
 - Migration playbook: `.claude/skills/cli-migration/` (covers ABI drift, parseAbi audits, per-chain RPC config, multi-chain test sweeps).
 
 ## Consumed by
 
-- Anyone integrating Sooth markets via `npm install @sooth/sdk`.
+- Anyone integrating Sooth markets via `npm install sooth-sdk`.
 
 ## Registry data
 
@@ -157,7 +157,7 @@ import {
   buildClaimRequest,
   readApprovalRequest,
   preflightTrade,
-} from "@sooth/sdk/core/contracts";
+} from "sooth-sdk/core/contracts";
 ```
 
 ### 1) Pre-Bound Client Factory
@@ -429,7 +429,7 @@ SDK economics use WAD (`1e18`) for:
 
 Boundary conversion must be explicit (token units <-> WAD):
 
-- use `tokenUnitsToWad(...)` and `wadToTokenUnits(...)` from `@sooth/sdk/core/utils`
+- use `tokenUnitsToWad(...)` and `wadToTokenUnits(...)` from `sooth-sdk/core/utils`
 - never silently mix token decimals in quote/trade math
 
 ### Practical Notes

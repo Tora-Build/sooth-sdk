@@ -1,4 +1,4 @@
-# `@sooth/sdk` CLI — `soothcli`
+# `sooth-sdk` CLI — `soothcli`
 
 Interactive REPL for testing, simulating, and operating Sooth Protocol markets on any deployed chain (Base Sepolia, MegaETH, HyperEVM, Monad, etc.).
 
@@ -140,7 +140,7 @@ packages/sdk/
         └── soothbook.ts         # SoothBook trading + state queries
 ```
 
-The CLI is a thin shell over `@sooth/sdk-core` and `viem`. Most commands are direct wrappers around SDK actions plus a pretty-printed result. To add a command: implement it in `commands/*.ts`, register the case in `interactive.ts`'s `handleCommand` switch, and add a row to `printHelp()`.
+The CLI is a thin shell over `sooth-sdk-core` and `viem`. Most commands are direct wrappers around SDK actions plus a pretty-printed result. To add a command: implement it in `commands/*.ts`, register the case in `interactive.ts`'s `handleCommand` switch, and add a row to `printHelp()`.
 
 ---
 

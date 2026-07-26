@@ -1,6 +1,6 @@
 # SDK Feedback — From Telegram dApp Build
 
-Direct feedback from building the Telegram mini app against `@sooth/sdk`. These are real friction points encountered during development, not theoretical.
+Direct feedback from building the Telegram mini app against `sooth-sdk`. These are real friction points encountered during development, not theoretical.
 
 ## Context
 
