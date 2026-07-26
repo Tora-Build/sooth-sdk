@@ -24,7 +24,6 @@ import { SoothBookABI } from '../abis/SoothBook.js';
 import { type ActionContext, type ActionReporter, noopReporter } from './types.js';
 
 const WAD = 10n ** 18n;
-const LN2_WAD = 693147180559945309n;
 
 const ERC20_ABI = parseAbi([
   'function balanceOf(address owner) view returns (uint256)',
@@ -172,11 +171,13 @@ export async function runCreateMarket(
 ): Promise<CreateMarketResult> {
   const account = requireWallet(ctx);
 
-  // Ensure deposit: depositWad = b × ln(max(p, 1-p) inverse). For simplicity
-  // and matching the canonical demo/Launchpad UX, approve generously via
-  // runApprove(launchpad) instead of computing exact allowance. Caller should
-  // hold enough USDC — we mint a safety buffer if balance is low.
-  const deposit = (params.bBase * LN2_WAD) / WAD;
+  // Ensure deposit: depositWad = bBase × -ln(min(p, 1-p)) — the LMSR max loss.
+  // This equals b·ln2 only at p=0.5 and grows for skewed markets (e.g. ~1.2·b
+  // at p=0.7), so using ln2 unconditionally under-sizes the safety buffer and
+  // the real createMarket can revert. We mint a buffer if balance is low.
+  const p = Number(params.initialProbabilityWad) / 1e18;
+  const depositK = BigInt(Math.ceil(-Math.log(Math.min(p, 1 - p)) * 1e18));
+  const deposit = (params.bBase * depositK) / WAD;
   const balance = (await ctx.publicClient.readContract({
     address: ctx.contracts.MockUSDC,
     abi: ERC20_ABI,
