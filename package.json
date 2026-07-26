@@ -82,11 +82,10 @@
   "files": [
     "dist",
     "bin",
-    "data",
-    "src/cli"
+    "data"
   ],
   "scripts": {
-    "build": "tsc && chmod +x bin/soothcli.js",
+    "build": "tsc && cp -R src/cli/scenarios/library src/cli/scenarios/recordings dist/cli/scenarios/ && chmod +x bin/soothcli.js",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "interactive": "bun run src/cli/interactive.ts",

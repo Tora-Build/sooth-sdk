@@ -3,9 +3,9 @@
  * SoothBook invariants for on-chain verification
  */
 
-import type { CommandContext } from '../commands/types';
-import { ABIS } from '../config';
-import { formatWad, success, error, readContractWithRpcFallback } from '../cli-utils';
+import type { CommandContext } from '../commands/types.js';
+import { ABIS } from '../config.js';
+import { formatWad, success, error, readContractWithRpcFallback } from '../cli-utils.js';
 
 export interface AssertionResult {
   name: string;

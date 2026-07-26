@@ -3,8 +3,8 @@
  * mint, approve, balance, allowance, snapshot, checksum
  */
 
-import type { CommandContext, CommandResult } from './types';
-import { ABIS, MAX_UINT256 } from '../config';
+import type { CommandContext, CommandResult } from './types.js';
+import { ABIS, MAX_UINT256 } from '../config.js';
 import {
   formatWad,
   parseWad,
@@ -18,7 +18,7 @@ import {
   dim,
   bold,
   readContractWithRpcFallback,
-} from '../cli-utils';
+} from '../cli-utils.js';
 import { parseAbi } from 'viem';
 
 // Additional ABIs for complete position tracking
@@ -408,7 +408,7 @@ export async function snapshot(ctx: CommandContext, args: string[]): Promise<Com
       abi: ABIS.BaseToken,
       functionName: 'balanceOf',
       args: [actorAddr],
-    })) as Promise<bigint>;
+    })) as bigint;
 
     let erc20Yes = 0n;
     let erc20No = 0n;
@@ -710,7 +710,7 @@ export async function checksum(ctx: CommandContext, _args: string[]): Promise<Co
       abi: ABIS.BaseToken,
       functionName: 'balanceOf',
       args: [actorAddr],
-    })) as Promise<bigint>;
+    })) as bigint;
 
     let erc20Yes = 0n;
     let erc20No = 0n;

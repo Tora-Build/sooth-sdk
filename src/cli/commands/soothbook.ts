@@ -1,6 +1,6 @@
-import type { CommandContext, CommandResult } from './types';
+import type { CommandContext, CommandResult } from './types.js';
 import { formatUnits, parseAbiItem } from 'viem';
-import { ABIS } from '../config';
+import { ABIS } from '../config.js';
 import {
   bold,
   dim,
@@ -12,7 +12,7 @@ import {
   shortAddress,
   success,
   warn,
-} from '../cli-utils';
+} from '../cli-utils.js';
 
 const DEFAULT_SCAN_CHUNK_SIZE = 400_000n;
 const DEFAULT_HISTORY_PAGE_SIZE = 50;

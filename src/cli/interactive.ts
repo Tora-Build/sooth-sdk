@@ -6,8 +6,8 @@ import {
   SDK_VERSION,
   SUPPORTED_CORE_VERSION,
   type InteractiveConfig,
-} from './config';
-import { createActorManager, type ActorManager } from './actors';
+} from './config.js';
+import { createActorManager, type ActorManager } from './actors.js';
 import {
   parseCommand,
   success,
@@ -18,7 +18,7 @@ import {
   warn,
   printBox,
   shortAddress,
-} from './cli-utils';
+} from './cli-utils.js';
 import {
   type CommandContext,
   type CommandResult,
@@ -26,16 +26,16 @@ import {
   walletCommands,
   soothbookCommands,
   marketCommands,
-} from './commands';
-import { ScenarioEngine } from './scenarios/engine';
-import { runAllInvariants, printInvariantResults } from './assertions';
+} from './commands/index.js';
+import { ScenarioEngine } from './scenarios/engine.js';
+import { runAllInvariants, printInvariantResults } from './assertions/index.js';
 
 // Parse CLI arguments
 const args = process.argv.slice(2);
 
 // --list: show available nodes and exit
 if (args.includes('--list')) {
-  const { loadManifest, getAllNodes, getChain } = await import('../registry-loader');
+  const { loadManifest, getAllNodes, getChain } = await import('../registry-loader.js');
   await loadManifest();
   const nodes = getAllNodes();
   console.log(`\n  ${bold('Available Sooth Nodes')}`);
@@ -289,7 +289,12 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
         console.log(error(`  Market index ${index} out of range`));
         return false;
       }
-      marketAddress = config.deployment.markets[adjustedIndex].address;
+      const picked = config.deployment.markets[adjustedIndex].address;
+      if (!picked) {
+        console.log(error(`  Market index ${index} has no on-chain address`));
+        return false;
+      }
+      marketAddress = picked;
     }
   } else if (/^0x[a-fA-F0-9]{64}$/.test(addressOrIndex)) {
     currentMarketKey = addressOrIndex as `0x${string}`;
@@ -304,8 +309,11 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
     const market = config.deployment.markets.find(
       (m) => m.name?.toLowerCase() === addressOrIndex.toLowerCase(),
     );
-    if (market) {
+    if (market?.address) {
       marketAddress = market.address;
+    } else if (market && !market.address) {
+      console.log(error(`  Market "${addressOrIndex}" has no on-chain address`));
+      return false;
     } else {
       try {
         const discovered = await discoverMarketsOnChain();
@@ -325,7 +333,7 @@ async function setMarket(addressOrIndex: string): Promise<boolean> {
   }
 
   const deployedMarket = config.deployment.markets.find(
-    (m) => m.address.toLowerCase() === marketAddress.toLowerCase(),
+    (m) => m.address?.toLowerCase() === marketAddress.toLowerCase(),
   );
 
   if (deployedMarket?.marketKey) {
@@ -927,7 +935,7 @@ async function main(): Promise<void> {
   try {
     // Load registry manifest before any sync registry accessors run.
     // Tries HTTP first (with short timeout), falls back to embedded snapshot.
-    const { loadManifest } = await import('../registry-loader');
+    const { loadManifest } = await import('../registry-loader.js');
     await loadManifest();
     config = createConfig(nodeIdArg);
     if (config.coreVersion !== SUPPORTED_CORE_VERSION) {

@@ -21,7 +21,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import yaml from 'yaml';
-import { shortAddress, error, success, info } from './cli-utils';
+import { shortAddress, error, success, info } from './cli-utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -249,7 +249,11 @@ export class ActorManager {
 
     // Sign locally with fixed gas (skip eth_estimateGas round-trip)
     // SoothBook crossing orders can use ~750k gas, so use 1.5M for safety
-    const signedTx = await walletClient.account.signTransaction({
+    const signer = walletClient.account;
+    if (!signer?.signTransaction) {
+      throw new Error('Active account cannot sign transactions locally (no signTransaction).');
+    }
+    const signedTx = await signer.signTransaction({
       to: request.address,
       data,
       nonce,
