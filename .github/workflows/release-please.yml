@@ -30,11 +30,16 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # OIDC token for npm Trusted Publishing — auth comes from the workflow
+      # identity (repo + workflow filename), not a long-lived token. Publishes
+      # from forks or renamed workflows will not be trusted.
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20.x
+          # Trusted Publishing requires npm >= 11.5.1 (Node 24 ships npm 11).
+          node-version: 24.x
           registry-url: 'https://registry.npmjs.org'
       - name: Enable Corepack
         run: |
@@ -44,5 +49,3 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Publish to npm
         run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
