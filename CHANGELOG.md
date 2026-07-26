@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.1](https://github.com/Tora-Build/sooth-sdk/compare/sdk-v0.4.0...sdk-v0.4.1) (2026-07-26)
+
+
+### 🐛 Bug Fixes
+
+* **cli:** make the CLI type-checked and Node-runnable from dist ([#23](https://github.com/Tora-Build/sooth-sdk/issues/23)) ([7ace7ae](https://github.com/Tora-Build/sooth-sdk/commit/7ace7aeba89fa19e140c6b96c454ce3843f43553))
+* **core:** reconcile settlement/claim path with v0.2.1 contracts ([#24](https://github.com/Tora-Build/sooth-sdk/issues/24)) ([0896db0](https://github.com/Tora-Build/sooth-sdk/commit/0896db00589e7539bc949c9ac2fc4a0e8b960c36))
+* **sdk:** rebuild SoothClient wrapper on canonical ABIs ([#21](https://github.com/Tora-Build/sooth-sdk/issues/21)) ([b0433a4](https://github.com/Tora-Build/sooth-sdk/commit/b0433a48d8312073e3e7bb3ff69aae4353203645))
+
 ## [0.4.0](https://github.com/Tora-Build/sooth-sdk/compare/sdk-v0.3.0...sdk-v0.4.0) (2026-07-26)
 
 
