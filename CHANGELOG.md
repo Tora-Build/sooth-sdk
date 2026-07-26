@@ -5,8 +5,7 @@
 
 ### 🐛 Bug Fixes
 
-* **abi:** sync deployed AMM and adjudicator surfaces ([7affcc3](https://github.com/Tora-Build/sooth-sdk/commit/7affcc30f42e5f5b9e8ccb0a622ae0ffd62057e8))
-* **abi:** sync deployed AMM and adjudicator surfaces ([3f13319](https://github.com/Tora-Build/sooth-sdk/commit/3f13319ff2947786a6ac2a582392baa50526be13))
+* **abi:** sync deployed AMM and adjudicator surfaces ([#32](https://github.com/Tora-Build/sooth-sdk/pull/32)) ([7affcc3](https://github.com/Tora-Build/sooth-sdk/commit/7affcc30f42e5f5b9e8ccb0a622ae0ffd62057e8))
 
 
 ### 📝 Docs
