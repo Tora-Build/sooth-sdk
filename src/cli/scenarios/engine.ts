@@ -7,12 +7,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'yaml';
 import { fileURLToPath } from 'url';
-import type { ActorManager } from '../actors';
+import type { ActorManager } from '../actors.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-import type { CommandContext, RecordedCommand, Scenario, ScenarioStep } from '../commands/types';
-import { success, error, info, dim, bold } from '../cli-utils';
+import type { CommandContext, RecordedCommand, Scenario, ScenarioStep } from '../commands/types.js';
+import { success, error, info, dim, bold } from '../cli-utils.js';
 
 export class ScenarioEngine {
   private actorManager: ActorManager;
@@ -124,6 +124,7 @@ export class ScenarioEngine {
     const startTime = Date.now();
     let stepNum = 0;
     let failCount = 0;
+    let successCount = 0;
 
     for (const step of scenario.steps) {
       stepNum++;
@@ -135,7 +136,9 @@ export class ScenarioEngine {
         for (let i = 0; i < loopConfig.count; i++) {
           for (const loopStep of loopConfig.steps) {
             const result = await this.executeStep(loopStep, stepNum, ctx);
-            if (!result) {
+            if (result) {
+              successCount++;
+            } else {
               failCount++;
             }
           }
@@ -183,7 +186,7 @@ export class ScenarioEngine {
 
     const status = failCount === 0 ? success('PASSED') : error('FAILED');
     console.log(
-      `\n  Scenario ${status} in ${elapsed}s (${stepNum} steps, ${failCount} failures)\n`,
+      `\n  Scenario ${status} in ${elapsed}s (${stepNum} steps, ${successCount} ok, ${failCount} failures)\n`,
     );
 
     return failCount === 0;

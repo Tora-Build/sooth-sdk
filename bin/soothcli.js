@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 
 /**
  * soothcli — Sooth Protocol CLI
@@ -73,7 +73,7 @@ if (args.includes('--list')) {
 }
 
 try {
-  await import('../src/cli/interactive.ts');
+  await import('../dist/cli/interactive.js');
 } catch (err) {
   const msg = err instanceof Error ? err.message : String(err);
   if (msg.includes("Cannot find package 'viem'")) {

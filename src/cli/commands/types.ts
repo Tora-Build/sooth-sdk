@@ -3,8 +3,8 @@
  * Shared types for all command modules
  */
 
-import type { ActorManager } from '../actors';
-import type { Deployment, InteractiveConfig } from '../config';
+import type { ActorManager } from '../actors.js';
+import type { Deployment, InteractiveConfig } from '../config.js';
 
 export interface CommandContext {
   actorManager: ActorManager;

@@ -11,8 +11,8 @@
 
 import { readFileSync } from 'node:fs';
 import type { Chain } from 'viem';
-import { getAllNodes, getNodeById, getChain, toViemChain } from '../registry-loader';
-import type { SoothNode, ChainMeta } from '../registry-types';
+import { getAllNodes, getNodeById, getChain, toViemChain } from '../registry-loader.js';
+import type { SoothNode, ChainMeta } from '../registry-types.js';
 
 // Chain definitions inlined as static literals so they don't require the
 // registry manifest to be loaded at module import time. The other three
@@ -619,4 +619,4 @@ export const ABIS = {
   ],
 } as const;
 
-export { WAD, MAX_UINT256 } from '../core/types';
+export { WAD, MAX_UINT256 } from '../core/types.js';

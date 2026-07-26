@@ -2,4 +2,4 @@
  * Assertions Index
  */
 
-export * from './invariants';
+export * from './invariants.js';

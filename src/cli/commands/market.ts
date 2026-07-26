@@ -3,8 +3,8 @@
  * create, graduate, status
  */
 
-import type { CommandContext, CommandResult } from './types';
-import { ABIS, WAD, MAX_UINT256 } from '../config';
+import type { CommandContext, CommandResult } from './types.js';
+import { ABIS, WAD, MAX_UINT256 } from '../config.js';
 import {
   formatWad,
   parseWad,
@@ -21,7 +21,7 @@ import {
   decodeError,
   isTransientError,
   readContractWithRpcFallback,
-} from '../cli-utils';
+} from '../cli-utils.js';
 import {
   decodeEventLog,
   parseAbi,
@@ -30,7 +30,7 @@ import {
   type PublicClient,
   type EstimateContractGasParameters,
 } from 'viem';
-import { generateSQF, type SQFData } from '../../lib/sqf';
+import { generateSQF, type SQFData } from '../../lib/sqf.js';
 
 // Estimate gas for a contract call and apply a 1.3× buffer. Falls back to
 // the provided cap when estimation throws (some testnet RPCs — notably
@@ -2221,8 +2221,8 @@ export async function claimrefund(ctx: CommandContext, _args: string[]): Promise
 
     await actorManager.waitForTransactionReceipt(hash);
     await sleep(3000);
-    spinner.succeed(`Refunded ${formatWad(userLocked)} USDC ${dim(`(tx: ${shortTx(hash)})`)}`);
-    return { success: true, txHash: hash, data: { refundAmount: userLocked } };
+    spinner.succeed(`Refund claimed ${dim(`(tx: ${shortTx(hash)})`)}`);
+    return { success: true, txHash: hash };
   } catch (err) {
     const errMsg = (err as Error).message;
     if (errMsg.includes('not dismissed')) {
