@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.4.0](https://github.com/Tora-Build/sooth-sdk/compare/sdk-v0.3.0...sdk-v0.4.0) (2026-07-26)
+
+
+### ✨ Features
+
+* **abis:** add canonical feerouter and orderengine abis ([#15](https://github.com/Tora-Build/sooth-sdk/issues/15)) ([8fd5a44](https://github.com/Tora-Build/sooth-sdk/commit/8fd5a44397c48e8822e9f5d1da729041f7a6234b))
+* **abis:** add events and custom errors to the SoothBook ABI ([#13](https://github.com/Tora-Build/sooth-sdk/issues/13)) ([e4128c2](https://github.com/Tora-Build/sooth-sdk/commit/e4128c209a0a19a4b94d0accd7453f9cba683f11))
+
+
+### 🐛 Bug Fixes
+
+* **cli:** harden MegaETH reads and history ([e35c460](https://github.com/Tora-Build/sooth-sdk/commit/e35c460af5235df9b067be4cfa7693180cd21409))
+* **cli:** harden MegaETH reads and history ([86dd837](https://github.com/Tora-Build/sooth-sdk/commit/86dd83797480d761e0a27bd65108577729aca7e7))
+* **pkg:** make the published tarball correct and complete ([#18](https://github.com/Tora-Build/sooth-sdk/issues/18)) ([5ad6a91](https://github.com/Tora-Build/sooth-sdk/commit/5ad6a915a3b1cf11111cc781b75c3335a90c72e4))
+
+
+### 🧹 Chores
+
+* add npm publish metadata and MIT LICENSE ([3b2ba46](https://github.com/Tora-Build/sooth-sdk/commit/3b2ba4662afcfa61474874ed415aae9b5885b393))
+* add npm publish metadata and MIT LICENSE ([a1ec7ed](https://github.com/Tora-Build/sooth-sdk/commit/a1ec7ed441103cb459fdf6b7d9b99c21ed7503ca))
+
 ## [0.3.0](https://github.com/Tora-Build/sooth-sdk/compare/sdk-v0.2.2...sdk-v0.3.0) (2026-07-12)
 
 
