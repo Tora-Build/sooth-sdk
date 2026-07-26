@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.2](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.5.1...sooth-v0.5.2) (2026-07-26)
+
+
+### 🐛 Bug Fixes
+
+* **abi:** sync deployed AMM and adjudicator surfaces ([#32](https://github.com/Tora-Build/sooth-sdk/pull/32)) ([7affcc3](https://github.com/Tora-Build/sooth-sdk/commit/7affcc30f42e5f5b9e8ccb0a622ae0ffd62057e8))
+
+
+### 📝 Docs
+
+* record 0.5.1 ESM fix and Trusted Publishing migration (ADR-003) ([fc55e49](https://github.com/Tora-Build/sooth-sdk/commit/fc55e49c2a3185d155a8023852a742e5f31f13ad))
+
 ## [0.5.1](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.5.0...sooth-v0.5.1) (2026-07-26)
 
 

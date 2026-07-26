@@ -2,17 +2,17 @@
 
 ## Current Focus
 
-Prepare the next patch release for XAPP: `sooth@0.5.1` shipped a stale
-AMMEngine ABI with 25 functions instead of the deployed contract's 35 and no
-ManualAdjudicator ABI. The source now vendors the complete deployed ABIs and
-pins their function/event/error surfaces with regression tests. npm publishing
-remains automated through Trusted Publishing (OIDC).
+`sooth@0.5.2` restores deployed-contract ABI parity for XAPP: AMMEngine now
+exposes all 35 deployed functions and the SDK exports the complete
+ManualAdjudicator ABI. Their function/event/error surfaces are pinned with
+regression tests. npm publishing remains automated through Trusted Publishing
+(OIDC).
 
 ## Recent Changes (Last 5 Sessions)
 
-- 2026-07-27 — Replaced the stale AMMEngine ABI with the complete deployed
-  v0.2.1 surface and added/exported the complete ManualAdjudicator ABI,
-  including parity and XAPP `getPhase` / `getOutcome` encoding tests.
+- 2026-07-27 — `sooth@0.5.2`: replaced the stale AMMEngine ABI with the complete
+  deployed v0.2.1 surface and added/exported the complete ManualAdjudicator ABI,
+  including parity and XAPP `getPhase` / `getOutcome` encoding tests (#32).
 - 2026-07-27 — `sooth@0.5.1`: fixed plain-Node ESM resolution (NodeNext +
   explicit `.js` extensions; dist shipped 14 extensionless imports that only
   bundlers could resolve) with a CI import-smoke regression guard (#29).
@@ -33,9 +33,8 @@ remains automated through Trusted Publishing (OIDC).
 
 ## Pending / Blocked
 
-- XAPP (Telegram mini app) should wire the `sooth` dependency after the ABI
-  parity fix is published in the next patch; `sooth-client` remains its
-  interim path.
+- XAPP (Telegram mini app) can replace its interim `sooth-client` package with
+  `sooth@0.5.2`; that integration remains in the XAPP repository.
 
 ## Known Issues
 
