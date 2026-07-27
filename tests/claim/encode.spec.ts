@@ -17,7 +17,6 @@ import type { ClaimTxRequest } from '../../src/core/contracts/soothCore';
 const MARKET = `0x${'bc'.repeat(20)}` as `0x${string}`;
 
 const REQUESTS: ClaimTxRequest[] = [
-  { route: 'dismissed_refund', contract: MARKET, functionName: 'claimRefund', args: [MARKET] },
   { route: 'order_settle', contract: MARKET, functionName: 'settlePosition', args: [MARKET] },
   { route: 'amm_settle', contract: MARKET, functionName: 'settlePosition', args: [MARKET] },
 ];

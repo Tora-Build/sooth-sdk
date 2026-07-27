@@ -33,14 +33,6 @@ const ERC20_ABI = parseAbi([
   'function transfer(address to, uint256 amount) returns (bool)',
 ]);
 
-// Local extended ABI for write functions the minimal core LaunchpadEngine
-// ABI in core/abis/LaunchpadEngine.ts doesn't declare. Declared here so
-// actions don't need a broader ABI change.
-const LAUNCHPAD_WRITE_ABI = parseAbi([
-  'function dismissMarket(address market)',
-  'function claimRefund(address market) returns (uint256)',
-]);
-
 function formatWad(value: bigint): string {
   const whole = value / WAD;
   const frac = (value % WAD) / 10n ** 16n;
@@ -584,7 +576,7 @@ export async function runTransferLp(
 }
 
 //
-// ─── DISMISS / CLAIMREFUND ─────────────────────────────────────────────────
+// ─── REMOVED LAUNCHPAD ACTIONS ─────────────────────────────────────────────
 //
 
 export interface MarketOnlyParams {
@@ -592,59 +584,23 @@ export interface MarketOnlyParams {
 }
 
 export async function runDismiss(
-  ctx: ActionContext,
-  params: MarketOnlyParams,
-  report: ActionReporter = noopReporter,
+  _ctx: ActionContext,
+  _params: MarketOnlyParams,
+  _report: ActionReporter = noopReporter,
 ): Promise<`0x${string}`> {
-  const account = requireWallet(ctx);
-  // Preflight: trial expired and not graduated. LaunchpadEngine revert
-  // messages are more actionable than silent failures.
-  let isTrialExpired = false;
-  try {
-    isTrialExpired = (await ctx.publicClient.readContract({
-      address: ctx.contracts.LaunchpadEngine,
-      abi: LaunchpadEngineABI,
-      functionName: 'isTrialExpiredWithoutGraduation',
-      args: [params.marketAddress],
-    })) as boolean;
-  } catch {
-    // fall through — let contract produce authoritative revert
-  }
-  if (!isTrialExpired) {
-    throw new Error('Market cannot be dismissed (trial not expired or already graduated)');
-  }
-  report({ type: 'info', message: 'Dismissing market...' });
-  const hash = await ctx.walletClient.writeContract({
-    address: ctx.contracts.LaunchpadEngine,
-    abi: LAUNCHPAD_WRITE_ABI,
-    functionName: 'dismissMarket',
-    args: [params.marketAddress],
-    account,
-    chain: null,
-  });
-  await ctx.publicClient.waitForTransactionReceipt({ hash });
-  report({ type: 'success', message: 'Market dismissed' });
-  return hash;
+  throw new Error(
+    'dismissMarket was removed in sooth-core v0.2.1; expired markets are invalidated through TruthMarket.invalidate()',
+  );
 }
 
 export async function runClaimRefund(
-  ctx: ActionContext,
-  params: MarketOnlyParams,
-  report: ActionReporter = noopReporter,
+  _ctx: ActionContext,
+  _params: MarketOnlyParams,
+  _report: ActionReporter = noopReporter,
 ): Promise<`0x${string}`> {
-  const account = requireWallet(ctx);
-  report({ type: 'info', message: 'Claiming refund...' });
-  const hash = await ctx.walletClient.writeContract({
-    address: ctx.contracts.LaunchpadEngine,
-    abi: LAUNCHPAD_WRITE_ABI,
-    functionName: 'claimRefund',
-    args: [params.marketAddress],
-    account,
-    chain: null,
-  });
-  await ctx.publicClient.waitForTransactionReceipt({ hash });
-  report({ type: 'success', message: 'Refund claimed' });
-  return hash;
+  throw new Error(
+    'claimRefund was removed in sooth-core v0.2.1; no dismissed-market refund route exists',
+  );
 }
 
 //

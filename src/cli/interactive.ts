@@ -473,7 +473,7 @@ function printHelp(): void {
     marketstatus             Show full market lifecycle status
     settle <outcome>         Settle market (adjudicator only)
                              outcome: yes, no, invalid
-    finalize                 Finalize settled market (adjudicator only)
+    finalize                 Legacy command (removed in core v0.2.1)
     redeem                   Redeem winning tokens for USDC (after settlement)
     redeemamm                Redeem AMM positions for USDC (after settlement)
     redeemlp [amount|max]    Redeem LP tokens for USDC + fees
@@ -482,10 +482,10 @@ function printHelp(): void {
                               Example: transferlp ellen 50
                               ${dim('LP tokens can only be transferred pre-settlement')}
 
-    ${info('Trial Period (V11):')}
+    ${info('Legacy trial commands:')}
       trialstatus              Show trial period status and locked costs
-      dismiss                  Dismiss market during trial (creator only)
-      claimrefund              Claim refund after market dismissal
+      dismiss                  Removed in core v0.2.1
+      claimrefund              Removed in core v0.2.1
 
   ${info('Orderbook (SoothBook):')}
     ${dim('# Set market key with: setmarket <marketKey>')}

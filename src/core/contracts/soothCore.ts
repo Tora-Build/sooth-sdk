@@ -1,7 +1,7 @@
 import { encodePacked, erc20Abi, keccak256, type Address, type PublicClient } from 'viem';
 import { AMMEngineABI } from '../abis/AMMEngine.js';
 import { CollateralizerABI } from '../abis/Collateralizer.js';
-import { LaunchpadEngineABI } from '../abis/LaunchpadEngine.js';
+import { FeeRouterABI } from '../abis/FeeRouter.js';
 import { OrderEngineABI } from '../abis/OrderEngine.js';
 import { SoothBookABI } from '../abis/SoothBook.js';
 import { TruthMarketABI } from '../abis/TruthMarket.js';
@@ -205,17 +205,10 @@ export interface SoothQuote {
 }
 
 export type ClaimRoute =
-  | 'dismissed_refund'
   | 'order_settle' // OrderEngine unified custody (SoothBook + graduated/collateral positions)
   | 'amm_settle'; // AMMEngine LMSR positions
 
 export type ClaimTxRequest =
-  | {
-      route: 'dismissed_refund';
-      contract: Address;
-      functionName: 'claimRefund';
-      args: readonly [Address];
-    }
   | {
       route: 'order_settle';
       contract: Address;
@@ -671,15 +664,18 @@ export async function readSoothBookMarketSnapshot(
           }) as Promise<bigint>,
         0n,
       ),
-      readWithFallback(
-        () =>
-          client.readContract({
-            address: soothBook,
-            abi: SoothBookABI,
-            functionName: 'feeBps',
-          }) as Promise<number | bigint>,
-        0,
-      ),
+      readWithFallback(async () => {
+        const feeRouter = (await client.readContract({
+          address: soothBook,
+          abi: SoothBookABI,
+          functionName: 'feeRouter',
+        })) as Address;
+        return client.readContract({
+          address: feeRouter,
+          abi: FeeRouterABI,
+          functionName: 'postGradFeeBps',
+        }) as Promise<number | bigint>;
+      }, 0),
       userAddress
         ? readWithFallback(
             () =>
@@ -1078,24 +1074,6 @@ export function buildClaimRequest(
   snapshot: SoothCoreSnapshot,
   contracts: SoothCoreContracts,
 ): ClaimRequestPlan | null {
-  if (snapshot.launchpadAmm.launchpad.isDismissed) {
-    if (snapshot.launchpadAmm.launchpad.userLockedCost <= 0n) {
-      return null;
-    }
-
-    return {
-      route: 'dismissed_refund',
-      requests: [
-        {
-          route: 'dismissed_refund',
-          contract: contracts.launchpadEngine,
-          functionName: 'claimRefund',
-          args: [snapshot.marketAddress] as const,
-        },
-      ] as const,
-    };
-  }
-
   if (!snapshot.truth.isSettled && !snapshot.truth.isFinalized) {
     return null;
   }
@@ -1446,8 +1424,6 @@ export function getClaimAbiForRequest(request: ClaimTxRequest) {
   // Keyed on route, not functionName — order_settle and amm_settle both call
   // settlePosition(address) but on different contracts (OrderEngine vs AMMEngine).
   switch (request.route) {
-    case 'dismissed_refund':
-      return LaunchpadEngineABI;
     case 'order_settle':
       return OrderEngineABI;
     case 'amm_settle':
