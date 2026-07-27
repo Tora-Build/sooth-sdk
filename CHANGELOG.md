@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.3](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.5.2...sooth-v0.5.3) (2026-07-27)
+
+
+### 🐛 Bug Fixes
+
+* finish v0.2.1 contract parity ([#33](https://github.com/Tora-Build/sooth-sdk/issues/33)) ([e11a818](https://github.com/Tora-Build/sooth-sdk/commit/e11a818c08fbd60e11dbe189e88b8a4861895619))
+
 ## [0.5.2](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.5.1...sooth-v0.5.2) (2026-07-26)
 
 
