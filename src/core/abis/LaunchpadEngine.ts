@@ -1,24 +1,135 @@
-// LaunchpadEngine ABI — regenerated from deployed bytecode at
-// 0xEfe2D076f380649d7B6ACF7C20eEc5d5614D6E0b (Base Sepolia, chain 84532)
-// Generated: 2026-04-05 via `cast selectors`
-//
-// 3 selectors could not be identified and are omitted:
-//   0x40790471 — view, no inputs, returns uint256 (604800 = 7 days)
-//   0xae1aa989 — nonpayable, takes uint64
-//   0xeb26a728 — view, takes (address,address,bytes,uint256,uint64,uint64)
-
+// LaunchpadEngine v0.2.1 — complete ABI (constructor, functions, events, custom errors).
+// Vendored from the canonical sooth-core artifact and verified against deployed
+// Ethereum Sepolia bytecode at 0x8B44C61692461496043257f1605E8Af73Dcd952b on 2026-07-27.
 export const LaunchpadEngineABI = [
-  // ── Functions ──────────────────────────────────────────────────────
-
+  {
+    type: 'constructor',
+    inputs: [
+      {
+        name: '_baseToken',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: '_truthMarketImpl',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: '_adjudicatorRegistry',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: '_ammEngine',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: '_feeRouter',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: '_orderEngine',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: '_owner',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'adjudicatorRegistry',
+    inputs: [],
+    outputs: [
+      {
+        name: '',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'allMarkets',
+    inputs: [
+      {
+        name: '',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+    ],
+    outputs: [
+      {
+        name: '',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'ammEngine',
+    inputs: [],
+    outputs: [
+      {
+        name: '',
+        type: 'address',
+        internalType: 'contract IAMMEngine',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'baseToken',
+    inputs: [],
+    outputs: [
+      {
+        name: '',
+        type: 'address',
+        internalType: 'contract IERC20',
+      },
+    ],
+    stateMutability: 'view',
+  },
   {
     type: 'function',
     name: 'createMarket',
     inputs: [
-      { name: 'question', type: 'string', internalType: 'string' },
-      { name: 'startTime', type: 'uint64', internalType: 'uint64' },
-      { name: 'deadline', type: 'uint64', internalType: 'uint64' },
-      { name: 'adjudicator', type: 'address', internalType: 'address' },
-      { name: 'bBase', type: 'uint256', internalType: 'uint256' },
+      {
+        name: 'question',
+        type: 'string',
+        internalType: 'string',
+      },
+      {
+        name: 'startTime',
+        type: 'uint64',
+        internalType: 'uint64',
+      },
+      {
+        name: 'deadline',
+        type: 'uint64',
+        internalType: 'uint64',
+      },
+      {
+        name: 'adjudicator',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: 'bBase',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
       {
         name: 'initialProbabilityWad',
         type: 'uint256',
@@ -31,111 +142,250 @@ export const LaunchpadEngineABI = [
       },
     ],
     outputs: [
-      { name: 'market', type: 'address', internalType: 'address' },
-      { name: 'lpToken', type: 'address', internalType: 'address' },
+      {
+        name: 'market',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: 'lpToken',
+        type: 'address',
+        internalType: 'address',
+      },
     ],
     stateMutability: 'nonpayable',
   },
   {
     type: 'function',
-    name: 'markets',
-    inputs: [{ name: '', type: 'address', internalType: 'address' }],
-    outputs: [
-      { name: 'creator', type: 'address', internalType: 'address' },
-      { name: 'lpToken', type: 'address', internalType: 'address' },
-      { name: 'bBase', type: 'uint256', internalType: 'uint256' },
+    name: 'creatorNonce',
+    inputs: [
       {
-        name: 'creatorDeposit',
+        name: '',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    outputs: [
+      {
+        name: '',
         type: 'uint256',
         internalType: 'uint256',
       },
-      { name: 'graduatedAt', type: 'uint64', internalType: 'uint64' },
     ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'allMarkets',
-    inputs: [{ name: '', type: 'uint256', internalType: 'uint256' }],
-    outputs: [{ name: '', type: 'address', internalType: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'getMarkets',
-    inputs: [],
-    outputs: [{ name: '', type: 'address[]', internalType: 'address[]' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'getMarketCount',
-    inputs: [],
-    outputs: [{ name: '', type: 'uint256', internalType: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'getLPToken',
-    inputs: [{ name: 'market', type: 'address', internalType: 'address' }],
-    outputs: [{ name: '', type: 'address', internalType: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'isGraduated',
-    inputs: [{ name: 'market', type: 'address', internalType: 'address' }],
-    outputs: [{ name: '', type: 'bool', internalType: 'bool' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'isTrialExpiredWithoutGraduation',
-    inputs: [{ name: 'market', type: 'address', internalType: 'address' }],
-    outputs: [{ name: '', type: 'bool', internalType: 'bool' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'trialEndTimes',
-    inputs: [{ name: 'market', type: 'address', internalType: 'address' }],
-    outputs: [{ name: '', type: 'uint64', internalType: 'uint64' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'creatorNonce',
-    inputs: [{ name: 'creator', type: 'address', internalType: 'address' }],
-    outputs: [{ name: '', type: 'uint256', internalType: 'uint256' }],
     stateMutability: 'view',
   },
   {
     type: 'function',
     name: 'defaultTrialPeriod',
     inputs: [],
-    outputs: [{ name: '', type: 'uint64', internalType: 'uint64' }],
+    outputs: [
+      {
+        name: '',
+        type: 'uint64',
+        internalType: 'uint64',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'feeRouter',
+    inputs: [],
+    outputs: [
+      {
+        name: '',
+        type: 'address',
+        internalType: 'contract IFeeRouter',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getLPToken',
+    inputs: [
+      {
+        name: 'market',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    outputs: [
+      {
+        name: '',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getMarketCount',
+    inputs: [],
+    outputs: [
+      {
+        name: '',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getMarkets',
+    inputs: [],
+    outputs: [
+      {
+        name: '',
+        type: 'address[]',
+        internalType: 'address[]',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'invalidationBuffer',
+    inputs: [],
+    outputs: [
+      {
+        name: '',
+        type: 'uint64',
+        internalType: 'uint64',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'isGraduated',
+    inputs: [
+      {
+        name: 'market',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    outputs: [
+      {
+        name: '',
+        type: 'bool',
+        internalType: 'bool',
+      },
+    ],
     stateMutability: 'view',
   },
   {
     type: 'function',
     name: 'isPaused',
     inputs: [],
-    outputs: [{ name: '', type: 'bool', internalType: 'bool' }],
+    outputs: [
+      {
+        name: '',
+        type: 'bool',
+        internalType: 'bool',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'isTrialExpiredWithoutGraduation',
+    inputs: [
+      {
+        name: 'market',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    outputs: [
+      {
+        name: '',
+        type: 'bool',
+        internalType: 'bool',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'markets',
+    inputs: [
+      {
+        name: '',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    outputs: [
+      {
+        name: 'creator',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: 'lpToken',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: 'bBase',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+      {
+        name: 'creatorDeposit',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+      {
+        name: 'graduatedAt',
+        type: 'uint64',
+        internalType: 'uint64',
+      },
+    ],
     stateMutability: 'view',
   },
   {
     type: 'function',
     name: 'notifyGraduation',
-    inputs: [{ name: 'market', type: 'address', internalType: 'address' }],
+    inputs: [
+      {
+        name: 'market',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
     outputs: [],
     stateMutability: 'nonpayable',
   },
   {
     type: 'function',
-    name: 'setDefaultTrialPeriod',
-    inputs: [{ name: 'period', type: 'uint64', internalType: 'uint64' }],
-    outputs: [],
-    stateMutability: 'nonpayable',
+    name: 'orderEngine',
+    inputs: [],
+    outputs: [
+      {
+        name: '',
+        type: 'address',
+        internalType: 'contract IOrderEngine',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'owner',
+    inputs: [],
+    outputs: [
+      {
+        name: '',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    stateMutability: 'view',
   },
   {
     type: 'function',
@@ -146,64 +396,46 @@ export const LaunchpadEngineABI = [
   },
   {
     type: 'function',
-    name: 'unpause',
-    inputs: [],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-
-  // ── Immutables / Config ────────────────────────────────────────────
-
-  {
-    type: 'function',
-    name: 'ammEngine',
-    inputs: [],
-    outputs: [{ name: '', type: 'address', internalType: 'address' }],
-    stateMutability: 'pure',
-  },
-  {
-    type: 'function',
-    name: 'feeRouter',
-    inputs: [],
-    outputs: [{ name: '', type: 'address', internalType: 'address' }],
-    stateMutability: 'pure',
-  },
-  {
-    type: 'function',
-    name: 'truthMarketImpl',
-    inputs: [],
-    outputs: [{ name: '', type: 'address', internalType: 'address' }],
-    stateMutability: 'pure',
-  },
-  {
-    type: 'function',
-    name: 'orderEngine',
-    inputs: [],
-    outputs: [{ name: '', type: 'address', internalType: 'address' }],
-    stateMutability: 'pure',
-  },
-  {
-    type: 'function',
-    name: 'adjudicatorRegistry',
-    inputs: [],
-    outputs: [{ name: '', type: 'address', internalType: 'address' }],
-    stateMutability: 'pure',
-  },
-  {
-    type: 'function',
-    name: 'baseToken',
-    inputs: [],
-    outputs: [{ name: '', type: 'address', internalType: 'address' }],
-    stateMutability: 'pure',
-  },
-
-  // ── Ownable ────────────────────────────────────────────────────────
-
-  {
-    type: 'function',
-    name: 'owner',
-    inputs: [],
-    outputs: [{ name: '', type: 'address', internalType: 'address' }],
+    name: 'predictMarketAddress',
+    inputs: [
+      {
+        name: '_creator',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: '_adjudicator',
+        type: 'address',
+        internalType: 'address',
+      },
+      {
+        name: '_question',
+        type: 'string',
+        internalType: 'string',
+      },
+      {
+        name: 'nonce',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+      {
+        name: '_startTime',
+        type: 'uint64',
+        internalType: 'uint64',
+      },
+      {
+        name: '_deadline',
+        type: 'uint64',
+        internalType: 'uint64',
+      },
+    ],
+    outputs: [
+      {
+        name: '',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
     stateMutability: 'view',
   },
   {
@@ -215,14 +447,127 @@ export const LaunchpadEngineABI = [
   },
   {
     type: 'function',
-    name: 'transferOwnership',
-    inputs: [{ name: 'newOwner', type: 'address', internalType: 'address' }],
+    name: 'setDefaultTrialPeriod',
+    inputs: [
+      {
+        name: 'period',
+        type: 'uint64',
+        internalType: 'uint64',
+      },
+    ],
     outputs: [],
     stateMutability: 'nonpayable',
   },
-
-  // ── Events ─────────────────────────────────────────────────────────
-
+  {
+    type: 'function',
+    name: 'setInvalidationBuffer',
+    inputs: [
+      {
+        name: 'buffer',
+        type: 'uint64',
+        internalType: 'uint64',
+      },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'transferOwnership',
+    inputs: [
+      {
+        name: 'newOwner',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'trialEndTimes',
+    inputs: [
+      {
+        name: '',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    outputs: [
+      {
+        name: '',
+        type: 'uint64',
+        internalType: 'uint64',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'truthMarketImpl',
+    inputs: [],
+    outputs: [
+      {
+        name: '',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'unpause',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'event',
+    name: 'DefaultTrialPeriodUpdated',
+    inputs: [
+      {
+        name: 'period',
+        type: 'uint64',
+        indexed: false,
+        internalType: 'uint64',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'InvalidationBufferUpdated',
+    inputs: [
+      {
+        name: 'buffer',
+        type: 'uint64',
+        indexed: false,
+        internalType: 'uint64',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'LPTokenCreated',
+    inputs: [
+      {
+        name: 'market',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'lpToken',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+    ],
+    anonymous: false,
+  },
   {
     type: 'event',
     name: 'MarketCreated',
@@ -305,38 +650,6 @@ export const LaunchpadEngineABI = [
   },
   {
     type: 'event',
-    name: 'LPTokenCreated',
-    inputs: [
-      {
-        name: 'market',
-        type: 'address',
-        indexed: true,
-        internalType: 'address',
-      },
-      {
-        name: 'lpToken',
-        type: 'address',
-        indexed: true,
-        internalType: 'address',
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: 'event',
-    name: 'DefaultTrialPeriodUpdated',
-    inputs: [
-      {
-        name: 'period',
-        type: 'uint64',
-        indexed: false,
-        internalType: 'uint64',
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: 'event',
     name: 'OwnershipTransferred',
     inputs: [
       {
@@ -354,22 +667,106 @@ export const LaunchpadEngineABI = [
     ],
     anonymous: false,
   },
-
-  // ── Errors ─────────────────────────────────────────────────────────
-
   {
-    type: 'error',
-    name: 'OwnableInvalidOwner',
-    inputs: [{ name: 'owner', type: 'address', internalType: 'address' }],
+    type: 'event',
+    name: 'ProtocolPaused',
+    inputs: [
+      {
+        name: 'caller',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'ProtocolUnpaused',
+    inputs: [
+      {
+        name: 'caller',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+    ],
+    anonymous: false,
   },
   {
     type: 'error',
-    name: 'OwnableUnauthorizedAccount',
-    inputs: [{ name: 'account', type: 'address', internalType: 'address' }],
+    name: 'AlreadyGraduated',
+    inputs: [],
   },
   {
     type: 'error',
-    name: 'ReentrancyGuardReentrantCall',
+    name: 'CloneArgumentsTooLong',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'Create2EmptyBytecode',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'DeadlineInPast',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'DepositTooSmall',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'FailedDeployment',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'InsufficientBalance',
+    inputs: [
+      {
+        name: 'balance',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+      {
+        name: 'needed',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+    ],
+  },
+  {
+    type: 'error',
+    name: 'InvalidBuffer',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'InvalidProbability',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'InvalidTrialPeriod',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'NegativeInput',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'NonPositiveInput',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'NotApprovedAdjudicator',
     inputs: [],
   },
   {
@@ -379,7 +776,55 @@ export const LaunchpadEngineABI = [
   },
   {
     type: 'error',
-    name: 'AlreadyGraduated',
+    name: 'OwnableInvalidOwner',
+    inputs: [
+      {
+        name: 'owner',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+  },
+  {
+    type: 'error',
+    name: 'OwnableUnauthorizedAccount',
+    inputs: [
+      {
+        name: 'account',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+  },
+  {
+    type: 'error',
+    name: 'Paused',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'ReentrancyGuardReentrantCall',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'SafeERC20FailedOperation',
+    inputs: [
+      {
+        name: 'token',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+  },
+  {
+    type: 'error',
+    name: 'StartAfterDeadline',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'StartInPast',
     inputs: [],
   },
   {
@@ -389,31 +834,22 @@ export const LaunchpadEngineABI = [
   },
   {
     type: 'error',
-    name: 'SafeERC20FailedOperation',
-    inputs: [{ name: 'token', type: 'address', internalType: 'address' }],
+    name: 'ZeroAdjudicator',
+    inputs: [],
   },
   {
-    type: 'function',
-    name: 'dismissMarket',
-    inputs: [{ name: 'market', type: 'address', internalType: 'address' }],
-    outputs: [],
-    stateMutability: 'nonpayable',
+    type: 'error',
+    name: 'ZeroBaseToken',
+    inputs: [],
   },
   {
-    type: 'function',
-    name: 'claimRefund',
-    inputs: [{ name: 'market', type: 'address', internalType: 'address' }],
-    outputs: [],
-    stateMutability: 'nonpayable',
+    type: 'error',
+    name: 'ZeroLiquidity',
+    inputs: [],
   },
   {
-    type: 'event',
-    name: 'LPRedeemed',
-    inputs: [
-      { name: 'market', type: 'address', indexed: true, internalType: 'address' },
-      { name: 'user', type: 'address', indexed: true, internalType: 'address' },
-      { name: 'usdcAmount', type: 'uint256', indexed: false, internalType: 'uint256' },
-    ],
-    anonymous: false,
+    type: 'error',
+    name: 'ZeroTruthMarketImpl',
+    inputs: [],
   },
 ] as const;

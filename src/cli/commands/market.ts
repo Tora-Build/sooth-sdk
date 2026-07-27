@@ -49,7 +49,6 @@ async function gasWithBuffer(
 }
 
 const TruthMarketAbi = parseAbi([
-  'function question() view returns (string)',
   'function questionHash() view returns (bytes32)',
   'function startTime() view returns (uint64)',
   'function deadline() view returns (uint64)',
@@ -66,7 +65,6 @@ const TruthMarketAbi = parseAbi([
   'function resolve(uint8 outcome, uint64 tStar) external',
   'function attest() external',
   'function settle() external',
-  'function finalize() external',
   'function veto() external',
   'event MarketCreated(address indexed market, bytes32 questionHash, string question, uint64 startTime, uint64 deadline)',
 ]);
@@ -90,8 +88,6 @@ const LaunchpadEngineAbi = parseAbi([
   'function isGraduated(address market) view returns (bool)',
   'function isTrialExpiredWithoutGraduation(address market) view returns (bool)',
   'function getLPToken(address market) view returns (address)',
-  'function dismissMarket(address market) external',
-  'function claimRefund(address market) external returns (uint256)',
   'event MarketCreated(address indexed market, address indexed creator, string question, uint64 startTime, uint64 deadline, uint256 bBase, address adjudicator, address lpToken, uint256 nonce)',
 ]);
 
@@ -1431,7 +1427,7 @@ export async function settle(ctx: CommandContext, args: string[]): Promise<Comma
       `Market resolved as ${['NO', 'YES', 'INVALID'][outcome]} ${dim(`(tx: ${resolveHash.slice(0, 10)}...)`)}`,
     );
     console.log(
-      `  ${dim('Next steps: run `attest`, then `finalize` (or `settle`) after veto window.')}`,
+      `  ${dim("Next steps: continue through the configured adjudicator's attest/settle lifecycle.")}`,
     );
     return { success: true, txHash: resolveHash };
   } catch (err) {
@@ -1444,46 +1440,15 @@ export async function settle(ctx: CommandContext, args: string[]): Promise<Comma
 }
 
 /**
- * Finalize a settled market (adjudicator only)
+ * Legacy finalize command retained for CLI compatibility.
  * Usage: finalize
  */
-export async function finalize(ctx: CommandContext, _args: string[]): Promise<CommandResult> {
-  const { actorManager, marketAddress } = ctx;
-  const walletClient = actorManager.currentWalletClient();
-  const address = actorManager.currentAddress();
-
-  if (!walletClient || !address) {
-    return { success: false, message: 'No actor selected' };
-  }
-
-  if (!marketAddress) {
-    return {
-      success: false,
-      message: 'No market selected. Use setmarket first.',
-    };
-  }
-
-  const spinner = new Spinner(`Finalizing market...`);
-  spinner.start();
-
-  try {
-    const finalizeHash = await walletClient.writeContract({
-      address: marketAddress,
-      abi: TruthMarketAbi,
-      functionName: 'finalize',
-      args: [],
-      gas: 500000n,
-    });
-    await actorManager.waitForTransactionReceipt(finalizeHash);
-    spinner.succeed(`Market finalized ${dim(`(tx: ${finalizeHash.slice(0, 10)}...)`)}`);
-    return { success: true, txHash: finalizeHash };
-  } catch (err) {
-    spinner.fail(`Finalization failed`);
-    return {
-      success: false,
-      message: `Finalization failed: ${(err as Error).message}`,
-    };
-  }
+export async function finalize(_ctx: CommandContext, _args: string[]): Promise<CommandResult> {
+  return {
+    success: false,
+    message:
+      'TruthMarket.finalize was removed in sooth-core v0.2.1; use the configured adjudicator lifecycle',
+  };
 }
 
 /**
@@ -2118,120 +2083,27 @@ export async function trialstatus(ctx: CommandContext, _args: string[]): Promise
 }
 
 /**
- * Dismiss market during trial period (creator only)
+ * Legacy dismiss command retained for CLI compatibility.
  * Usage: dismiss
  */
-export async function dismiss(ctx: CommandContext, _args: string[]): Promise<CommandResult> {
-  const { actorManager, deployment, marketAddress } = ctx;
-  const walletClient = actorManager.currentWalletClient();
-  const address = actorManager.currentAddress();
-  const publicClient = actorManager.getPublicClient();
-
-  if (!walletClient || !address) {
-    return { success: false, message: 'No actor selected' };
-  }
-
-  if (!marketAddress) {
-    return {
-      success: false,
-      message: 'No market selected. Use setmarket first.',
-    };
-  }
-
-  const isTrialExpired = (await publicClient
-    .readContract({
-      address: deployment.contracts.LaunchpadEngine as `0x${string}`,
-      abi: LaunchpadEngineAbi,
-      functionName: 'isTrialExpiredWithoutGraduation',
-      args: [marketAddress],
-    })
-    .catch(() => false)) as boolean;
-
-  if (!isTrialExpired) {
-    return {
-      success: false,
-      message: 'Market cannot be dismissed (trial not expired or already graduated)',
-    };
-  }
-
-  const spinner = new Spinner('Dismissing market...');
-  spinner.start();
-
-  try {
-    const hash = await walletClient.writeContract({
-      address: deployment.contracts.LaunchpadEngine as `0x${string}`,
-      abi: LaunchpadEngineAbi,
-      functionName: 'dismissMarket',
-      args: [marketAddress],
-      gas: 200000n,
-    });
-
-    await actorManager.waitForTransactionReceipt(hash);
-    await sleep(3000);
-    spinner.succeed(
-      `Market dismissed! Traders can now claim refunds ${dim(`(tx: ${shortTx(hash)})`)}`,
-    );
-    return { success: true, txHash: hash };
-  } catch (err) {
-    const errMsg = (err as Error).message;
-    if (errMsg.includes('OnlyCreator')) {
-      spinner.fail('Only the market creator can dismiss');
-      return { success: false, message: 'Only creator can dismiss market' };
-    }
-    if (errMsg.includes('trial not ended')) {
-      spinner.fail('Trial period has not ended yet');
-      return { success: false, message: 'Trial period has not ended yet' };
-    }
-    spinner.fail(`Dismiss failed: ${errMsg.slice(0, 80)}`);
-    return { success: false, message: errMsg };
-  }
+export async function dismiss(_ctx: CommandContext, _args: string[]): Promise<CommandResult> {
+  return {
+    success: false,
+    message:
+      'LaunchpadEngine.dismissMarket was removed in sooth-core v0.2.1; expired markets use TruthMarket.invalidate',
+  };
 }
 
 /**
- * Claim refund after market dismissal
+ * Legacy claimrefund command retained for CLI compatibility.
  * Usage: claimrefund
  */
-export async function claimrefund(ctx: CommandContext, _args: string[]): Promise<CommandResult> {
-  const { actorManager, deployment, marketAddress } = ctx;
-  const walletClient = actorManager.currentWalletClient();
-  const address = actorManager.currentAddress();
-
-  if (!walletClient || !address) {
-    return { success: false, message: 'No actor selected' };
-  }
-
-  if (!marketAddress) {
-    return {
-      success: false,
-      message: 'No market selected. Use setmarket first.',
-    };
-  }
-
-  const spinner = new Spinner('Claiming refund...');
-  spinner.start();
-
-  try {
-    const hash = await walletClient.writeContract({
-      address: deployment.contracts.LaunchpadEngine as `0x${string}`,
-      abi: LaunchpadEngineAbi,
-      functionName: 'claimRefund',
-      args: [marketAddress],
-      gas: 200000n,
-    });
-
-    await actorManager.waitForTransactionReceipt(hash);
-    await sleep(3000);
-    spinner.succeed(`Refund claimed ${dim(`(tx: ${shortTx(hash)})`)}`);
-    return { success: true, txHash: hash };
-  } catch (err) {
-    const errMsg = (err as Error).message;
-    if (errMsg.includes('not dismissed')) {
-      spinner.fail('Market is not dismissed');
-      return { success: false, message: 'Market must be dismissed first' };
-    }
-    spinner.fail(`Claim refund failed: ${errMsg.slice(0, 80)}`);
-    return { success: false, message: errMsg };
-  }
+export async function claimrefund(_ctx: CommandContext, _args: string[]): Promise<CommandResult> {
+  return {
+    success: false,
+    message:
+      'LaunchpadEngine.claimRefund was removed in sooth-core v0.2.1; no dismissed-market refund route exists',
+  };
 }
 
 export const marketCommands = {

@@ -77,7 +77,7 @@ describe('SoothBook events + custom errors', () => {
         'event OrderCancelled(bytes32 indexed marketKey, uint8 side, uint16 tick, address indexed maker, uint128 amount, uint64 orderId)',
       ),
     );
-    for (const name of ['Minted', 'Merged', 'Redeemed', 'MarketResolved']) {
+    for (const name of ['Minted', 'Merged', 'DustOrderSkipped']) {
       expect(event(name), `missing event ${name}`).toBeDefined();
     }
   });

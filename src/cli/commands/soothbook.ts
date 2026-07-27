@@ -709,7 +709,7 @@ export async function resolve(_ctx: CommandContext, _args: string[]): Promise<Co
   return {
     success: false,
     message:
-      'sbresolve deprecated in v0.2.1: SoothBook.resolveMarket was deleted. Use the adjudicator lifecycle instead — setmarket, then marketstatus / settle / finalize.',
+      'sbresolve deprecated in v0.2.1: SoothBook.resolveMarket was deleted. Use the configured adjudicator lifecycle instead.',
   };
 }
 

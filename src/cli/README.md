@@ -84,18 +84,18 @@ If `PRIVATE_KEY_<name>` is set, that name becomes a switchable actor at the REPL
 
 Once at the prompt, type `help` to see the full command tree. The major groups:
 
-| Group                    | Examples                                                                                                                                   |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Actor mgmt**           | `actor alice`, `actors`                                                                                                                    |
-| **Wallet**               | `balance`, `mint 1000`, `approve all`, `allowance`, `snapshot`, `checksum`                                                                 |
-| **AMM market lifecycle** | `createmarket alien`, `graduate 8`, `marketstatus`, `settle yes`, `finalize`, `redeem`, `redeemlp max`, `pnl 50000`, `transferlp ellen 50` |
-| **Trial period**         | `trialstatus`, `dismiss`, `claimrefund`                                                                                                    |
-| **SoothBook trading**    | `buyyes 600 25`, `buyno 400 25`, `mintset 100`, `mergeset 100`, `cancelorder yes 600`, `sbredeem`                                          |
-| **SoothBook state**      | `state`, `book`, `positions`, `history`, `markets`, `setmarket latest`, `sbcreate <name>`                                                  |
-| **Scenarios**            | `scenario <name>`, `scenarios`, `record start`, `record stop <name>`, `playback <name>`                                                    |
-| **Invariants**           | `invariants`, `check`                                                                                                                      |
-| **Debug / RPC**          | `rpc`, `rpc set <url>`, `rpc reset`, `call <contract> <fn>`                                                                                |
-| **Other**                | `help`, `clear`, `exit`                                                                                                                    |
+| Group                    | Examples                                                                                                                       |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| **Actor mgmt**           | `actor alice`, `actors`                                                                                                        |
+| **Wallet**               | `balance`, `mint 1000`, `approve all`, `allowance`, `snapshot`, `checksum`                                                     |
+| **AMM market lifecycle** | `createmarket alien`, `graduate 8`, `marketstatus`, `settle yes`, `redeem`, `redeemlp max`, `pnl 50000`, `transferlp ellen 50` |
+| **Trial status**         | `trialstatus`                                                                                                                  |
+| **SoothBook trading**    | `buyyes 600 25`, `buyno 400 25`, `mintset 100`, `mergeset 100`, `cancelorder yes 600`, `sbredeem`                              |
+| **SoothBook state**      | `state`, `book`, `positions`, `history`, `markets`, `setmarket latest`, `sbcreate <name>`                                      |
+| **Scenarios**            | `scenario <name>`, `scenarios`, `record start`, `record stop <name>`, `playback <name>`                                        |
+| **Invariants**           | `invariants`, `check`                                                                                                          |
+| **Debug / RPC**          | `rpc`, `rpc set <url>`, `rpc reset`, `call <contract> <fn>`                                                                    |
+| **Other**                | `help`, `clear`, `exit`                                                                                                        |
 
 ---
 
