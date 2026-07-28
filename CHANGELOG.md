@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.4](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.5.3...sooth-v0.5.4) (2026-07-28)
+
+
+### ✨ Features
+
+* **registry:** add Robinhood testnet snapshot ([907f751](https://github.com/Tora-Build/sooth-sdk/commit/907f7516faa7aaf73baff16194d56f6f2a2d71a7))
+
 ## [0.5.3](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.5.2...sooth-v0.5.3) (2026-07-27)
 
 
