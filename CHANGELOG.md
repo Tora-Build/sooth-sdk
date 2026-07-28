@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.6.0](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.5.3...sooth-v0.6.0) (2026-07-28)
+## [0.5.4](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.5.3...sooth-v0.5.4) (2026-07-28)
 
 
 ### ✨ Features

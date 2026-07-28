@@ -1,6 +1,6 @@
 {
   "name": "sooth",
-  "version": "0.6.0",
+  "version": "0.5.4",
   "packageManager": "pnpm@9.15.9",
   "description": "Sooth Protocol SDK — programmatic access, core utilities, and CLI for prediction markets",
   "keywords": [
