@@ -1,6 +1,6 @@
 {
-  "version": "0.2.3",
-  "updatedAt": "2026-05-02T00:00:00.000Z",
+  "version": "0.2.4",
+  "updatedAt": "2026-07-28T00:00:00.000Z",
   "nodes": [
     {
       "id": "3b02bcfd",
@@ -55,7 +55,6 @@
       "startBlock": 10749019,
       "indexed": true,
       "label": "Eth Sepolia · v0.2.1"
-
     },
     {
       "id": "8d69658b",
@@ -83,6 +82,31 @@
       "startBlock": 40933166,
       "indexed": false,
       "label": "Base Sepolia · v0.2.1 (recorded, not indexed/shown)"
+    },
+    {
+      "id": "08c5ea8a",
+      "chainId": 46630,
+      "coreVersion": "0.2.1",
+      "contracts": {
+        "launchpadEngine": "0x8B44C61692461496043257f1605E8Af73Dcd952b",
+        "soothBook": "0x20c0a274aB8D90452859809B3804Ef2cFA595132",
+        "ammEngine": "0x1Bab97dBCE105E8715A29B33cd18F0d8B9871383",
+        "orderEngine": "0x14941AA509e484e14A7A7C1cb97fcfcfC96C02A2",
+        "truthMarket": "0x6c4f2460e0e6DFb58C6a1a044DC6C1Ccd274C850",
+        "feeRouter": "0x7007c321B82F96C16e5Ca114019Fb669633e6219",
+        "adjudicatorRegistry": "0x122E97eFeCCC921713D24f5a81351A9457E1c266",
+        "baseToken": "0x58F35BE6A5e3D2be4C3575853043322B02FEeD84",
+        "baseTokenDecimals": 6
+      },
+      "adjudicators": {
+        "default": "0x024BA5f5d9DED6ded6e073a622C21528F5043C06",
+        "manual": "0x024BA5f5d9DED6ded6e073a622C21528F5043C06"
+      },
+      "deployedAt": "2026-07-26T16:37:42.000Z",
+      "deployedBy": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
+      "startBlock": 93687826,
+      "indexed": true,
+      "label": "Robinhood Chain Testnet · v0.2.1"
     }
   ],
   "chains": {
@@ -93,10 +117,7 @@
         "symbol": "ETH",
         "decimals": 18
       },
-      "rpcUrls": [
-        "https://rpc.sooth.market/megaeth-testnet",
-        "https://carrot.megaeth.com/rpc"
-      ],
+      "rpcUrls": ["https://rpc.sooth.market/megaeth-testnet", "https://carrot.megaeth.com/rpc"],
       "explorer": {
         "name": "MegaExplorer",
         "url": "https://www.megaexplorer.xyz"
@@ -129,13 +150,28 @@
         "symbol": "ETH",
         "decimals": 18
       },
-      "rpcUrls": [
-        "https://rpc.sooth.market/base-sepolia",
-        "https://sepolia.base.org"
-      ],
+      "rpcUrls": ["https://rpc.sooth.market/base-sepolia", "https://sepolia.base.org"],
       "explorer": {
         "name": "Basescan",
         "url": "https://sepolia.basescan.org"
+      },
+      "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
+      "testnet": true
+    },
+    "46630": {
+      "name": "Robinhood Chain Testnet",
+      "nativeCurrency": {
+        "name": "Ether",
+        "symbol": "ETH",
+        "decimals": 18
+      },
+      "rpcUrls": [
+        "https://rpc.sooth.market/robinhood-testnet",
+        "https://rpc.testnet.chain.robinhood.com"
+      ],
+      "explorer": {
+        "name": "Robinhood Explorer",
+        "url": "https://explorer.testnet.chain.robinhood.com"
       },
       "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
       "testnet": true
