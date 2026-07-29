@@ -10,8 +10,10 @@
 
 import { maxUint256, parseAbi } from 'viem';
 import { SoothBookABI } from '../abis/SoothBook.js';
+import { sleep } from '../utils.js';
 import { type ActionContext, type ActionReporter, noopReporter } from './types.js';
 import { isMegaethChain, getMegaethNativeRpcUrl, writeContractRealtime } from '../megaeth.js';
+import { getSimulationPacingDelayMs, withRpcRateLimitRetry } from './simulate-rpc.js';
 
 const ERC20_ABI = parseAbi([
   'function balanceOf(address owner) view returns (uint256)',
@@ -71,11 +73,13 @@ export async function runSimulate(
   const orderEngine = contracts.OrderEngine;
   if (!soothBook) throw new Error('SoothBook not deployed on this chain');
   if (!orderEngine) throw new Error('OrderEngine not deployed on this chain');
-  if (!walletClient.account) throw new Error('walletClient has no account');
+  const walletAccount = walletClient.account;
+  if (!walletAccount) throw new Error('walletClient has no account');
 
   const { marketKey, numOrders, avgSize, seed } = params;
   const useRealtime = params.realtimeMode && isMegaethChain(ctx.chainId);
   const realtimeRpcUrl = useRealtime ? getMegaethNativeRpcUrl(ctx.chainId) : undefined;
+  const pacingDelayMs = getSimulationPacingDelayMs(ctx.chainId, Boolean(useRealtime));
   if (!Number.isInteger(numOrders) || numOrders <= 0) {
     throw new Error('numOrders must be a positive integer');
   }
@@ -88,15 +92,27 @@ export async function runSimulate(
     message: `Simulate start: orders=${numOrders} avgSize=${formatWad(avgSize)} seed=${seed}${useRealtime ? ' [realtime]' : ''}`,
     data: { numOrders, avgSize, seed, useRealtime },
   });
+  if (pacingDelayMs > 0) {
+    report({
+      type: 'info',
+      message: `Robinhood RPC guard enabled: pacing orders by ${pacingDelayMs}ms and retrying HTTP 429 responses`,
+      data: { pacingDelayMs },
+    });
+  }
+
+  const rpc = <T>(label: string, operation: () => Promise<T>): Promise<T> =>
+    withRpcRateLimitRetry(operation, report, label);
 
   // Ensure USDC balance
   const estimatedUsdcNeeded = avgSize * BigInt(numOrders) * 2n;
-  const usdcBalance = (await publicClient.readContract({
-    address: contracts.MockUSDC,
-    abi: ERC20_ABI,
-    functionName: 'balanceOf',
-    args: [address],
-  })) as bigint;
+  const usdcBalance = (await rpc('USDC balance check', () =>
+    publicClient.readContract({
+      address: contracts.MockUSDC,
+      abi: ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [address],
+    }),
+  )) as bigint;
 
   if (usdcBalance < estimatedUsdcNeeded) {
     const mintAmount = estimatedUsdcNeeded - usdcBalance + avgSize * 5n;
@@ -104,15 +120,19 @@ export async function runSimulate(
       type: 'info',
       message: `Minting ${formatWad(mintAmount)} USDC...`,
     });
-    const mintHash = await walletClient.writeContract({
-      address: contracts.MockUSDC,
-      abi: ERC20_ABI,
-      functionName: 'mint',
-      args: [address, mintAmount],
-      account: walletClient.account,
-      chain: null,
-    });
-    await publicClient.waitForTransactionReceipt({ hash: mintHash });
+    const mintHash = await rpc('USDC mint submission', () =>
+      walletClient.writeContract({
+        address: contracts.MockUSDC,
+        abi: ERC20_ABI,
+        functionName: 'mint',
+        args: [address, mintAmount],
+        account: walletAccount,
+        chain: null,
+      }),
+    );
+    await rpc('USDC mint confirmation', () =>
+      publicClient.waitForTransactionReceipt({ hash: mintHash }),
+    );
     report({
       type: 'success',
       message: `Minted ${formatWad(mintAmount)} USDC`,
@@ -123,36 +143,46 @@ export async function runSimulate(
   // SoothBook.mint/buyYes/buyNo internally transferFrom via OrderEngine —
   // approving only SoothBook reverts with ERC20InsufficientAllowance.
   report({ type: 'info', message: 'Approving SoothBook + OrderEngine...' });
-  const approveSBHash = await walletClient.writeContract({
-    address: contracts.MockUSDC,
-    abi: ERC20_ABI,
-    functionName: 'approve',
-    args: [soothBook, maxUint256],
-    account: walletClient.account,
-    chain: null,
-  });
-  await publicClient.waitForTransactionReceipt({ hash: approveSBHash });
-  const approveOEHash = await walletClient.writeContract({
-    address: contracts.MockUSDC,
-    abi: ERC20_ABI,
-    functionName: 'approve',
-    args: [orderEngine, maxUint256],
-    account: walletClient.account,
-    chain: null,
-  });
-  await publicClient.waitForTransactionReceipt({ hash: approveOEHash });
+  const approveSBHash = await rpc('SoothBook approval submission', () =>
+    walletClient.writeContract({
+      address: contracts.MockUSDC,
+      abi: ERC20_ABI,
+      functionName: 'approve',
+      args: [soothBook, maxUint256],
+      account: walletAccount,
+      chain: null,
+    }),
+  );
+  await rpc('SoothBook approval confirmation', () =>
+    publicClient.waitForTransactionReceipt({ hash: approveSBHash }),
+  );
+  const approveOEHash = await rpc('OrderEngine approval submission', () =>
+    walletClient.writeContract({
+      address: contracts.MockUSDC,
+      abi: ERC20_ABI,
+      functionName: 'approve',
+      args: [orderEngine, maxUint256],
+      account: walletAccount,
+      chain: null,
+    }),
+  );
+  await rpc('OrderEngine approval confirmation', () =>
+    publicClient.waitForTransactionReceipt({ hash: approveOEHash }),
+  );
   report({ type: 'success', message: 'SoothBook + OrderEngine approved' });
 
   // Pre-check: market must be registered on SoothBook or all trades revert.
   // v0.2.1 dropped the markets(bytes32)→(active,finalized,outcome) tuple in
   // favor of registeredMarkets(bytes32)→bool; finalized/outcome moved to
   // TruthMarket and are no longer readable from SoothBook.
-  const isRegistered = (await publicClient.readContract({
-    address: soothBook,
-    abi: SoothBookABI,
-    functionName: 'registeredMarkets',
-    args: [marketKey],
-  })) as boolean;
+  const isRegistered = (await rpc('market registration check', () =>
+    publicClient.readContract({
+      address: soothBook,
+      abi: SoothBookABI,
+      functionName: 'registeredMarkets',
+      args: [marketKey],
+    }),
+  )) as boolean;
   if (!isRegistered) {
     throw new Error(
       `Market not registered on SoothBook. The market must graduate from Launchpad first. Run 'graduate' before 'simulate'.`,
@@ -184,22 +214,26 @@ export async function runSimulate(
       let fnArgs: readonly unknown[];
 
       if (action === 'buyyes') {
-        const bestNoTick = (await publicClient.readContract({
-          address: soothBook,
-          abi: SoothBookABI,
-          functionName: 'getBestTick',
-          args: [marketKey, 0],
-        })) as number;
+        const bestNoTick = (await rpc('BUYYES quote', () =>
+          publicClient.readContract({
+            address: soothBook,
+            abi: SoothBookABI,
+            functionName: 'getBestTick',
+            args: [marketKey, 0],
+          }),
+        )) as number;
         likelyCross = bestNoTick > 0 && tick + bestNoTick >= 1000;
         fnName = 'buyYes';
         fnArgs = [marketKey, tick, amount, false, 0];
       } else if (action === 'buyno') {
-        const bestYesTick = (await publicClient.readContract({
-          address: soothBook,
-          abi: SoothBookABI,
-          functionName: 'getBestTick',
-          args: [marketKey, 1],
-        })) as number;
+        const bestYesTick = (await rpc('BUYNO quote', () =>
+          publicClient.readContract({
+            address: soothBook,
+            abi: SoothBookABI,
+            functionName: 'getBestTick',
+            args: [marketKey, 1],
+          }),
+        )) as number;
         likelyCross = bestYesTick > 0 && tick + bestYesTick >= 1000;
         fnName = 'buyNo';
         fnArgs = [marketKey, tick, amount, false, 0];
@@ -207,12 +241,14 @@ export async function runSimulate(
         fnName = 'mint';
         fnArgs = [marketKey, amount];
       } else {
-        const balances = (await publicClient.readContract({
-          address: soothBook,
-          abi: SoothBookABI,
-          functionName: 'getBalance',
-          args: [marketKey, address],
-        })) as readonly [bigint, bigint];
+        const balances = (await rpc('MERGE balance check', () =>
+          publicClient.readContract({
+            address: soothBook,
+            abi: SoothBookABI,
+            functionName: 'getBalance',
+            args: [marketKey, address],
+          }),
+        )) as readonly [bigint, bigint];
         const mergeAmount = balances[0] < balances[1] ? balances[0] : balances[1];
         if (mergeAmount <= 0n) {
           // Don't waste an iteration when MERGE has nothing to merge —
@@ -225,12 +261,14 @@ export async function runSimulate(
             message: `[${i + 1}/${numOrders}] MERGE skipped (no complete sets) — falling through to BUYYES`,
           });
           action = 'buyyes';
-          const bestNoTick = (await publicClient.readContract({
-            address: soothBook,
-            abi: SoothBookABI,
-            functionName: 'getBestTick',
-            args: [marketKey, 0],
-          })) as number;
+          const bestNoTick = (await rpc('BUYYES fallback quote', () =>
+            publicClient.readContract({
+              address: soothBook,
+              abi: SoothBookABI,
+              functionName: 'getBestTick',
+              args: [marketKey, 0],
+            }),
+          )) as number;
           likelyCross = bestNoTick > 0 && tick + bestNoTick >= 1000;
           fnName = 'buyYes';
           fnArgs = [marketKey, tick, amount, false, 0];
@@ -240,11 +278,11 @@ export async function runSimulate(
         }
       }
 
-      if (useRealtime && realtimeRpcUrl && walletClient.account) {
+      if (useRealtime && realtimeRpcUrl) {
         const { receipt, sendMs, prepareMs } = await writeContractRealtime({
           rpcUrl: realtimeRpcUrl,
           publicClient,
-          account: walletClient.account as any,
+          account: walletAccount as any,
           chainId: ctx.chainId,
           request: {
             address: soothBook,
@@ -271,17 +309,21 @@ export async function runSimulate(
           },
         });
       } else {
-        const hash = await walletClient.writeContract({
-          address: soothBook,
-          abi: SoothBookABI,
-          functionName: fnName as any,
-          args: fnArgs as any,
-          account: walletClient.account,
-          chain: null,
-        });
+        const hash = await rpc(`${action.toUpperCase()} submission`, () =>
+          walletClient.writeContract({
+            address: soothBook,
+            abi: SoothBookABI,
+            functionName: fnName as any,
+            args: fnArgs as any,
+            account: walletAccount,
+            chain: null,
+          }),
+        );
 
         const orderStart = performance.now();
-        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        const receipt = await rpc(`${action.toUpperCase()} confirmation`, () =>
+          publicClient.waitForTransactionReceipt({ hash }),
+        );
         const orderMs = Number((performance.now() - orderStart).toFixed(1));
         totalGas += receipt.gasUsed;
         ordersPlaced++;
@@ -309,6 +351,10 @@ export async function runSimulate(
         stoppedEarly = true;
         break;
       }
+    }
+
+    if (pacingDelayMs > 0 && !stoppedEarly && i < numOrders - 1) {
+      await sleep(pacingDelayMs);
     }
   }
 
