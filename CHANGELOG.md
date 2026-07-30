@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.5](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.5.4...sooth-v0.5.5) (2026-07-29)
+
+
+### 🐛 Bug Fixes
+
+* **simulate:** handle Robinhood RPC rate limits ([2221dc6](https://github.com/Tora-Build/sooth-sdk/commit/2221dc6af81c90dfe2fcabb313637b254e428771))
+
 ## [0.5.4](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.5.3...sooth-v0.5.4) (2026-07-28)
 
 
