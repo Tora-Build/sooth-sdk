@@ -10,6 +10,11 @@ export interface SoothContracts {
   adjudicatorRegistry: Address;
   baseToken: Address;
   baseTokenDecimals?: number;
+  /** core >= 0.4.0: FeeVault address (feeRouter carries the same value). */
+  feeVault?: Address;
+  /** core >= 0.4.0 dual-token: book-venue collateral; absent = same-token. */
+  bookToken?: Address;
+  bookTokenDecimals?: number;
 }
 
 export interface SoothAdjudicators {
