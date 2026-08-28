@@ -77,6 +77,10 @@
     "./sqf": {
       "types": "./dist/lib/sqf.d.ts",
       "import": "./dist/lib/sqf.js"
+    },
+    "./core/abis/v040": {
+      "types": "./dist/core/abis/v040/index.d.ts",
+      "import": "./dist/core/abis/v040/index.js"
     }
   },
   "files": [
