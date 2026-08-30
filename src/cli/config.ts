@@ -119,7 +119,11 @@ export interface Deployment {
     AMMEngine: string;
     LaunchpadEngine: string;
     TruthMarket: string;
-    FeeRouter: string;
+    // Optional since core 0.4: dual-token nodes ship a FeeVault instead and
+    // have no FeeRouter at all. The CLI refuses any node whose coreVersion is
+    // not SUPPORTED_CORE_VERSION, so it never actually runs against one — but
+    // the registry type it maps from now models the absence.
+    FeeRouter?: string;
     AdjudicatorRegistry: string;
     [key: string]: string | undefined;
   };

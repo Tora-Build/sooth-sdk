@@ -1,6 +1,6 @@
 {
-  "version": "0.2.4",
-  "updatedAt": "2026-07-28T00:00:00.000Z",
+  "version": "0.3.0",
+  "updatedAt": "2026-08-29T00:00:00.000Z",
   "nodes": [
     {
       "id": "3b02bcfd",
@@ -107,6 +107,33 @@
       "startBlock": 93687826,
       "indexed": true,
       "label": "Robinhood Chain Testnet · v0.2.1"
+    },
+    {
+      "id": "b08886d3",
+      "chainId": 11155111,
+      "coreVersion": "0.4.0",
+      "contracts": {
+        "launchpadEngine": "0x653d11CED9dC203209896B50C983BFA42a038186",
+        "soothBook": "0xD7A16ac2FffCA631aA3D4E770F830F03D38Ce707",
+        "ammEngine": "0x9cD3c973a952Ed4B89B2E3962ab01E7d7433aDd5",
+        "orderEngine": "0x1FB94Cdb26d6B4036aF0cf01d8Bc79aFc0F2056b",
+        "truthMarket": "0xA7a3d110E8Ab87FC016F5710e98EadC4dfA5163A",
+        "feeVault": "0x71054f3E009A422518dF59dce07e189296394CA2",
+        "adjudicatorRegistry": "0x0000000000000000000000000000000000000000",
+        "baseToken": "0x2e8dfbfA329a55db88e9e69ee2791966Bc1D630c",
+        "baseTokenDecimals": 18,
+        "bookToken": "0xf47eEF54073c8e27d0B938C1537EE7f649CB19FD",
+        "bookTokenDecimals": 18
+      },
+      "adjudicators": {
+        "default": "0x49dC05413c07bE99Be38654818b0467E7A00D711",
+        "manual": "0x49dC05413c07bE99Be38654818b0467E7A00D711"
+      },
+      "deployedAt": "2026-08-27T11:13:48.000Z",
+      "deployedBy": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
+      "startBlock": 11577495,
+      "indexed": false,
+      "label": "Eth Sepolia · v0.4.0 · Eastboard dual-token pilot (EAST/WRMB)"
     }
   ],
   "chains": {
@@ -117,7 +144,10 @@
         "symbol": "ETH",
         "decimals": 18
       },
-      "rpcUrls": ["https://rpc.sooth.market/megaeth-testnet", "https://carrot.megaeth.com/rpc"],
+      "rpcUrls": [
+        "https://rpc.sooth.market/megaeth-testnet",
+        "https://carrot.megaeth.com/rpc"
+      ],
       "explorer": {
         "name": "MegaExplorer",
         "url": "https://www.megaexplorer.xyz"
@@ -150,7 +180,10 @@
         "symbol": "ETH",
         "decimals": 18
       },
-      "rpcUrls": ["https://rpc.sooth.market/base-sepolia", "https://sepolia.base.org"],
+      "rpcUrls": [
+        "https://rpc.sooth.market/base-sepolia",
+        "https://sepolia.base.org"
+      ],
       "explorer": {
         "name": "Basescan",
         "url": "https://sepolia.basescan.org"

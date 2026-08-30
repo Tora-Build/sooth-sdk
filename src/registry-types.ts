@@ -6,10 +6,22 @@ export interface SoothContracts {
   ammEngine: Address;
   orderEngine: Address;
   truthMarket: Address;
-  feeRouter: Address;
+  /** Single-token fee router. Present on core <= 0.3 nodes only; core 0.4+
+   *  replaced it with the two-token FeeVault and the two are NOT interchangeable
+   *  (different ABI, different accounting model, different claim surface). */
+  feeRouter?: Address;
+  /** Two-token fee custody + accounting (core 0.4+). Never an alias for
+   *  feeRouter: a node has one or the other, never both. */
+  feeVault?: Address;
   adjudicatorRegistry: Address;
+  /** AMM / launchpad venue collateral. On a dual-token node this is the
+   *  instance token (e.g. EAST); on a single-token node both venues use it. */
   baseToken: Address;
   baseTokenDecimals?: number;
+  /** OrderEngine / SoothBook venue collateral on a dual-token node (e.g. WRMB).
+   *  Absent means the book settles in `baseToken`. */
+  bookToken?: Address;
+  bookTokenDecimals?: number;
 }
 
 export interface SoothAdjudicators {
