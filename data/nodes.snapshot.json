@@ -1,6 +1,6 @@
 {
-  "version": "0.3.0",
-  "updatedAt": "2026-08-28T00:00:00.000Z",
+  "version": "0.4.0",
+  "updatedAt": "2026-08-31T00:00:00.000Z",
   "nodes": [
     {
       "id": "3b02bcfd",
@@ -163,6 +163,62 @@
       "startBlock": 28118911,
       "indexed": false,
       "label": "MegaETH · v0.4.0 dual-token (EAST amm / USDC book)"
+    },
+    {
+      "id": "6801c7b9",
+      "chainId": 6343,
+      "coreVersion": "0.4.0-wrmb",
+      "contracts": {
+        "launchpadEngine": "0x44d17EfB23D7Fdc7b4F3d837843aA5a7047438d5",
+        "soothBook": "0x42D3cBA396347Ed832fB1e0E565FC1dCE8799E2F",
+        "ammEngine": "0x259C036fbA78E523DBa4043169C4aF6Ec1616d15",
+        "orderEngine": "0x9350A1b3676966ccc25A691E961f47C7A9C223ee",
+        "truthMarket": "0x128D2521921D222b6576202f06910b6DB3ffaBF0",
+        "feeRouter": "0x978FdB5AC9d634f05b05Abacfc16beCA884a86dC",
+        "feeVault": "0x978FdB5AC9d634f05b05Abacfc16beCA884a86dC",
+        "adjudicatorRegistry": "0x0b446422F53994311a61b1e7124B8CC5Bd0AFA7E",
+        "baseToken": "0x73A57FCBb711Bba39e4aE64dA544D718317fC254",
+        "baseTokenDecimals": 18,
+        "bookToken": "0x4c7F460A142391c92427d9a3a2D258BE252Bca58",
+        "bookTokenDecimals": 18
+      },
+      "adjudicators": {
+        "default": "0xbDA3314A5D2026bC3BF362396df71c8B93Ee0324",
+        "manual": "0xbDA3314A5D2026bC3BF362396df71c8B93Ee0324"
+      },
+      "deployedAt": "2026-08-31T10:30:00.000Z",
+      "deployedBy": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
+      "startBlock": 28459428,
+      "indexed": false,
+      "label": "MegaETH · v0.4.0-wrmb (EAST amm / WRMB book)"
+    },
+    {
+      "id": "cb83aa61",
+      "chainId": 11155111,
+      "coreVersion": "0.4.0-wrmb",
+      "contracts": {
+        "launchpadEngine": "0x44d17EfB23D7Fdc7b4F3d837843aA5a7047438d5",
+        "soothBook": "0x42D3cBA396347Ed832fB1e0E565FC1dCE8799E2F",
+        "ammEngine": "0x259C036fbA78E523DBa4043169C4aF6Ec1616d15",
+        "orderEngine": "0x9350A1b3676966ccc25A691E961f47C7A9C223ee",
+        "truthMarket": "0x128D2521921D222b6576202f06910b6DB3ffaBF0",
+        "feeRouter": "0x978FdB5AC9d634f05b05Abacfc16beCA884a86dC",
+        "feeVault": "0x978FdB5AC9d634f05b05Abacfc16beCA884a86dC",
+        "adjudicatorRegistry": "0x0b446422F53994311a61b1e7124B8CC5Bd0AFA7E",
+        "baseToken": "0x2e8dfbfA329a55db88e9e69ee2791966Bc1D630c",
+        "baseTokenDecimals": 18,
+        "bookToken": "0xD2552be2D1d910649612fC83d735EC9d05D2Ee32",
+        "bookTokenDecimals": 18
+      },
+      "adjudicators": {
+        "default": "0xbDA3314A5D2026bC3BF362396df71c8B93Ee0324",
+        "manual": "0xbDA3314A5D2026bC3BF362396df71c8B93Ee0324"
+      },
+      "deployedAt": "2026-08-31T10:30:00.000Z",
+      "deployedBy": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
+      "startBlock": 11605128,
+      "indexed": false,
+      "label": "Eth Sepolia · v0.4.0-wrmb (EAST amm / WRMB book)"
     }
   ],
   "chains": {
