@@ -234,8 +234,8 @@
         "https://carrot.megaeth.com/rpc"
       ],
       "explorer": {
-        "name": "MegaExplorer",
-        "url": "https://www.megaexplorer.xyz"
+        "name": "MegaETH Etherscan",
+        "url": "https://testnet-mega.etherscan.io"
       },
       "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
       "testnet": true
