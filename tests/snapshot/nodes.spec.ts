@@ -13,6 +13,7 @@ describe('embedded nodes snapshot', () => {
       '8d69658b', // base-sepolia 0.2.1 (recorded, not indexed)
       'b08886d3', // eth-sepolia 0.4.0
       'cb83aa61', // eth-sepolia 0.4.0-wrmb
+      'd49af93c', // base-sepolia 0.4.0  USDC single-collateral
     ]);
   });
 
