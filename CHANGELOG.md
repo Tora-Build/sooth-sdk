@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.6.0](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.5.5...sooth-v0.6.0) (2026-09-03)
+
+
+### ✨ Features
+
+* **abis:** add the v0.4.0 ABI set under core/abis/v040 ([496aa14](https://github.com/Tora-Build/sooth-sdk/commit/496aa142a885a0ddbfae7f73c85310bb509a4a3f))
+* **abis:** vendor the FeeVault v0.4.0 ABI ([6c97133](https://github.com/Tora-Build/sooth-sdk/commit/6c97133bfd117dc4f134a9e18dba66879c8893ae))
+* **registry:** dual-token node fields + v0.4.0 snapshot refresh ([4c859be](https://github.com/Tora-Build/sooth-sdk/commit/4c859be08cc82974e9116135f8c22287c59957d1))
+
+
+### 🧹 Chores
+
+* bump manifest to 0.4.1 (explorer change cache-bust) ([1efbaa1](https://github.com/Tora-Build/sooth-sdk/commit/1efbaa111958345ed2ccc7bd6eb5023e9f6fe75f))
+* point the MegaETH explorer at Etherscan V2 ([b39750d](https://github.com/Tora-Build/sooth-sdk/commit/b39750deef4787f35b6c5e0c6872f293948229aa))
+* refresh registry snapshot + resync registry types ([8d4b67c](https://github.com/Tora-Build/sooth-sdk/commit/8d4b67c8f3c96fcdd27f3ca50d680a2a71d097a1))
+* refresh registry snapshot for the WRMB book-venue nodes ([0e66ec7](https://github.com/Tora-Build/sooth-sdk/commit/0e66ec7f8cef28c592969c776ad61c3662e17a62))
+* **registry:** add Robinhood testnet node 25c79bf3 to the snapshot ([#38](https://github.com/Tora-Build/sooth-sdk/issues/38)) ([dd5d20d](https://github.com/Tora-Build/sooth-sdk/commit/dd5d20dd3519eed09d0b21c807d1196cfb61237b))
+
 ## [0.5.5](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.5.4...sooth-v0.5.5) (2026-07-29)
 
 
