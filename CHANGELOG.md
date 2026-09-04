@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.6.0...sooth-v0.6.1) (2026-09-03)
+
+
+### 🧹 Chores
+
+* vendor 0.4.3 registry snapshot (base sepolia node d49af93c) ([5bab8cb](https://github.com/Tora-Build/sooth-sdk/commit/5bab8cbb9026618aba6c800d6ff97f6c6faf9a98))
+
 ## [0.6.0](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.5.5...sooth-v0.6.0) (2026-09-03)
 
 
