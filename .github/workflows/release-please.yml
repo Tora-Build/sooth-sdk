@@ -1,9 +1,12 @@
 name: release-please
 
+# Manual only — see sooth-core: push-triggered runs minted phantom releases.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -12,6 +15,7 @@ permissions:
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       release_created: ${{ steps.release.outputs.releases_created }}
     steps:
@@ -28,6 +32,7 @@ jobs:
     # release that was tagged before this job existed); npm rejects duplicates.
     if: needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       # OIDC token for npm Trusted Publishing — auth comes from the workflow
