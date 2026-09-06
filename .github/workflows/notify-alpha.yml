@@ -6,6 +6,12 @@ name: Notify sooth-alpha of SDK update
 on:
   push:
     branches: [main]
+    # Only what sooth-alpha vendors. Snapshot/type refreshes still fire; a
+    # changelog or CI push no longer costs two bump runs + two CI runs.
+    paths:
+      - 'src/**'
+      - 'data/**'
+      - 'package.json'
 
 concurrency:
   group: notify-alpha
@@ -15,6 +21,7 @@ jobs:
   bump-main:
     name: Bump sooth-alpha/main
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: peter-evans/repository-dispatch@v3
         with:
@@ -27,6 +34,7 @@ jobs:
   bump-develop:
     name: Bump sooth-alpha/develop
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: bump-main  # serialize so alpha/develop never gets ahead of alpha/main
     steps:
       - uses: peter-evans/repository-dispatch@v3
