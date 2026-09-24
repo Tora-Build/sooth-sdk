@@ -178,13 +178,13 @@ This pattern was added during v0.2.1 (`--offline-registry` lands in `src/cli/int
 
 This is the verification step. The point is to catch bugs that only appear under specific chain conditions (RPC quirks, missing markets, nonce contention).
 
-Use the `tmuxx` skill to spawn one pane per chain you support. Layout:
+Spawn one terminal per node you support (use the `orca-cli` skill, or plain terminals), taking node IDs from `data/nodes.snapshot.json`. Example layout:
 
 ```
-%0 = Base Sepolia        soothcli c30c6b15
-%1 = HyperEVM Testnet    soothcli 3bc01fd1
-%2 = MegaETH Testnet     soothcli 5466b6f9 --realtime
-[%3 = MegaETH Testnet    soothcli 5466b6f9    (standard mode, optional)]
+%0 = MegaETH Testnet     soothcli 3b02bcfd --realtime
+%1 = Ethereum Sepolia    soothcli 0d896a4f
+%2 = Robinhood Testnet   soothcli 08c5ea8a
+[%3 = MegaETH Testnet    soothcli 3b02bcfd    (standard mode, optional)]
 ```
 
 If you spawn both `%2` and `%3`, they share alice's wallet — write commands will hit "nonce too low" on the second pane because both panes' nonce trackers are out of sync. Either:
