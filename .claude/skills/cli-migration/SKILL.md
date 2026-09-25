@@ -1,9 +1,10 @@
 ---
 name: cli-migration
-description: Migrate the soothcli (src/cli) when sooth-core ships a new contract version. Use this skill whenever the user mentions migrating the CLI, updating soothcli for new contracts, "the CLI broke after the deploy", upgrading to v0.X.Y, ABI mismatches in the CLI, "Function X not found on ABI", `parseAbi` errors, or running test sweeps across multiple chains. Complements the contract-migration skill — that one handles addresses/ABIs/adjudicators across the whole monorepo; this one is the focused playbook for the CLI specifically: stale parseAbi lists, renamed contracts in the deployment map, function arity changes, dispatch typos, per-chain RPC config, and multi-chain CLI verification.
+description: >-
+  Migrate the soothcli (src/cli) when sooth-core ships a new contract version. Use this skill whenever the user mentions migrating the CLI, updating soothcli for new contracts, "the CLI broke after the deploy", upgrading to v0.X.Y, ABI mismatches in the CLI, "Function X not found on ABI", `parseAbi` errors, or running test sweeps across multiple chains. Complements the contract-migration skill — that one handles addresses/ABIs/adjudicators across the whole monorepo; this one is the focused playbook for the CLI specifically: stale parseAbi lists, renamed contracts in the deployment map, function arity changes, dispatch typos, per-chain RPC config, and multi-chain CLI verification.
+---
 
 When in doubt and the user mentions both contracts and CLI, run contract-migration first (addresses, ABIs propagated across packages), then this skill to make the CLI actually work end-to-end.
----
 
 # Sooth CLI Migration
 
@@ -187,7 +188,7 @@ Spawn one terminal per node you support (use the `orca-cli` skill, or plain term
 [%3 = MegaETH Testnet    soothcli 3b02bcfd    (standard mode, optional)]
 ```
 
-If you spawn both `%2` and `%3`, they share alice's wallet — write commands will hit "nonce too low" on the second pane because both panes' nonce trackers are out of sync. Either:
+If you spawn both `%0` and `%3`, they share alice's wallet — write commands will hit "nonce too low" on the second pane because both panes' nonce trackers are out of sync. Either:
 
 - Run write-state commands sequentially with delays, or
 - Exit one of the two ME panes before any write tests
