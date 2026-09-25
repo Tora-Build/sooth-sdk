@@ -1,9 +1,10 @@
 ---
 name: cli-migration
-description: Migrate the soothcli (src/cli) when sooth-core ships a new contract version. Use this skill whenever the user mentions migrating the CLI, updating soothcli for new contracts, "the CLI broke after the deploy", upgrading to v0.X.Y, ABI mismatches in the CLI, "Function X not found on ABI", `parseAbi` errors, or running test sweeps across multiple chains. Complements the contract-migration skill — that one handles addresses/ABIs/adjudicators across the whole monorepo; this one is the focused playbook for the CLI specifically: stale parseAbi lists, renamed contracts in the deployment map, function arity changes, dispatch typos, per-chain RPC config, and multi-chain CLI verification.
+description: >-
+  Migrate the soothcli (src/cli) when sooth-core ships a new contract version. Use this skill whenever the user mentions migrating the CLI, updating soothcli for new contracts, "the CLI broke after the deploy", upgrading to v0.X.Y, ABI mismatches in the CLI, "Function X not found on ABI", `parseAbi` errors, or running test sweeps across multiple chains. Complements the contract-migration skill — that one handles addresses/ABIs/adjudicators across the whole monorepo; this one is the focused playbook for the CLI specifically: stale parseAbi lists, renamed contracts in the deployment map, function arity changes, dispatch typos, per-chain RPC config, and multi-chain CLI verification.
+---
 
 When in doubt and the user mentions both contracts and CLI, run contract-migration first (addresses, ABIs propagated across packages), then this skill to make the CLI actually work end-to-end.
----
 
 # Sooth CLI Migration
 
@@ -178,16 +179,16 @@ This pattern was added during v0.2.1 (`--offline-registry` lands in `src/cli/int
 
 This is the verification step. The point is to catch bugs that only appear under specific chain conditions (RPC quirks, missing markets, nonce contention).
 
-Use the `tmuxx` skill to spawn one pane per chain you support. Layout:
+Spawn one terminal per node you support (use the `orca-cli` skill, or plain terminals), taking node IDs from `data/nodes.snapshot.json`. Example layout:
 
 ```
-%0 = Base Sepolia        soothcli c30c6b15
-%1 = HyperEVM Testnet    soothcli 3bc01fd1
-%2 = MegaETH Testnet     soothcli 5466b6f9 --realtime
-[%3 = MegaETH Testnet    soothcli 5466b6f9    (standard mode, optional)]
+%0 = MegaETH Testnet     soothcli 3b02bcfd --realtime
+%1 = Ethereum Sepolia    soothcli 0d896a4f
+%2 = Robinhood Testnet   soothcli 08c5ea8a
+[%3 = MegaETH Testnet    soothcli 3b02bcfd    (standard mode, optional)]
 ```
 
-If you spawn both `%2` and `%3`, they share alice's wallet — write commands will hit "nonce too low" on the second pane because both panes' nonce trackers are out of sync. Either:
+If you spawn both `%0` and `%3`, they share alice's wallet — write commands will hit "nonce too low" on the second pane because both panes' nonce trackers are out of sync. Either:
 
 - Run write-state commands sequentially with delays, or
 - Exit one of the two ME panes before any write tests
