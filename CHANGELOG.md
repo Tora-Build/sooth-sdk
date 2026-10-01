@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.2](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.6.1...sooth-v0.6.2) (2026-10-01)
+
+### Registry
+
+* Refresh the bundled manifest to 0.4.7: add Robinhood Testnet core 0.4.0 node `ce7f2976` with one six-decimal mock USDG token and preserve the current Sepolia nodes and deployment history.
+
 ## [0.6.1](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.6.0...sooth-v0.6.1) (2026-09-03)
 
 
