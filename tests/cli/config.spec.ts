@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createConfig, ABIS } from '../../src/cli/config';
-import { loadManifest, resetManifest } from '../../src/registry-loader';
+import { loadManifest, resetManifest, setManifest } from '../../src/registry-loader';
 
 describe('CLI config', () => {
   afterEach(() => {
@@ -8,7 +8,12 @@ describe('CLI config', () => {
   });
 
   it('prefers the native MegaETH RPC while retaining registry fallbacks', async () => {
-    await loadManifest({ offline: true });
+    const manifest = await loadManifest({ offline: true });
+    // Test RPC selection independently of which chains currently have active nodes.
+    setManifest({
+      ...manifest,
+      nodes: [...manifest.nodes, { ...manifest.nodes[0]!, id: '3b02bcfd', chainId: 6343 }],
+    });
 
     const config = createConfig('3b02bcfd');
 
