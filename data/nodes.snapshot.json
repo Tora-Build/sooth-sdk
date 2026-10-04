@@ -1,6 +1,6 @@
 {
-  "version": "0.4.7",
-  "updatedAt": "2026-10-01T05:26:05.313Z",
+  "version": "0.4.8",
+  "updatedAt": "2026-10-04T16:35:38.082Z",
   "nodes": [
     {
       "id": "0d896a4f",
@@ -27,7 +27,7 @@
       "deployedBy": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
       "startBlock": 10749019,
       "indexed": true,
-      "label": "Eth Sepolia \u00b7 v0.2.1"
+      "label": "Eth Sepolia · v0.2.1"
     },
     {
       "id": "cb83aa61",
@@ -55,35 +55,35 @@
       "deployedBy": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
       "startBlock": 11605128,
       "indexed": false,
-      "label": "Eth Sepolia \u00b7 v0.4.0-wrmb (EAST amm / WRMB book)"
+      "label": "Eth Sepolia · v0.4.0-wrmb (EAST amm / WRMB book)"
     },
     {
-      "id": "ce7f2976",
+      "id": "93d7ae67",
       "chainId": 46630,
       "coreVersion": "0.4.0",
       "contracts": {
-        "launchpadEngine": "0x05b79b7D580bB194D15338DE9d42cb9032C7C262",
-        "soothBook": "0xf53cF5F565f39e109710e42BAe8dbD553e828C02",
-        "ammEngine": "0xf86D2d358C941b6F4bA657aDBC0B4F2f36f75C42",
-        "orderEngine": "0xcE959b5e52e13b8f1d1660a2c1B1A41E36926efa",
-        "truthMarket": "0xfeF3216B83cBC01e6355F2854F80790b9ED7c8D1",
-        "feeRouter": "0x78d92C727638B444B4383967D38d10C09D97e633",
-        "feeVault": "0x78d92C727638B444B4383967D38d10C09D97e633",
-        "adjudicatorRegistry": "0x40161e22063cabdEf84BB87162F526302b8fd705",
-        "baseToken": "0x09aA140D7396c73174Eeb0Dae19456DDd850E8E5",
+        "launchpadEngine": "0xe9116698c01AEa0E631aC45820B9841d0957887F",
+        "soothBook": "0x7bb3655dA52A1513d2403Fc7F99c4031567274FC",
+        "ammEngine": "0x4EbB0c1F5f928f78962DB300a50b6D774D33cD25",
+        "orderEngine": "0x0D79F8a64Fb0FC0e8Cdf80539c1f4d3DB2c22116",
+        "truthMarket": "0x312C96EF2353332aCe8e9150e76Ce885b040c9E0",
+        "feeRouter": "0xCb653Ea72C96Bf063C00d8Af0A5Cf6e4E4bdef3f",
+        "feeVault": "0xCb653Ea72C96Bf063C00d8Af0A5Cf6e4E4bdef3f",
+        "adjudicatorRegistry": "0xe51870663fCC7B4682Ef5E9653Ee9C8fC5f9cF74",
+        "baseToken": "0x30C8DC950284903Bc2d2468Ad520d7283cEEFb83",
         "baseTokenDecimals": 6,
-        "bookToken": "0x09aA140D7396c73174Eeb0Dae19456DDd850E8E5",
+        "bookToken": "0x30C8DC950284903Bc2d2468Ad520d7283cEEFb83",
         "bookTokenDecimals": 6
       },
       "adjudicators": {
-        "default": "0x804071508e6bC794FA064cCfc866CD0A3776495B",
-        "manual": "0x804071508e6bC794FA064cCfc866CD0A3776495B"
+        "default": "0x04F35B8655AAA0fFB87B02fEBc8549E231d34CA9",
+        "manual": "0x04F35B8655AAA0fFB87B02fEBc8549E231d34CA9"
       },
-      "deployedAt": "2026-10-01T05:22:45.000Z",
+      "deployedAt": "2026-10-03T17:07:07.000Z",
       "deployedBy": "0xEfdB15EE6e7C7C7906cb230AfF1EDb75CcBaA74F",
-      "startBlock": 126990313,
+      "startBlock": 128262093,
       "indexed": false,
-      "label": "Robinhood Testnet \u00b7 v0.4.0 (mock USDG)"
+      "label": "Robinhood Testnet · v0.4.0 (demo USDG)"
     }
   ],
   "chains": {

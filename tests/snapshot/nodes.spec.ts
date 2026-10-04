@@ -5,8 +5,8 @@ describe('embedded nodes snapshot', () => {
   it('ships the current registry: Sepolia history and the fresh Robinhood demo', () => {
     expect(snapshot.nodes.map((node) => node.id).sort()).toEqual([
       '0d896a4f', // eth-sepolia 0.2.1
+      '93d7ae67', // robinhood 0.4.0 fixed DemoToken single-collateral
       'cb83aa61', // eth-sepolia 0.4.0-wrmb
-      'ce7f2976', // robinhood 0.4.0 mock USDG single-collateral
     ]);
   });
 
