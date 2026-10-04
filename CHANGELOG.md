@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.3](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.6.2...sooth-v0.6.3) (2026-10-04)
+
+### Registry
+
+* Replace the Robinhood demo node `ce7f2976` with `93d7ae67` and its fixed six-decimal DemoToken (`0x30C8DC950284903Bc2d2468Ad520d7283cEEFb83`). Bundle registry 0.4.8; retain the current Sepolia nodes.
+
 ## [0.6.2](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.6.1...sooth-v0.6.2) (2026-10-01)
 
 ### Registry
