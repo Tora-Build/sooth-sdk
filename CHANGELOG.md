@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Bug Fixes
+
+* Preserve current AMM depth and WAD-denominated LP yield in FeeVault snapshots. Read the AMM token's decimals to normalize native vault balances, including six-decimal tokens, while retaining legacy FeeRouter values.
+* Quote v0.4 orderbook fees through OrderEngine's FeeVault and require the fee-inclusive balance for book buys.
+* Settle AMM and OrderEngine holdings independently, including mixed custody after graduation. Read settlement state from TruthMarket.
+* Bundle registry 0.4.9 with East `cb83aa61` and Robinhood Demo `93d7ae67`; use AMM quotes when a graduated book has no usable price.
+
 ## [0.6.3](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.6.2...sooth-v0.6.3) (2026-10-04)
 
 ### Registry
