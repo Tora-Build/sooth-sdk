@@ -2,9 +2,8 @@ import snapshot from '../../data/nodes.snapshot.json';
 import { describe, expect, it } from 'vitest';
 
 describe('embedded nodes snapshot', () => {
-  it('ships the current registry: Sepolia history and the fresh Robinhood demo', () => {
+  it('ships the current registry: the Robinhood demo and the Sepolia Eastboard', () => {
     expect(snapshot.nodes.map((node) => node.id).sort()).toEqual([
-      '0d896a4f', // eth-sepolia 0.2.1
       '93d7ae67', // robinhood 0.4.0 fixed DemoToken single-collateral
       'cb83aa61', // eth-sepolia 0.4.0-wrmb
     ]);

@@ -1,6 +1,7 @@
-import { erc20Abi, type Address, type PublicClient } from 'viem';
+import { erc20Abi, parseAbi, type Address, type PublicClient } from 'viem';
 import { AMMEngineABI } from '../abis/AMMEngine.js';
 import { FeeRouterABI } from '../abis/FeeRouter.js';
+import { FeeVaultABI } from '../abis/FeeVault.js';
 import { LaunchpadEngineABI } from '../abis/LaunchpadEngine.js';
 
 export const OUTCOME = {
@@ -190,6 +191,121 @@ function toBigInt(value: bigint | number): bigint {
   return typeof value === 'bigint' ? value : BigInt(value);
 }
 
+const FEE_VAULT_GETTER = parseAbi(['function feeVault() view returns (address)']);
+
+type VaultFeeConfig = {
+  preGradFeeBps: number | bigint;
+  postGradFeeBps: number | bigint;
+  ammToken: Address;
+};
+
+interface FeeLayer {
+  bCurrent: bigint;
+  feesAccrued: bigint;
+  lpYieldPool: bigint;
+  graduationThreshold: bigint;
+  graduationProgressBps: bigint;
+  preGradFeeBps: bigint;
+  postGradFeeBps: bigint;
+}
+
+/** feeRouter() reverts on core 0.4.0, where the getter was renamed feeVault(). */
+function isMissingFeeRouter(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /revert|returned no data|selector|unexpected read: feeRouter/i.test(message);
+}
+
+async function readFeeLayer(
+  client: PublicClient,
+  ammEngine: Address,
+  marketAddress: Address,
+  bBase: bigint,
+): Promise<FeeLayer> {
+  try {
+    const feeRouter = (await client.readContract({
+      address: ammEngine,
+      abi: AMMEngineABI,
+      functionName: 'feeRouter',
+    })) as Address;
+    const [feeState, graduationProgress, preGradFeeBps, postGradFeeBps] = await Promise.all([
+      client.readContract({
+        address: feeRouter,
+        abi: FeeRouterABI,
+        functionName: 'getFeeState',
+        args: [marketAddress],
+      }) as Promise<FeeState>,
+      client.readContract({
+        address: feeRouter,
+        abi: FeeRouterABI,
+        functionName: 'getGraduationProgress',
+        args: [marketAddress],
+      }) as Promise<GraduationProgress>,
+      client.readContract({
+        address: feeRouter,
+        abi: FeeRouterABI,
+        functionName: 'preGradFeeBps',
+      }) as Promise<number | bigint>,
+      client.readContract({
+        address: feeRouter,
+        abi: FeeRouterABI,
+        functionName: 'postGradFeeBps',
+      }) as Promise<number | bigint>,
+    ]);
+    const [bCurrent, feesAccrued, lpYieldPool] = feeState;
+    const [, graduationThreshold, graduationProgressBps] = graduationProgress;
+    return {
+      bCurrent,
+      feesAccrued,
+      lpYieldPool,
+      graduationThreshold,
+      graduationProgressBps,
+      preGradFeeBps: toBigInt(preGradFeeBps),
+      postGradFeeBps: toBigInt(postGradFeeBps),
+    };
+  } catch (error) {
+    if (!isMissingFeeRouter(error)) throw error;
+  }
+
+  const feeVault = (await client.readContract({
+    address: ammEngine,
+    abi: FEE_VAULT_GETTER,
+    functionName: 'feeVault',
+  })) as Address;
+  const [config, progress] = await Promise.all([
+    client.readContract({
+      address: feeVault,
+      abi: FeeVaultABI,
+      functionName: 'configOf',
+      args: [marketAddress],
+    }) as Promise<VaultFeeConfig>,
+    client.readContract({
+      address: feeVault,
+      abi: FeeVaultABI,
+      functionName: 'graduationProgress',
+      args: [marketAddress],
+    }) as Promise<readonly [bigint, bigint]>,
+  ]);
+  const accruedWad = progress[0];
+  const thresholdWad = progress[1];
+  const uncapped = thresholdWad > 0n ? (accruedWad * BPS_DENOMINATOR) / thresholdWad : 0n;
+  const lpYieldPool = (await client.readContract({
+    address: feeVault,
+    abi: FeeVaultABI,
+    functionName: 'accountOf',
+    args: [marketAddress, 1, config.ammToken],
+  })) as bigint;
+  return {
+    // FeeVault does not expose FeeRouter's bCurrent. bBase is the seeded depth.
+    bCurrent: bBase,
+    feesAccrued: accruedWad,
+    lpYieldPool,
+    graduationThreshold: thresholdWad,
+    graduationProgressBps: uncapped > BPS_DENOMINATOR ? BPS_DENOMINATOR : uncapped,
+    preGradFeeBps: toBigInt(config.preGradFeeBps),
+    postGradFeeBps: toBigInt(config.postGradFeeBps),
+  };
+}
+
 /**
  * Canonical outcome probability using stable log-sum-exp.
  */
@@ -281,7 +397,7 @@ export async function readLaunchpadAmmSnapshot(
   const emptyMarketsMapping: LaunchpadMarketsMapping = [ZERO_ADDRESS, ZERO_ADDRESS, 0n, 0n, 0n];
   const emptyAmmState: AmmMarketState = [0n, 0n, WAD / 2n];
 
-  const [liquidity, marketsMapping, isGraduated, userPosition, feeRouter] = await Promise.all([
+  const [liquidity, marketsMapping, isGraduated, userPosition] = await Promise.all([
     client.readContract({
       address: contracts.ammEngine,
       abi: AMMEngineABI,
@@ -320,11 +436,6 @@ export async function readLaunchpadAmmSnapshot(
           [0n, 0n] as const,
         )
       : Promise.resolve([0n, 0n] as const),
-    client.readContract({
-      address: contracts.ammEngine,
-      abi: AMMEngineABI,
-      functionName: 'feeRouter',
-    }) as Promise<Address>,
   ]);
 
   const isInitialized = liquidity > 0n;
@@ -354,43 +465,25 @@ export async function readLaunchpadAmmSnapshot(
   const creatorDeposit = marketsMapping[3];
   const graduatedAt = marketsMapping[4];
 
-  const [feeState, graduationProgress, preGradFeeBps, postGradFeeBps, totalLPSupply] =
-    await Promise.all([
-      client.readContract({
-        address: feeRouter,
-        abi: FeeRouterABI,
-        functionName: 'getFeeState',
-        args: [marketAddress],
-      }) as Promise<FeeState>,
-      client.readContract({
-        address: feeRouter,
-        abi: FeeRouterABI,
-        functionName: 'getGraduationProgress',
-        args: [marketAddress],
-      }) as Promise<GraduationProgress>,
-      client.readContract({
-        address: feeRouter,
-        abi: FeeRouterABI,
-        functionName: 'preGradFeeBps',
-      }) as Promise<number | bigint>,
-      client.readContract({
-        address: feeRouter,
-        abi: FeeRouterABI,
-        functionName: 'postGradFeeBps',
-      }) as Promise<number | bigint>,
-      lpToken !== ZERO_ADDRESS
-        ? (client.readContract({
-            address: lpToken,
-            abi: erc20Abi,
-            functionName: 'totalSupply',
-          }) as Promise<bigint>)
-        : Promise.resolve(0n),
-    ]);
-
-  const [bCurrent, feesAccrued, lpYieldPool] = feeState;
-  const [, graduationThreshold, graduationProgressBps] = graduationProgress;
-  const preGradFeeBpsBig = toBigInt(preGradFeeBps);
-  const postGradFeeBpsBig = toBigInt(postGradFeeBps);
+  const [fees, totalLPSupply] = await Promise.all([
+    readFeeLayer(client, contracts.ammEngine, marketAddress, bBase),
+    lpToken !== ZERO_ADDRESS
+      ? (client.readContract({
+          address: lpToken,
+          abi: erc20Abi,
+          functionName: 'totalSupply',
+        }) as Promise<bigint>)
+      : Promise.resolve(0n),
+  ]);
+  const {
+    bCurrent,
+    feesAccrued,
+    lpYieldPool,
+    graduationThreshold,
+    graduationProgressBps,
+    preGradFeeBps: preGradFeeBpsBig,
+    postGradFeeBps: postGradFeeBpsBig,
+  } = fees;
   const currentFeeBps = getLaunchpadFeeBps(isGraduated, preGradFeeBpsBig, postGradFeeBpsBig);
 
   // Dismiss removed in v0.1.2 — isDismissed always false.

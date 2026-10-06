@@ -442,14 +442,27 @@ export function computeSoothMarketKey(marketAddress: Address): `0x${string}` {
 export function selectTradingVenue(snapshot: {
   launchpadAmm: { launchpad: { isGraduated: boolean } };
   truth: { isSettled: boolean; isFinalized: boolean };
-  soothBook: { isActive: boolean; isFinalized: boolean } | null;
+  soothBook: {
+    isActive: boolean;
+    isFinalized: boolean;
+    yesPriceWad?: bigint;
+    noPriceWad?: bigint;
+  } | null;
 }): SoothTradingVenue {
   if (snapshot.truth.isSettled || snapshot.truth.isFinalized) {
     return 'amm';
   }
 
-  const hasActiveSoothBook =
-    !!snapshot.soothBook && snapshot.soothBook.isActive && !snapshot.soothBook.isFinalized;
+  const book = snapshot.soothBook;
+  // v0.4 SoothBook reports a registered market with implied price 0/0 and
+  // best tick 1000 when nothing is resting. Treating that as the venue
+  // prices every share at $0. Stay on the AMM until both sides have a price.
+  // Missing price fields keep the old "active book wins" behavior.
+  const priced =
+    book?.yesPriceWad === undefined ||
+    book?.noPriceWad === undefined ||
+    (book.yesPriceWad > 0n && book.noPriceWad > 0n);
+  const hasActiveSoothBook = !!book && book.isActive && !book.isFinalized && priced;
   if (snapshot.launchpadAmm.launchpad.isGraduated && hasActiveSoothBook) {
     return 'soothbook';
   }
