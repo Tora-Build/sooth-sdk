@@ -58,6 +58,7 @@ export interface LaunchpadAmmMarketSnapshot {
     graduationThreshold: bigint;
     graduationProgressBps: bigint;
     totalLPSupply: bigint;
+    /** LP yield in WAD for both FeeRouter and FeeVault deployments. */
     lpYieldPool: bigint;
     /** Null because v0.2.1 exposes no public getter for AMMEngine's LP floor calculation. */
     floorValue: bigint | null;
@@ -219,7 +220,7 @@ async function readFeeLayer(
   client: PublicClient,
   ammEngine: Address,
   marketAddress: Address,
-  bBase: bigint,
+  liquidity: bigint,
 ): Promise<FeeLayer> {
   try {
     const feeRouter = (await client.readContract({
@@ -288,15 +289,23 @@ async function readFeeLayer(
   const accruedWad = progress[0];
   const thresholdWad = progress[1];
   const uncapped = thresholdWad > 0n ? (accruedWad * BPS_DENOMINATOR) / thresholdWad : 0n;
-  const lpYieldPool = (await client.readContract({
-    address: feeVault,
-    abi: FeeVaultABI,
-    functionName: 'accountOf',
-    args: [marketAddress, 1, config.ammToken],
-  })) as bigint;
+  const [lpYieldPoolNative, ammTokenDecimals] = await Promise.all([
+    client.readContract({
+      address: feeVault,
+      abi: FeeVaultABI,
+      functionName: 'accountOf',
+      args: [marketAddress, 1, config.ammToken],
+    }),
+    client.readContract({
+      address: config.ammToken,
+      abi: erc20Abi,
+      functionName: 'decimals',
+    }),
+  ]);
+  // FeeVault accounts use native units; preserve FeeRouter's WAD snapshot units.
+  const lpYieldPool = (lpYieldPoolNative * WAD) / 10n ** BigInt(ammTokenDecimals);
   return {
-    // FeeVault does not expose FeeRouter's bCurrent. bBase is the seeded depth.
-    bCurrent: bBase,
+    bCurrent: liquidity,
     feesAccrued: accruedWad,
     lpYieldPool,
     graduationThreshold: thresholdWad,
@@ -466,7 +475,7 @@ export async function readLaunchpadAmmSnapshot(
   const graduatedAt = marketsMapping[4];
 
   const [fees, totalLPSupply] = await Promise.all([
-    readFeeLayer(client, contracts.ammEngine, marketAddress, bBase),
+    readFeeLayer(client, contracts.ammEngine, marketAddress, liquidity),
     lpToken !== ZERO_ADDRESS
       ? (client.readContract({
           address: lpToken,

@@ -85,57 +85,66 @@ describe('readLaunchpadAmmSnapshot economics', () => {
 
     expect(calls.find((call) => call.functionName === 'getFeeState')?.address).toBe(FEE_ROUTER);
     expect(calls.find((call) => call.functionName === 'totalSupply')?.address).toBe(LP_TOKEN);
+    expect(calls.some((call) => call.functionName === 'decimals')).toBe(false);
   });
 
-  it('reads FeeVault economics when AMMEngine.feeRouter() is gone', async () => {
-    const feeVault = address('9');
-    const ammToken = address('a');
-    const { client, calls } = makePublicClient({
-      getLiquidity: 1_000n,
-      markets: [CREATOR, LP_TOKEN, 500n, 800n, 0n] as const,
-      isGraduated: false,
-      getPosition: [11n, 22n] as const,
-      feeRouter: () => {
-        throw new Error('execution reverted');
-      },
-      feeVault,
-      configOf: {
-        preGradFeeBps: 450,
-        postGradFeeBps: 90,
+  it.each([6, 18])(
+    'reads grown FeeVault depth and WAD LP yield for a %i-decimal token',
+    async (decimals) => {
+      const feeVault = address('9');
+      const ammToken = address('a');
+      const { client, calls } = makePublicClient({
+        getLiquidity: 1_000n,
+        markets: [CREATOR, LP_TOKEN, 500n, 800n, 0n] as const,
+        isGraduated: false,
+        getPosition: [11n, 22n] as const,
+        feeRouter: () => {
+          throw new Error('execution reverted');
+        },
+        feeVault,
+        configOf: {
+          preGradFeeBps: 450,
+          postGradFeeBps: 90,
+          ammToken,
+        },
+        graduationProgress: [200n, 400n] as const,
+        accountOf: 75n * 10n ** BigInt(decimals),
+        decimals,
+        getMarketState: [30n, 20n, 600_000_000_000_000_000n] as const,
+        totalSupply: 9_000n,
+        trialEndTimes: 2_000n,
+      });
+
+      const snapshot = await readLaunchpadAmmSnapshot(
+        client,
+        { ammEngine: AMM_ENGINE, launchpadEngine: LAUNCHPAD_ENGINE },
+        MARKET,
+        { userAddress: USER, nowSeconds: 1_500n },
+      );
+
+      expect(snapshot.launchpad).toMatchObject({
+        bBase: 500n,
+        bCurrent: 1_000n,
+        feesAccrued: 200n,
+        graduationThreshold: 400n,
+        graduationProgressBps: 5_000n,
+        lpYieldPool: 75n * 10n ** 18n,
+        preGradFeeBps: 450n,
+        postGradFeeBps: 90n,
+        currentFeeBps: 450n,
+      });
+      expect(snapshot.launchpad.bCurrent).toBe(snapshot.amm.liquidity);
+      expect(calls.filter((call) => call.functionName === 'getLiquidity')).toHaveLength(1);
+      expect(calls.find((call) => call.functionName === 'decimals')?.address).toBe(ammToken);
+      expect(calls.find((call) => call.functionName === 'configOf')?.address).toBe(feeVault);
+      expect(calls.find((call) => call.functionName === 'accountOf')?.args).toEqual([
+        MARKET,
+        1,
         ammToken,
-      },
-      graduationProgress: [200n, 400n] as const,
-      accountOf: 75n,
-      getMarketState: [30n, 20n, 600_000_000_000_000_000n] as const,
-      totalSupply: 9_000n,
-      trialEndTimes: 2_000n,
-    });
-
-    const snapshot = await readLaunchpadAmmSnapshot(
-      client,
-      { ammEngine: AMM_ENGINE, launchpadEngine: LAUNCHPAD_ENGINE },
-      MARKET,
-      { userAddress: USER, nowSeconds: 1_500n },
-    );
-
-    expect(snapshot.launchpad).toMatchObject({
-      bCurrent: 500n,
-      feesAccrued: 200n,
-      graduationThreshold: 400n,
-      graduationProgressBps: 5_000n,
-      lpYieldPool: 75n,
-      preGradFeeBps: 450n,
-      postGradFeeBps: 90n,
-      currentFeeBps: 450n,
-    });
-    expect(calls.find((call) => call.functionName === 'configOf')?.address).toBe(feeVault);
-    expect(calls.find((call) => call.functionName === 'accountOf')?.args).toEqual([
-      MARKET,
-      1,
-      ammToken,
-    ]);
-    expect(calls.some((call) => call.functionName === 'getFeeState')).toBe(false);
-  });
+      ]);
+      expect(calls.some((call) => call.functionName === 'getFeeState')).toBe(false);
+    },
+  );
 });
 
 describe('readSoothBookMarketSnapshot fee source', () => {

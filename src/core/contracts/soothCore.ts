@@ -1,7 +1,8 @@
 import { encodePacked, erc20Abi, keccak256, type Address, type PublicClient } from 'viem';
 import { AMMEngineABI } from '../abis/AMMEngine.js';
-import { CollateralizerABI } from '../abis/Collateralizer.js';
 import { FeeRouterABI } from '../abis/FeeRouter.js';
+import { FeeVaultABI } from '../abis/FeeVault.js';
+import { OrderEngineABI as OrderEngineV040ABI } from '../abis/v040/OrderEngine.js';
 import { OrderEngineABI } from '../abis/OrderEngine.js';
 import { SoothBookABI } from '../abis/SoothBook.js';
 import { TruthMarketABI } from '../abis/TruthMarket.js';
@@ -205,7 +206,7 @@ export interface SoothQuote {
 }
 
 export type ClaimRoute =
-  | 'order_settle' // OrderEngine unified custody (SoothBook + graduated/collateral positions)
+  | 'order_settle' // OrderEngine custody (SoothBook and directly minted positions)
   | 'amm_settle'; // AMMEngine LMSR positions
 
 export type ClaimTxRequest =
@@ -223,7 +224,8 @@ export type ClaimTxRequest =
     };
 
 export interface ClaimRequestPlan {
-  route: ClaimRoute;
+  route: ClaimRoute | 'mixed_settle';
+  /** Submit every request from the position owner's account; each engine pays msg.sender. */
   requests: readonly ClaimTxRequest[];
 }
 
@@ -581,34 +583,107 @@ export async function readCollateralizerSnapshot(
   client: PublicClient,
   collateralizer: Address,
   marketAddress: Address,
-  _userAddress?: Address,
+  userAddress?: Address,
 ): Promise<SoothCollateralizerSnapshot> {
-  // v0.1.2 replaced Collateralizer with OrderEngine. OrderEngine exposes
-  // isMarketRegistered, but not isMarketSettled / getTotalCollateral /
-  // getOutcomeTokens / getBalances — firing those wastes an RPC roundtrip
-  // per market. Keep the single registration probe; callers that need
-  // settlement, collateral, tokens, or balances should read from OrderEngine
-  // / TruthMarket directly.
-  const isRegistered = await readWithFallback(
-    () =>
-      client.readContract({
-        address: collateralizer,
-        abi: CollateralizerABI,
-        functionName: 'isMarketRegistered',
-        args: [marketAddress],
-      }) as Promise<boolean>,
-    false,
-  );
+  // The legacy snapshot name now represents OrderEngine's unified book custody.
+  const [isRegistered, totalCollateral, balances, isSettled] = await Promise.all([
+    readWithFallback(
+      () =>
+        client.readContract({
+          address: collateralizer,
+          abi: OrderEngineABI,
+          functionName: 'isMarketRegistered',
+          args: [marketAddress],
+        }),
+      false,
+    ),
+    readWithFallback(
+      () =>
+        client.readContract({
+          address: collateralizer,
+          abi: OrderEngineABI,
+          functionName: 'getCollateralBacking',
+          args: [marketAddress],
+        }),
+      0n,
+    ),
+    userAddress
+      ? readWithFallback(
+          () =>
+            client.readContract({
+              address: collateralizer,
+              abi: OrderEngineABI,
+              functionName: 'getPosition',
+              args: [marketAddress, userAddress],
+            }),
+          [0n, 0n] as const,
+        )
+      : Promise.resolve([0n, 0n] as const),
+    readWithFallback(
+      () =>
+        client.readContract({
+          address: marketAddress,
+          abi: TruthMarketABI,
+          functionName: 'isSettled',
+        }),
+      false,
+    ),
+  ]);
 
   return {
     isRegistered,
-    isSettled: false,
-    totalCollateral: 0n,
+    isSettled,
+    totalCollateral,
     yesToken: ZERO_ADDRESS,
     noToken: ZERO_ADDRESS,
-    userYesBalance: 0n,
-    userNoBalance: 0n,
+    userYesBalance: balances[0],
+    userNoBalance: balances[1],
   };
+}
+
+async function readSoothBookFeeBps(
+  client: PublicClient,
+  soothBook: Address,
+  marketAddress: Address,
+): Promise<bigint> {
+  let feeVault: Address;
+  try {
+    const orderEngine = await client.readContract({
+      address: soothBook,
+      abi: SoothBookABI,
+      functionName: 'orderEngine',
+    });
+    feeVault = await client.readContract({
+      address: orderEngine,
+      abi: OrderEngineV040ABI,
+      functionName: 'feeVault',
+    });
+  } catch (error) {
+    // Only a missing selector permits legacy discovery; transport errors must surface.
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/revert|returned no data|selector/i.test(message)) throw error;
+    const feeRouter = await client.readContract({
+      address: soothBook,
+      abi: SoothBookABI,
+      functionName: 'feeRouter',
+    });
+    return BigInt(
+      await client.readContract({
+        address: feeRouter,
+        abi: FeeRouterABI,
+        functionName: 'postGradFeeBps',
+      }),
+    );
+  }
+
+  return BigInt(
+    await client.readContract({
+      address: feeVault,
+      abi: FeeVaultABI,
+      functionName: 'feeBpsOf',
+      args: [marketAddress],
+    }),
+  );
 }
 
 export async function readSoothBookMarketSnapshot(
@@ -619,100 +694,105 @@ export async function readSoothBookMarketSnapshot(
 ): Promise<SoothBookMarketSnapshot | null> {
   const marketKey = computeSoothMarketKey(marketAddress);
 
-  // v0.2.1: SoothBook.markets(bytes32)→(active,finalized,outcome) was deleted.
-  // Replacement: registeredMarkets(bytes32)→bool; finalized/outcome moved to
-  // TruthMarket. Callers that need finalized/outcome should read TruthMarket
-  // directly (TruthMarket.isSettled() + TruthMarket.outcome()).
-  // Likewise getImpliedPrice(bytes32) was renamed to getImpliedPriceByKey;
-  // the bare getImpliedPrice now takes an `address market` instead.
-  const [isRegistered, impliedPrice, bestYesTickRaw, bestNoTickRaw, backing, feeBps, userBalances] =
-    await Promise.all([
-      readWithFallback(
-        () =>
-          client.readContract({
-            address: soothBook,
-            abi: SoothBookABI,
-            functionName: 'registeredMarkets',
-            args: [marketKey],
-          }) as Promise<boolean>,
-        false,
-      ),
-      readWithFallback(
-        () =>
-          client.readContract({
-            address: soothBook,
-            abi: SoothBookABI,
-            functionName: 'getImpliedPriceByKey',
-            args: [marketKey],
-          }) as Promise<readonly [bigint, bigint]>,
-        [WAD / 2n, WAD / 2n] as const,
-      ),
-      readWithFallback(
-        () =>
-          client.readContract({
-            address: soothBook,
-            abi: SoothBookABI,
-            functionName: 'getBestTick',
-            args: [marketKey, 1],
-          }) as Promise<number | bigint>,
-        0,
-      ),
-      readWithFallback(
-        () =>
-          client.readContract({
-            address: soothBook,
-            abi: SoothBookABI,
-            functionName: 'getBestTick',
-            args: [marketKey, 0],
-          }) as Promise<number | bigint>,
-        0,
-      ),
-      readWithFallback(
-        () =>
-          client.readContract({
-            address: soothBook,
-            abi: SoothBookABI,
-            functionName: 'getCollateralBacking',
-            args: [marketKey],
-          }) as Promise<bigint>,
-        0n,
-      ),
-      readWithFallback(async () => {
-        const feeRouter = (await client.readContract({
+  // Settlement belongs to TruthMarket; SoothBook only tracks registration.
+  const [
+    isRegistered,
+    impliedPrice,
+    bestYesTickRaw,
+    bestNoTickRaw,
+    backing,
+    userBalances,
+    isFinalized,
+    outcome,
+  ] = await Promise.all([
+    readWithFallback(
+      () =>
+        client.readContract({
           address: soothBook,
           abi: SoothBookABI,
-          functionName: 'feeRouter',
-        })) as Address;
-        return client.readContract({
-          address: feeRouter,
-          abi: FeeRouterABI,
-          functionName: 'postGradFeeBps',
-        }) as Promise<number | bigint>;
-      }, 0),
-      userAddress
-        ? readWithFallback(
-            () =>
-              client.readContract({
-                address: soothBook,
-                abi: SoothBookABI,
-                functionName: 'getBalance',
-                args: [marketKey, userAddress],
-              }) as Promise<readonly [bigint, bigint]>,
-            [0n, 0n] as const,
-          )
-        : Promise.resolve([0n, 0n] as const),
-    ]);
+          functionName: 'registeredMarkets',
+          args: [marketKey],
+        }) as Promise<boolean>,
+      false,
+    ),
+    readWithFallback(
+      () =>
+        client.readContract({
+          address: soothBook,
+          abi: SoothBookABI,
+          functionName: 'getImpliedPriceByKey',
+          args: [marketKey],
+        }) as Promise<readonly [bigint, bigint]>,
+      [WAD / 2n, WAD / 2n] as const,
+    ),
+    readWithFallback(
+      () =>
+        client.readContract({
+          address: soothBook,
+          abi: SoothBookABI,
+          functionName: 'getBestTick',
+          args: [marketKey, 1],
+        }) as Promise<number | bigint>,
+      0,
+    ),
+    readWithFallback(
+      () =>
+        client.readContract({
+          address: soothBook,
+          abi: SoothBookABI,
+          functionName: 'getBestTick',
+          args: [marketKey, 0],
+        }) as Promise<number | bigint>,
+      0,
+    ),
+    readWithFallback(
+      () =>
+        client.readContract({
+          address: soothBook,
+          abi: SoothBookABI,
+          functionName: 'getCollateralBacking',
+          args: [marketKey],
+        }) as Promise<bigint>,
+      0n,
+    ),
+    userAddress
+      ? readWithFallback(
+          () =>
+            client.readContract({
+              address: soothBook,
+              abi: SoothBookABI,
+              functionName: 'getBalance',
+              args: [marketKey, userAddress],
+            }) as Promise<readonly [bigint, bigint]>,
+          [0n, 0n] as const,
+        )
+      : Promise.resolve([0n, 0n] as const),
+    readWithFallback(
+      () =>
+        client.readContract({
+          address: marketAddress,
+          abi: TruthMarketABI,
+          functionName: 'isSettled',
+        }),
+      false,
+    ),
+    readWithFallback(
+      () =>
+        client.readContract({
+          address: marketAddress,
+          abi: TruthMarketABI,
+          functionName: 'winningOutcome',
+        }),
+      Number(OUTCOME.INVALID),
+    ),
+  ]);
 
-  const isActive = isRegistered;
-  // v0.2.1 SoothBook no longer exposes finalized/outcome — they live on
-  // TruthMarket now. Snapshot shape is preserved for callers; if they need
-  // settlement state they must read TruthMarket directly.
-  const isFinalized = false;
-  const outcome: number = Number(OUTCOME.INVALID);
-  const exists = isActive || backing > 0n;
+  const isActive = isRegistered && !isFinalized;
+  const exists = isRegistered || backing > 0n;
   if (!exists) {
     return null;
   }
+  const feeBps = await readSoothBookFeeBps(client, soothBook, marketAddress);
   const collateral = ZERO_ADDRESS;
   const yesToken = ZERO_ADDRESS;
   const noToken = ZERO_ADDRESS;
@@ -1091,81 +1171,50 @@ export function buildClaimRequest(
     return null;
   }
 
-  const soothBookYes = snapshot.soothBook?.userYesBalance ?? 0n;
-  const soothBookNo = snapshot.soothBook?.userNoBalance ?? 0n;
-  const hasSoothBookPosition = soothBookYes > 0n || soothBookNo > 0n;
-  if (snapshot.soothBook?.isFinalized && hasSoothBookPosition) {
-    // SoothBook has no redeem(): positions are custodied by OrderEngine
-    // (unified custody). Redemption is OrderEngine.settlePosition(market),
-    // which settles the caller's whole position and returns the payout.
-    return {
+  const hasPayout = (yes: bigint, no: bigint): boolean => {
+    switch (snapshot.truth.winningOutcome) {
+      case OUTCOME.YES:
+        return yes > 0n;
+      case OUTCOME.NO:
+        return no > 0n;
+      case OUTCOME.INVALID:
+        return (yes + no) / 2n > 0n;
+      default:
+        return false;
+    }
+  };
+  const requests: ClaimTxRequest[] = [];
+
+  // Book and collateralizer snapshots describe the same OrderEngine custody.
+  if (
+    hasPayout(snapshot.soothBook?.userYesBalance ?? 0n, snapshot.soothBook?.userNoBalance ?? 0n) ||
+    hasPayout(
+      snapshot.collateralizer?.userYesBalance ?? 0n,
+      snapshot.collateralizer?.userNoBalance ?? 0n,
+    )
+  ) {
+    requests.push({
       route: 'order_settle',
-      requests: [
-        {
-          route: 'order_settle',
-          contract: assertAddress('orderEngine', contracts.orderEngine),
-          functionName: 'settlePosition',
-          args: [snapshot.marketAddress] as const,
-        },
-      ] as const,
-    };
+      contract: assertAddress('orderEngine', contracts.orderEngine),
+      functionName: 'settlePosition',
+      args: [snapshot.marketAddress],
+    });
   }
 
-  if (snapshot.launchpadAmm.launchpad.isGraduated) {
-    if (!snapshot.truth.isFinalized || !snapshot.collateralizer) {
-      return null;
-    }
-
-    const yesBalance = snapshot.collateralizer.userYesBalance;
-    const noBalance = snapshot.collateralizer.userNoBalance;
-    const winningOutcome = snapshot.truth.winningOutcome;
-
-    // OrderEngine (which replaced the Collateralizer) has no redeemOutcome().
-    // Redemption is a single settlePosition(market) — it pays out the caller's
-    // whole position for the settled outcome. We only need to check there is a
-    // redeemable balance for the winning side (or either side, if INVALID).
-    let hasRedeemable = false;
-    if (winningOutcome === OUTCOME.INVALID) {
-      hasRedeemable = yesBalance > 0n || noBalance > 0n;
-    } else if (winningOutcome === OUTCOME.YES) {
-      hasRedeemable = yesBalance > 0n;
-    } else if (winningOutcome === OUTCOME.NO) {
-      hasRedeemable = noBalance > 0n;
-    }
-
-    if (!hasRedeemable) {
-      return null;
-    }
-
-    return {
-      route: 'order_settle',
-      requests: [
-        {
-          route: 'order_settle',
-          contract: assertAddress('orderEngine', contracts.orderEngine),
-          functionName: 'settlePosition',
-          args: [snapshot.marketAddress] as const,
-        },
-      ] as const,
-    };
+  // Graduation does not move AMM positions into OrderEngine.
+  if (hasPayout(snapshot.launchpadAmm.amm.userYesShares, snapshot.launchpadAmm.amm.userNoShares)) {
+    requests.push({
+      route: 'amm_settle',
+      contract: assertAddress('ammEngine', contracts.ammEngine),
+      functionName: 'settlePosition',
+      args: [snapshot.marketAddress],
+    });
   }
 
-  const hasAmmPosition =
-    snapshot.launchpadAmm.amm.userYesShares > 0n || snapshot.launchpadAmm.amm.userNoShares > 0n;
-  if (!hasAmmPosition) {
-    return null;
-  }
-
+  if (requests.length === 0) return null;
   return {
-    route: 'amm_settle',
-    requests: [
-      {
-        route: 'amm_settle',
-        contract: contracts.ammEngine,
-        functionName: 'settlePosition',
-        args: [snapshot.marketAddress] as const,
-      },
-    ] as const,
+    route: requests.length > 1 ? 'mixed_settle' : requests[0]!.route,
+    requests,
   };
 }
 
@@ -1198,11 +1247,16 @@ export function preflightTrade(
   }
 
   if (input.action === 'buy') {
-    const required = input.maxCostOrMinProceeds ?? input.quotedTotal ?? 0n;
-    if (required <= 0n) {
+    const guard = input.maxCostOrMinProceeds ?? input.quotedTotal ?? 0n;
+    if (guard <= 0n) {
       return { canTrade: false, reason: 'invalid_guard' };
     }
 
+    // A book order's legacy maxCost hint is not encoded; include the quoted taker fee.
+    const required =
+      snapshot.tradingVenue === 'soothbook' && (input.quotedTotal ?? 0n) > guard
+        ? input.quotedTotal!
+        : guard;
     if (typeof input.userBalance === 'bigint' && input.userBalance < required) {
       return {
         canTrade: false,
