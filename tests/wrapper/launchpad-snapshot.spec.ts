@@ -154,6 +154,9 @@ describe('readSoothBookMarketSnapshot fee source', () => {
       getImpliedPriceByKey: [550_000_000_000_000_000n, 450_000_000_000_000_000n] as const,
       getBestTick: ({ args }: ReadCall) => (args?.[1] === 1 ? 550 : 450),
       getCollateralBacking: 1_000n,
+      orderEngine: () => {
+        throw new Error('execution reverted: selector not recognized');
+      },
       feeRouter: FEE_ROUTER,
       postGradFeeBps: 90,
       getBalance: [12n, 8n] as const,
