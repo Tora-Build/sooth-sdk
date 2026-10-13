@@ -2,45 +2,40 @@
 
 ## Unreleased
 
-### Breaking Changes (1.0.0 pending release)
+## [1.0.0](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.6.3...a63e22f0a7660bf248d1bc6e8d3bd854d6d46b09) (2026-10-13)
 
-* Reduce `sooth` to protocol-neutral SQF utilities with no runtime dependencies.
+Published to npm from [a63e22f](https://github.com/Tora-Build/sooth-sdk/commit/a63e22f0a7660bf248d1bc6e8d3bd854d6d46b09).
+
+### ⚠ BREAKING CHANGES
+
+* **sdk:** reduce `sooth` to protocol-neutral SQF utilities with no runtime dependencies.
 * Keep `sooth/sqf` stable; the root now exports only the same SQF functions and types.
-* Remove all core exports, ABIs, contract helpers, clients, registry snapshot/loading, CLI and scenarios.
+* Remove all core subpaths, ABIs, contract helpers, protocol clients, registry snapshot/loading, CLI (`soothcli`) and scenarios.
 
-### Historical pre-removal development notes
+### ♻️ Refactoring
+
+* **sdk:** retain only protocol-neutral SQF utilities ([#46](https://github.com/Tora-Build/sooth-sdk/pull/46)) ([a63e22f](https://github.com/Tora-Build/sooth-sdk/commit/a63e22f0a7660bf248d1bc6e8d3bd854d6d46b09))
+
+## Historical pre-removal development notes (unreleased 0.x)
 
 The following unreleased 0.x fixes describe removed implementation. They are
 preserved as history, not as current package behavior.
 
-#### Bug Fixes
+### Bug Fixes
 
 * Preserve current AMM depth and WAD-denominated LP yield in FeeVault snapshots. Read the AMM token's decimals to normalize native vault balances, including six-decimal tokens, while retaining legacy FeeRouter values.
 * Quote v0.4 orderbook fees through OrderEngine's FeeVault and require the fee-inclusive balance for book buys.
 * Settle AMM and OrderEngine holdings independently, including mixed custody after graduation. Read settlement state from TruthMarket.
 * Bundle registry 0.4.9 with East `cb83aa61` and Robinhood Demo `93d7ae67`; use AMM quotes when a graduated book has no usable price.
 
-## [1.0.0](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.6.3...sooth-v1.0.0) (2026-10-13)
+### Pre-removal commits
 
-
-### ⚠ BREAKING CHANGES
-
-* **sdk:** remove all core subpaths, protocol client exports and soothcli. The root now exports only SQF functions and types.
-
-### 🐛 Bug Fixes
+These commits preceded the SQF-only cleanup. Their implementations and embedded
+registry snapshot are absent from the published 1.0.0 package.
 
 * **core:** FeeVault quotes and graduated custody settlement ([eae388c](https://github.com/Tora-Build/sooth-sdk/commit/eae388c6704cc3bce4688551054134a070484dc8))
 * **core:** preserve FeeVault units and mixed custody settlement ([11fdede](https://github.com/Tora-Build/sooth-sdk/commit/11fdede67811f235faa1ecd5194877528208d38d))
 * **core:** quote v0.4 markets when FeeRouter is gone ([c36360c](https://github.com/Tora-Build/sooth-sdk/commit/c36360cc4b9711a12c5363f6c598815ec8b48956))
-
-
-### ♻️ Refactoring
-
-* **sdk:** retain only protocol-neutral SQF utilities ([#46](https://github.com/Tora-Build/sooth-sdk/issues/46)) ([a63e22f](https://github.com/Tora-Build/sooth-sdk/commit/a63e22f0a7660bf248d1bc6e8d3bd854d6d46b09))
-
-
-### 🧹 Chores
-
 * **registry:** snapshot 0.5.0 without the Sepolia sooth-core node cb83aa61 ([#45](https://github.com/Tora-Build/sooth-sdk/issues/45)) ([08283ba](https://github.com/Tora-Build/sooth-sdk/commit/08283ba6dad421be4be1b6b880e16acfc770a99c))
 
 ## [0.6.3](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.6.2...sooth-v0.6.3) (2026-10-04)
