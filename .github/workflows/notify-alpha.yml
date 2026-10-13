@@ -6,11 +6,10 @@ name: Notify sooth-alpha of SDK update
 on:
   push:
     branches: [main]
-    # Only what sooth-alpha vendors. Snapshot/type refreshes still fire; a
+    # Only the SQF utility surface sooth-alpha vendors; a
     # changelog or CI push no longer costs two bump runs + two CI runs.
     paths:
       - 'src/**'
-      - 'data/**'
       - 'package.json'
 
 concurrency:

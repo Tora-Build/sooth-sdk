@@ -1,8 +1,7 @@
 # Contributing to sooth-sdk
 
 Thanks for your interest in improving the Sooth SDK. This package provides
-programmatic access to the Sooth prediction-market protocol, including core
-utilities, ABI bindings, math helpers, and a CLI.
+protocol-neutral SQF parsing and generation with no runtime dependencies.
 
 If you're reporting a security issue, **do not open a public issue** —
 see [`SECURITY.md`](./SECURITY.md).
@@ -24,7 +23,9 @@ Before pushing, at minimum:
 pnpm fmt:check    # no diff expected
 pnpm lint:check   # zero warnings
 pnpm typecheck    # no type errors
+pnpm test         # SQF regression coverage
 pnpm build        # clean compile
+pnpm test:package # public exports and removed subpaths
 ```
 
 ## Branch and PR conventions
@@ -60,11 +61,7 @@ Types used in this repo: `fix`, `feat`, `refactor`, `test`, `docs`, `chore`, `bu
 Example:
 
 ```
-fix(math): round WAD→base conversion down on payouts
-
-_wadToBaseToken was truncating correctly on paper but the intermediate
-multiply overflowed for high-decimal tokens. Now uses bigint arithmetic
-throughout so there's no precision loss before the final division.
+fix(sqf): preserve plain question fallback
 ```
 
 ## Code style
@@ -76,7 +73,7 @@ throughout so there's no precision loss before the final division.
 
 ## Review process
 
-- CI (lint, fmt, typecheck, build) must be green.
+- CI (lint, fmt, typecheck, test, build, package exports) must be green.
 - At least one approving review from a `CODEOWNERS` maintainer.
 - Large PRs should be split. If a PR touches more than ~400 lines across unrelated concerns,
   expect a request to split it.

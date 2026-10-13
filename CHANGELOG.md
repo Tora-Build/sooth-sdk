@@ -2,7 +2,18 @@
 
 ## Unreleased
 
-### Bug Fixes
+### Breaking Changes (1.0.0 pending release)
+
+* Reduce `sooth` to protocol-neutral SQF utilities with no runtime dependencies.
+* Keep `sooth/sqf` stable; the root now exports only the same SQF functions and types.
+* Remove all core exports, ABIs, contract helpers, clients, registry snapshot/loading, CLI and scenarios.
+
+### Historical pre-removal development notes
+
+The following unreleased 0.x fixes describe removed implementation. They are
+preserved as history, not as current package behavior.
+
+#### Bug Fixes
 
 * Preserve current AMM depth and WAD-denominated LP yield in FeeVault snapshots. Read the AMM token's decimals to normalize native vault balances, including six-decimal tokens, while retaining legacy FeeRouter values.
 * Quote v0.4 orderbook fees through OrderEngine's FeeVault and require the fee-inclusive balance for book buys.

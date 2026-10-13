@@ -56,3 +56,18 @@
   re-runs of the same workflow remain trusted. Provenance attestations stay
   unavailable while the repo is private. npm package settings changes sit
   behind a passkey sudo-gate (see STATUS.md known issues).
+
+## ADR-004: Utility-only SQF package
+
+- **Date**: 2026-10-13
+- **Status**: Accepted for implementation; release pending review
+- **Context**: Alpha is retiring sooth-core integrations. Its Factory paths
+  need only the protocol-neutral SQF parser and generator from this package.
+- **Decision**: Keep the `sooth` name and `/sqf` API, remove the protocol/CLI
+  surface and all runtime dependencies, and use major version 1.0.0. The root
+  exports the same SQF API. No Factory protocol client is added.
+- **Consequences**: 0.x core consumers must retire or replace their integrations.
+  Alpha keeps its workspace alias and integrates the SDK gitlink separately.
+  Release, publication, and deployment require separate authorization. Earlier
+  ADRs describe historical package and release decisions; their core subpath
+  examples no longer describe the current exports.

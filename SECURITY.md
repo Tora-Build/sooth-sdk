@@ -19,12 +19,9 @@ any public announcement.
 
 ## Supported versions
 
-| Version | Status          |
-|---------|-----------------|
-| 0.2.x   | ✅ Supported    |
-| 0.1.x   | ❌ Testnet only |
-
-Only the latest minor release receives security patches.
+The utility-only 1.0.0 line is pending release. This repository now maintains
+SQF utilities. The removed 0.x protocol and CLI APIs are retired here; this
+policy does not claim continued support for them.
 
 ## Out of scope
 

@@ -72,14 +72,5 @@ jobs:
       - uses: ./.github/setup
       - name: Build
         run: pnpm build
-      - name: Verify dist resolves in plain Node ESM
-        # Bundlers tolerate extensionless relative imports; Node's ESM
-        # resolver does not. Import every public entry point directly.
-        run: |
-          node --input-type=module -e "
-            for (const p of ['./dist/index.js', './dist/core/index.js', './dist/lib/sqf.js']) {
-              const m = await import(p);
-              if (Object.keys(m).length === 0) throw new Error('no exports from ' + p);
-              console.log(p, Object.keys(m).length, 'exports');
-            }
-          "
+      - name: Verify utility exports and removed subpaths in Node ESM
+        run: pnpm test:package

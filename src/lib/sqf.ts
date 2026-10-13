@@ -1,10 +1,8 @@
 /**
  * Sooth Question Format (SQF) — Parser & Generator
  *
- * Encodes/decodes structured market metadata in the on-chain `question`
- * string. Canonical implementation for every Sooth surface — the demo,
- * market, and mobile apps import this module (their per-app copies were
- * consolidated here 2026-07-12).
+ * Encodes and decodes structured question text. This module has no protocol,
+ * contract, registry, or network dependencies.
  */
 
 export interface SQFRule {
