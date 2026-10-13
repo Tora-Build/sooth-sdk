@@ -1,7 +1,7 @@
 # sooth
 
 Protocol-neutral Sooth Question Format (SQF) utilities. Version 1.0.0 is a
-breaking, utility-only change pending release. This cleanup does not publish it.
+breaking, utility-only release published to npm.
 
 ## Package names
 

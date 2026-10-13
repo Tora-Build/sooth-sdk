@@ -2,8 +2,8 @@
 
 ## Current Focus
 
-Prepare `sooth@1.0.0` as a protocol-neutral SQF utility. The package name stays
-`sooth`, and Alpha keeps the `@sooth/sdk` workspace alias. Root and `/sqf`
+Maintain the published `sooth@1.0.0` protocol-neutral SQF utility. The package name
+stays `sooth`, and Alpha keeps the `@sooth/sdk` workspace alias. Root and `/sqf`
 exports expose only SQF functions and types. SQF semantics are unchanged.
 
 Core ABIs, contract helpers, client and registry implementations, the embedded
@@ -12,13 +12,18 @@ dependencies. No Factory client is implemented.
 
 ## Integration and Release
 
-The SDK PR must be reviewed before Alpha integrates its gitlink. Alpha's
-consumer owners retire legacy paths and remove the old snapshot/type guards.
-The 1.0.0 version is pending release. No merge, npm publication, deployment,
-or parent gitlink change is part of this cleanup.
+`sooth@1.0.0` was published on 2026-10-13 from merged SDK commit
+`a63e22f0a7660bf248d1bc6e8d3bd854d6d46b09` through the existing Trusted Publishing
+workflow. The release-please manifest and package version both record 1.0.0.
+`CHANGELOG.md` describes the SQF-only release separately from historical core work.
 
-The release-please manifest still records the last release, 0.6.3. The cleanup commit
-requests the next release with a `Release-As: 1.0.0` footer. The release workflow remains manual.
+Alpha integrates its SDK gitlink separately after consumer cleanup. Release
+tracking changes do not update that pin or republish the npm package.
+
+The release workflow remains manual and attempts npm publication on each dispatch.
+Do not dispatch it for already-published 1.0.0; it needs an idempotency guard or a
+separate path for release metadata before that operation is safe. GitHub release/tag
+tracking is separate from npm publication.
 
 ## Verification
 

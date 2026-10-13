@@ -19,7 +19,7 @@ any public announcement.
 
 ## Supported versions
 
-The utility-only 1.0.0 line is pending release. This repository now maintains
+The utility-only 1.0.0 line is published. This repository now maintains
 SQF utilities. The removed 0.x protocol and CLI APIs are retired here; this
 policy does not claim continued support for them.
 
