@@ -20,6 +20,29 @@ preserved as history, not as current package behavior.
 * Settle AMM and OrderEngine holdings independently, including mixed custody after graduation. Read settlement state from TruthMarket.
 * Bundle registry 0.4.9 with East `cb83aa61` and Robinhood Demo `93d7ae67`; use AMM quotes when a graduated book has no usable price.
 
+## [1.0.0](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.6.3...sooth-v1.0.0) (2026-10-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **sdk:** remove all core subpaths, protocol client exports and soothcli. The root now exports only SQF functions and types.
+
+### 🐛 Bug Fixes
+
+* **core:** FeeVault quotes and graduated custody settlement ([eae388c](https://github.com/Tora-Build/sooth-sdk/commit/eae388c6704cc3bce4688551054134a070484dc8))
+* **core:** preserve FeeVault units and mixed custody settlement ([11fdede](https://github.com/Tora-Build/sooth-sdk/commit/11fdede67811f235faa1ecd5194877528208d38d))
+* **core:** quote v0.4 markets when FeeRouter is gone ([c36360c](https://github.com/Tora-Build/sooth-sdk/commit/c36360cc4b9711a12c5363f6c598815ec8b48956))
+
+
+### ♻️ Refactoring
+
+* **sdk:** retain only protocol-neutral SQF utilities ([#46](https://github.com/Tora-Build/sooth-sdk/issues/46)) ([a63e22f](https://github.com/Tora-Build/sooth-sdk/commit/a63e22f0a7660bf248d1bc6e8d3bd854d6d46b09))
+
+
+### 🧹 Chores
+
+* **registry:** snapshot 0.5.0 without the Sepolia sooth-core node cb83aa61 ([#45](https://github.com/Tora-Build/sooth-sdk/issues/45)) ([08283ba](https://github.com/Tora-Build/sooth-sdk/commit/08283ba6dad421be4be1b6b880e16acfc770a99c))
+
 ## [0.6.3](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.6.2...sooth-v0.6.3) (2026-10-04)
 
 ### Registry
