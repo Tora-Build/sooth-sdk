@@ -22,7 +22,7 @@
 ## Scope
 
 <!-- Which modules or directories does this touch? -->
-<!-- e.g. src/core/math, src/cli, src/core/abis -->
+<!-- e.g. src/lib/sqf.ts, package exports, build checks -->
 
 ## Checklist
 
