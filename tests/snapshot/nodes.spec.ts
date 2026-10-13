@@ -2,11 +2,13 @@ import snapshot from '../../data/nodes.snapshot.json';
 import { describe, expect, it } from 'vitest';
 
 describe('embedded nodes snapshot', () => {
-  it('ships the current registry: the Robinhood demo and the Sepolia Eastboard', () => {
+  it('ships the current registry: the Robinhood demo only', () => {
+    // cb83aa61 (eth-sepolia 0.4.0-wrmb, the old East node) left on 2026-10-13:
+    // East runs on sooth-factory v7 and keeps its own node record.
     expect(snapshot.nodes.map((node) => node.id).sort()).toEqual([
       '93d7ae67', // robinhood 0.4.0 fixed DemoToken single-collateral
-      'cb83aa61', // eth-sepolia 0.4.0-wrmb
     ]);
+    expect(snapshot.version).toBe('0.5.0');
   });
 
   it('only carries core versions the SDK knows how to talk to', () => {
