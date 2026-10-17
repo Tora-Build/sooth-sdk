@@ -194,6 +194,25 @@ The root and `/sqf` export `parseSQF`, `generateSQF`, `extractQuestion`,
 not validate resolution rules or decide outcomes. SQF calls make no network
 requests and do not import the Factory or React layers.
 
+## Agent skill
+
+The [Sooth Protocol skill](./skills/sooth-protocol/SKILL.md) teaches agents the
+current Factory creation, trading, resolution and claim workflow. It replaces
+the older skill from `soothsayer-core` and uses the SDK's pinned releases,
+verified identities, explicit approvals and receipt recovery.
+
+Copy it from this checkout into your agent's skill directory:
+
+```sh
+mkdir -p ~/your-agent/skills/sooth-protocol
+cp skills/sooth-protocol/SKILL.md ~/your-agent/skills/sooth-protocol/SKILL.md
+```
+
+The skill is self-contained and included in the package file allowlist. After
+a package release containing this change, its installed path will be
+`node_modules/sooth/skills/sooth-protocol/SKILL.md`. The current published
+SQF-only 1.0.0 release does not include it or the Factory CLI.
+
 ## Migration and development
 
 Legacy `sooth/core` subpaths, core client classes, registry v1 and old scenarios

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Move the Sooth Protocol agent skill from `soothsayer-core` into
+  `skills/sooth-protocol/SKILL.md` and include it in package contents. Replace
+  old deployment addresses, market calls and script references with the current
+  Factory SDK/CLI workflow. Document installation and unpublished availability.
 - Add the independent `swarm-expert-sqf` profile adapter, exact-SQF mandate and
   judgment helpers, and CLI transaction actions. The trusted relay records an
   accepted research mandate before creation and a judgment after the deadline;

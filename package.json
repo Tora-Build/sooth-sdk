@@ -76,7 +76,8 @@
   },
   "files": [
     "dist",
-    "bin"
+    "bin",
+    "skills"
   ],
   "bin": {
     "soothcli": "./bin/soothcli.js"
