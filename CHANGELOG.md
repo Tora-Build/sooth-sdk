@@ -2,6 +2,38 @@
 
 ## Unreleased
 
+- Add the independent `swarm-expert-sqf` profile adapter, exact-SQF mandate and
+  judgment helpers, and CLI transaction actions. The trusted relay records an
+  accepted research mandate before creation and a judgment after the deadline;
+  no IMD oracle attestation is required. No deployment or npm release is included.
+- Add a Factory protocol client extracted from Alpha, with pinned v7/v7.1 ABI
+  selection, verified node/market binding, financial plans, request builders,
+  catalog/indexer readers and canonical receipt checks.
+- Add optional React node and market components, query hooks and hosted-embed
+  helpers. `SoothNode` browses a host-selected node with search, status filters
+  and market/back navigation. Creation and CLOB are opt-in (both default off);
+  AMM remains available. Native panel/drawer/modal presentations share trusted
+  runtime, wallet and pending-transaction recovery boundaries. Direct
+  `SoothMarket` remains supported. Keep React outside protocol and SQF imports.
+- Add a Factory CLI for explicit release selection, preparation, signing and
+  receipt recovery. Retired core APIs remain unavailable.
+- Preserve SQF root and `/sqf` behavior. Alpha consumers migrate to the shared
+  client instead of maintaining duplicate protocol implementations.
+- Repair frontend review invalidation during polling, exact market-creation log
+  provenance, cross-window Web Locks, edited-approval reconciliation and stale
+  intent cancellation. Make timeout refunds conditional on eligibility and support
+  Manual optional attestation in the SDK/UI; the failed local attestation scenario
+  was recovered through real UI attestation and settlement.
+- Fix exhausted-claim UI eligibility and strengthen cross-window pending-intent
+  protection with immediate lock refusal, a final pending check before send and
+  durable-storage authority over memory fallback. Final SDK build, all 522 tests
+  in 29 files, lint, formatting and 180-file package smoke passed. Actual final-module
+  two-window exclusion/pending-recovery mechanism checks passed using a synthetic
+  adapter/hash without broadcast; full cross-browser acceptance remains open.
+- Record local SDK, Alpha, external-package and signed fork acceptance evidence in
+  `STATUS.md` and `FACTORY_MIGRATION_PLAN.md`. Full production/provider acceptance
+  remains open; these changes include no migration publication or deployment.
+
 ## [1.0.0](https://github.com/Tora-Build/sooth-sdk/compare/sooth-v0.6.3...a63e22f0a7660bf248d1bc6e8d3bd854d6d46b09) (2026-10-13)
 
 Published to npm from [a63e22f](https://github.com/Tora-Build/sooth-sdk/commit/a63e22f0a7660bf248d1bc6e8d3bd854d6d46b09).

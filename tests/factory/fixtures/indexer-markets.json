@@ -1,0 +1,69 @@
+{
+  "indexed": {
+    "blockNumber": 11898739,
+    "blockHash": "0x0aa28acf2d86b4308797e6655422430f745f25d2e9c11d4cbe67aef028b7cfd9",
+    "timestamp": 1791806268
+  },
+  "items": [
+    {
+      "tokenA": "0x2e8dfbfa329a55db88e9e69ee2791966bc1d630c",
+      "address": "0xae6ab1173fd9fd80868764b7f03cc4de67554e23",
+      "creator": "0xefdb15ee6e7c7c7906cb230aff1edb75ccbaa74f",
+      "nodeKey": "sooth-factory:11155111:0x67926f892caba6a8b96ee45b0c927031371c9e85:0xc969cde7d701eb503ecac9c55de380ec2cd7b5e1333c4506872d99106f6b7dfb",
+      "creation": {
+        "logIndex": 136,
+        "blockHash": "0xf5c766776d43cc4e0c7563bba9053ae33f083ff9433fdcb75631a44e353834f7",
+        "blockNumber": 11888607,
+        "transactionHash": "0x33643694feb4191e03af8935bc8c728398af4083def9c8fdeb85088520997055"
+      },
+      "deadline": "1791788400",
+      "question": "§question\n[TESTNET MANUAL SIMULATION] Will the CSI 300 Index official close on 2026-10-12 be greater than or equal to 4550.000?\n§rule\nYES iff the official unadjusted close of CSI 300 Index on 2026-10-12 is greater than or equal to the strike. INVALID if fewer than two independent sources agree by close plus six hours; the exchange does not publish a 2026-10-12 close.\nsource:sse-dayk\nparams:code=000300,date=2026-10-12,jsonpath=$.kline[0][1]\nop:gte\ntarget:4550000\n§event\ncsi300-2026-10-12\n§category\nfinance\n§meta\ntemplate-id:csi300-20261012-4550000\nunderlying:csi300\nstrike-raw:4550000\nstrike-decimals:3\nexpiry:2026-10-12\nsource:sse-dayk\njsonpath:$.kline[0][1]\nsettlement-mode:manual-simulation\nattestation-mode:simulated",
+      "startTime": "1791687144",
+      "adjudicator": "0xa8a874858a6bb79d53c16dfe2b09dfbc1a33bc3c",
+      "lpPositionId": "1",
+      "tokenADecimals": 18,
+      "state": {
+        "amm": {
+          "configHash": "0x0adab1946e9c9bac6081e2c03985f8f9fec2abd1e9a70cec4b337375ad1308dd",
+          "finalizedAs": null,
+          "configVersion": 1,
+          "resolutionRecipient": "0xefdb15ee6e7c7c7906cb230aff1edb75ccbaa74f"
+        },
+        "book": {
+          "configHash": "0xb2ba772873229d6cb489da3e490ca7be6f97fde82bb99a0255ce6d0c2f2450ff",
+          "finalizedAs": null,
+          "configVersion": 1,
+          "resolutionRecipient": "0xefdb15ee6e7c7c7906cb230aff1edb75ccbaa74f"
+        },
+        "bBase": "25000000000000000000",
+        "phase": "settled",
+        "outcome": 0,
+        "termsHash": "0x8266c702166228a9e6a38f44fa880676b95510991b8877c4bae1a1bab8b50ee6",
+        "adjudicator": {
+          "phase": "settled",
+          "dataHash": "0xd732a67a31f6fb8cea7721220ef69756d3666c7adb9506baf1b75ce366d70036",
+          "resolver": "0x273612620cd4c725576985e7306d8ee832bf8d4e",
+          "readBlock": 11898734,
+          "vetoEndsAt": "1791806088",
+          "proposedOutcome": 0
+        },
+        "profileHash": "0xcf24a4805b4457963d83831d5b2b790d1f22715d4c2442dfd5e4902c44123a96",
+        "creationCall": {
+          "to": "0xdc0ee93db3ec590427f65b8d20105b65e842af17",
+          "input": null,
+          "embedded": false,
+          "blockTimestamp": 1791684336
+        },
+        "updatedBlock": 11898734,
+        "settlementKind": "adjudicated",
+        "invalidationBuffer": "604800",
+        "resolutionAttempted": true,
+        "permissionlessAtCreation": false
+      },
+      "tradingOpen": false,
+      "liquidityOpen": false,
+      "canSettle": false
+    }
+  ],
+  "next": null
+}

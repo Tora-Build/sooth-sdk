@@ -2,12 +2,13 @@
   "name": "sooth",
   "version": "1.0.0",
   "packageManager": "pnpm@9.15.9",
-  "description": "Protocol-neutral Sooth Question Format (SQF) parser and generator",
+  "description": "Sooth Factory protocol SDK, embeddable market UI, CLI and SQF utilities",
   "keywords": [
     "sooth",
     "sqf",
     "question-format",
-    "parser"
+    "prediction-markets",
+    "ethereum"
   ],
   "license": "MIT",
   "contributors": [
@@ -43,19 +44,51 @@
     "./sqf": {
       "types": "./dist/lib/sqf.d.ts",
       "import": "./dist/lib/sqf.js"
+    },
+    "./factory": {
+      "types": "./dist/factory/index.d.ts",
+      "import": "./dist/factory/index.js"
+    },
+    "./factory/factoryAbi": {
+      "types": "./dist/factory/factoryAbi/index.d.ts",
+      "import": "./dist/factory/factoryAbi/index.js"
+    },
+    "./factory/abis": {
+      "types": "./dist/factory/factoryAbi/index.d.ts",
+      "import": "./dist/factory/factoryAbi/index.js"
+    },
+    "./factory/data": {
+      "types": "./dist/factory/data.d.ts",
+      "import": "./dist/factory/data.js"
+    },
+    "./factory/*": {
+      "types": "./dist/factory/*.d.ts",
+      "import": "./dist/factory/*.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.js"
+    },
+    "./react/factoryHooks": {
+      "types": "./dist/react/factoryHooks.d.ts",
+      "import": "./dist/react/factoryHooks.js"
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "bin"
   ],
+  "bin": {
+    "soothcli": "./bin/soothcli.js"
+  },
   "scripts": {
     "build": "pnpm clean && tsc",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
-    "lint": "eslint 'src/**/*.ts'",
-    "lint:check": "eslint 'src/**/*.ts'",
-    "fmt": "prettier --write 'src/**/*.ts'",
-    "fmt:check": "prettier --check 'src/**/*.ts'",
+    "lint": "eslint 'src/**/*.{ts,tsx}'",
+    "lint:check": "eslint 'src/**/*.{ts,tsx}'",
+    "fmt": "prettier --write 'src/**/*.{ts,tsx}'",
+    "fmt:check": "prettier --check 'src/**/*.{ts,tsx}'",
     "typecheck": "tsc --noEmit",
     "check": "pnpm lint:check && pnpm fmt:check",
     "prepare": "husky || true",
@@ -69,15 +102,35 @@
       "prettier --check"
     ]
   },
-  "dependencies": {},
+  "dependencies": {
+    "viem": "^2.45.1"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18",
+    "@tanstack/react-query": "^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": { "optional": true },
+    "react-dom": { "optional": true },
+    "@tanstack/react-query": { "optional": true }
+  },
   "devDependencies": {
     "@commitlint/cli": "^20.5.3",
     "@commitlint/config-conventional": "^20.5.3",
+    "@tanstack/react-query": "^5.0.0",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/react": "^16.3.0",
     "@types/node": "^20.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
     "eslint": "^10.2.1",
     "husky": "^9.1.7",
+    "jsdom": "^26.1.0",
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.3",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
     "typescript": "^5.0.0",
     "typescript-eslint": "^8.59.1",
     "vitest": "^2.1.0"

@@ -1,0 +1,1179 @@
+{
+  "provenance": "Static interface transcribed from local sooth-factory working-tree sources; no compiled artifact or deployment claim.",
+  "sourceHashes": {
+    "src/adjudicators/SwarmAdjudicator.sol": "0x8d0173f7eca8454bfdd1e41123387337bb4a0ef5df28fec39851440639f04b78",
+    "src/adjudicators/AdjudicatorBase.sol": "0x4865e4dff2c22bdec312f72b1baa46f07fb06e79c70beae86b69df3f9d00dc02",
+    "src/interfaces/IAdjudicator.sol": "0x58b1dd079fc26532faabb43b089cffdf423f998b8064f4b23f9d49ef81a69437"
+  },
+  "contracts": {
+    "SwarmAdjudicator": [
+      {
+        "name": "acceptMandate",
+        "type": "function",
+        "stateMutability": "nonpayable",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "creator"
+          },
+          {
+            "type": "bytes32",
+            "name": "sqfHash"
+          },
+          {
+            "type": "uint64",
+            "name": "deadline"
+          },
+          {
+            "type": "bytes32",
+            "name": "jobId"
+          },
+          {
+            "type": "bytes32",
+            "name": "reportHash"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "bytes32",
+            "name": "mandateId"
+          }
+        ]
+      },
+      {
+        "name": "recordJudgment",
+        "type": "function",
+        "stateMutability": "nonpayable",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "market"
+          },
+          {
+            "type": "uint8",
+            "name": "outcome"
+          },
+          {
+            "type": "bytes32",
+            "name": "jobId"
+          },
+          {
+            "type": "bytes32",
+            "name": "reportHash"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "bytes32",
+            "name": "digest"
+          }
+        ]
+      },
+      {
+        "name": "mandates",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [
+          {
+            "type": "bytes32",
+            "name": "mandateId"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "address",
+            "name": "relay"
+          },
+          {
+            "type": "address",
+            "name": "creator"
+          },
+          {
+            "type": "bytes32",
+            "name": "sqfHash"
+          },
+          {
+            "type": "uint64",
+            "name": "deadline"
+          },
+          {
+            "type": "bytes32",
+            "name": "acceptanceJobId"
+          },
+          {
+            "type": "bytes32",
+            "name": "acceptanceReportHash"
+          },
+          {
+            "type": "address",
+            "name": "market"
+          }
+        ]
+      },
+      {
+        "name": "marketMandates",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "market"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "bytes32"
+          }
+        ]
+      },
+      {
+        "name": "judgments",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "market"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "bytes32",
+            "name": "jobId"
+          },
+          {
+            "type": "bytes32",
+            "name": "reportHash"
+          },
+          {
+            "type": "bytes32",
+            "name": "digest"
+          },
+          {
+            "type": "uint8",
+            "name": "outcome"
+          }
+        ]
+      },
+      {
+        "name": "usedJobs",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [
+          {
+            "type": "bytes32",
+            "name": "jobId"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "bool"
+          }
+        ]
+      },
+      {
+        "name": "rejected",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "market"
+          },
+          {
+            "type": "bytes32",
+            "name": "digest"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "bool"
+          }
+        ]
+      },
+      {
+        "name": "rejectedReports",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "market"
+          },
+          {
+            "type": "bytes32",
+            "name": "reportHash"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "bool"
+          }
+        ]
+      },
+      {
+        "name": "adjudicatorType",
+        "type": "function",
+        "stateMutability": "pure",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "name": "marketFactory",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "address"
+          }
+        ]
+      },
+      {
+        "name": "vetoPeriod",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "uint48"
+          }
+        ]
+      },
+      {
+        "name": "earlyResolution",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "bool"
+          }
+        ]
+      },
+      {
+        "name": "profileFrozen",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "bool"
+          }
+        ]
+      },
+      {
+        "name": "profileHash",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "bytes32"
+          }
+        ]
+      },
+      {
+        "name": "resolutionRecipient",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "address"
+          }
+        ]
+      },
+      {
+        "name": "guardians",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "address[]"
+          }
+        ]
+      },
+      {
+        "name": "resolvers",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "address[]"
+          }
+        ]
+      },
+      {
+        "name": "isGuardian",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "account"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "bool"
+          }
+        ]
+      },
+      {
+        "name": "isResolver",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "account"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "bool"
+          }
+        ]
+      },
+      {
+        "name": "owner",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "address"
+          }
+        ]
+      },
+      {
+        "name": "configureMarket",
+        "type": "function",
+        "stateMutability": "nonpayable",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "market"
+          },
+          {
+            "type": "bytes",
+            "name": "config"
+          }
+        ],
+        "outputs": []
+      },
+      {
+        "name": "resolve",
+        "type": "function",
+        "stateMutability": "nonpayable",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "market"
+          },
+          {
+            "type": "uint8",
+            "name": "outcome"
+          },
+          {
+            "type": "bytes32",
+            "name": "dataHash"
+          }
+        ],
+        "outputs": []
+      },
+      {
+        "name": "attest",
+        "type": "function",
+        "stateMutability": "pure",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "market"
+          },
+          {
+            "type": "bytes",
+            "name": "proof"
+          }
+        ],
+        "outputs": []
+      },
+      {
+        "name": "settle",
+        "type": "function",
+        "stateMutability": "nonpayable",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "market"
+          }
+        ],
+        "outputs": []
+      },
+      {
+        "name": "dispute",
+        "type": "function",
+        "stateMutability": "nonpayable",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "market"
+          }
+        ],
+        "outputs": []
+      },
+      {
+        "name": "canSettle",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "market"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "bool"
+          }
+        ]
+      },
+      {
+        "name": "getPhase",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "market"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "uint8"
+          }
+        ]
+      },
+      {
+        "name": "getOutcome",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "market"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "uint8"
+          }
+        ]
+      },
+      {
+        "name": "getMarketState",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "market"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "tuple",
+            "components": [
+              {
+                "type": "uint8",
+                "name": "phase"
+              },
+              {
+                "type": "uint8",
+                "name": "outcome"
+              },
+              {
+                "type": "uint64",
+                "name": "deadline"
+              },
+              {
+                "type": "uint64",
+                "name": "vetoEndsAt"
+              },
+              {
+                "type": "address",
+                "name": "resolver"
+              },
+              {
+                "type": "bytes32",
+                "name": "dataHash"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "approveGuardian",
+        "type": "function",
+        "stateMutability": "nonpayable",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "guardian"
+          }
+        ],
+        "outputs": []
+      },
+      {
+        "name": "revokeGuardian",
+        "type": "function",
+        "stateMutability": "nonpayable",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "guardian"
+          }
+        ],
+        "outputs": []
+      },
+      {
+        "name": "batchUpdateGuardians",
+        "type": "function",
+        "stateMutability": "nonpayable",
+        "inputs": [
+          {
+            "type": "address[]",
+            "name": "toApprove"
+          },
+          {
+            "type": "address[]",
+            "name": "toRevoke"
+          }
+        ],
+        "outputs": []
+      },
+      {
+        "name": "approveResolver",
+        "type": "function",
+        "stateMutability": "nonpayable",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "resolver"
+          }
+        ],
+        "outputs": []
+      },
+      {
+        "name": "revokeResolver",
+        "type": "function",
+        "stateMutability": "nonpayable",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "resolver"
+          }
+        ],
+        "outputs": []
+      },
+      {
+        "name": "setEarlyResolution",
+        "type": "function",
+        "stateMutability": "nonpayable",
+        "inputs": [
+          {
+            "type": "bool",
+            "name": "allowed"
+          }
+        ],
+        "outputs": []
+      },
+      {
+        "name": "setResolutionRecipient",
+        "type": "function",
+        "stateMutability": "nonpayable",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "recipient"
+          }
+        ],
+        "outputs": []
+      },
+      {
+        "name": "freezeProfile",
+        "type": "function",
+        "stateMutability": "nonpayable",
+        "inputs": [],
+        "outputs": []
+      },
+      {
+        "name": "transferOwnership",
+        "type": "function",
+        "stateMutability": "nonpayable",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "newOwner"
+          }
+        ],
+        "outputs": []
+      },
+      {
+        "name": "renounceOwnership",
+        "type": "function",
+        "stateMutability": "nonpayable",
+        "inputs": [],
+        "outputs": []
+      },
+      {
+        "name": "PHASE_IDLE",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "uint8"
+          }
+        ]
+      },
+      {
+        "name": "PHASE_ACTIVE",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "uint8"
+          }
+        ]
+      },
+      {
+        "name": "PHASE_RESOLVED",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "uint8"
+          }
+        ]
+      },
+      {
+        "name": "PHASE_ATTESTED",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "uint8"
+          }
+        ]
+      },
+      {
+        "name": "PHASE_SETTLED",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "uint8"
+          }
+        ]
+      },
+      {
+        "name": "PHASE_DISPUTED",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "uint8"
+          }
+        ]
+      },
+      {
+        "name": "OUTCOME_NO",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "uint8"
+          }
+        ]
+      },
+      {
+        "name": "OUTCOME_YES",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "uint8"
+          }
+        ]
+      },
+      {
+        "name": "OUTCOME_INVALID",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "uint8"
+          }
+        ]
+      },
+      {
+        "name": "MandateAccepted",
+        "type": "event",
+        "inputs": [
+          {
+            "type": "bytes32",
+            "name": "mandateId",
+            "indexed": true
+          },
+          {
+            "type": "address",
+            "name": "relay",
+            "indexed": true
+          },
+          {
+            "type": "address",
+            "name": "creator",
+            "indexed": true
+          },
+          {
+            "type": "bytes32",
+            "name": "sqfHash"
+          },
+          {
+            "type": "uint64",
+            "name": "deadline"
+          },
+          {
+            "type": "bytes32",
+            "name": "jobId"
+          },
+          {
+            "type": "bytes32",
+            "name": "reportHash"
+          }
+        ]
+      },
+      {
+        "name": "MandateBound",
+        "type": "event",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "market",
+            "indexed": true
+          },
+          {
+            "type": "bytes32",
+            "name": "mandateId",
+            "indexed": true
+          },
+          {
+            "type": "bytes32",
+            "name": "sqfHash",
+            "indexed": true
+          }
+        ]
+      },
+      {
+        "name": "JudgmentRecorded",
+        "type": "event",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "market",
+            "indexed": true
+          },
+          {
+            "type": "bytes32",
+            "name": "mandateId",
+            "indexed": true
+          },
+          {
+            "type": "bytes32",
+            "name": "digest",
+            "indexed": true
+          },
+          {
+            "type": "uint8",
+            "name": "outcome"
+          },
+          {
+            "type": "bytes32",
+            "name": "jobId"
+          },
+          {
+            "type": "bytes32",
+            "name": "reportHash"
+          }
+        ]
+      },
+      {
+        "name": "JudgmentRejected",
+        "type": "event",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "market",
+            "indexed": true
+          },
+          {
+            "type": "bytes32",
+            "name": "digest",
+            "indexed": true
+          },
+          {
+            "type": "bytes32",
+            "name": "reportHash",
+            "indexed": true
+          }
+        ]
+      },
+      {
+        "name": "MarketConfigured",
+        "type": "event",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "market",
+            "indexed": true
+          },
+          {
+            "type": "address",
+            "name": "resolver",
+            "indexed": true
+          },
+          {
+            "type": "uint64",
+            "name": "deadline"
+          }
+        ]
+      },
+      {
+        "name": "OutcomeProposed",
+        "type": "event",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "market",
+            "indexed": true
+          },
+          {
+            "type": "uint8",
+            "name": "outcome"
+          },
+          {
+            "type": "bytes32",
+            "name": "dataHash"
+          }
+        ]
+      },
+      {
+        "name": "AttestationVerified",
+        "type": "event",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "market",
+            "indexed": true
+          },
+          {
+            "type": "uint256",
+            "name": "index"
+          }
+        ]
+      },
+      {
+        "name": "MarketSettled",
+        "type": "event",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "market",
+            "indexed": true
+          },
+          {
+            "type": "uint8",
+            "name": "outcome"
+          }
+        ]
+      },
+      {
+        "name": "MarketDisputed",
+        "type": "event",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "market",
+            "indexed": true
+          },
+          {
+            "type": "uint8",
+            "name": "previousOutcome"
+          }
+        ]
+      },
+      {
+        "name": "GuardianApproved",
+        "type": "event",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "guardian",
+            "indexed": true
+          }
+        ]
+      },
+      {
+        "name": "GuardianRevoked",
+        "type": "event",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "guardian",
+            "indexed": true
+          }
+        ]
+      },
+      {
+        "name": "ResolverApproved",
+        "type": "event",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "resolver",
+            "indexed": true
+          }
+        ]
+      },
+      {
+        "name": "ResolverRevoked",
+        "type": "event",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "resolver",
+            "indexed": true
+          }
+        ]
+      },
+      {
+        "name": "EarlyResolutionConfigured",
+        "type": "event",
+        "inputs": [
+          {
+            "type": "bool",
+            "name": "allowed"
+          }
+        ]
+      },
+      {
+        "name": "ResolutionRecipientConfigured",
+        "type": "event",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "recipient",
+            "indexed": true
+          }
+        ]
+      },
+      {
+        "name": "ProfileFrozen",
+        "type": "event",
+        "inputs": [
+          {
+            "type": "bytes32",
+            "name": "profileHash",
+            "indexed": true
+          },
+          {
+            "type": "address",
+            "name": "resolutionRecipient",
+            "indexed": true
+          }
+        ]
+      },
+      {
+        "name": "OwnershipTransferred",
+        "type": "event",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "previousOwner",
+            "indexed": true
+          },
+          {
+            "type": "address",
+            "name": "newOwner",
+            "indexed": true
+          }
+        ]
+      },
+      {
+        "name": "InvalidMandate",
+        "type": "error",
+        "inputs": []
+      },
+      {
+        "name": "MandateAlreadyBound",
+        "type": "error",
+        "inputs": []
+      },
+      {
+        "name": "InvalidDeadline",
+        "type": "error",
+        "inputs": []
+      },
+      {
+        "name": "InvalidJudgment",
+        "type": "error",
+        "inputs": []
+      },
+      {
+        "name": "JudgmentAlreadyRecorded",
+        "type": "error",
+        "inputs": []
+      },
+      {
+        "name": "JobAlreadyUsed",
+        "type": "error",
+        "inputs": []
+      },
+      {
+        "name": "RejectedJudgment",
+        "type": "error",
+        "inputs": []
+      },
+      {
+        "name": "AttestationDisabled",
+        "type": "error",
+        "inputs": []
+      },
+      {
+        "name": "ZeroAddress",
+        "type": "error",
+        "inputs": []
+      },
+      {
+        "name": "EmptyConfig",
+        "type": "error",
+        "inputs": []
+      },
+      {
+        "name": "MarketAlreadySettled",
+        "type": "error",
+        "inputs": []
+      },
+      {
+        "name": "FrozenProfile",
+        "type": "error",
+        "inputs": []
+      },
+      {
+        "name": "UnfrozenProfile",
+        "type": "error",
+        "inputs": []
+      },
+      {
+        "name": "InvalidMarketBinding",
+        "type": "error",
+        "inputs": []
+      },
+      {
+        "name": "ResolverNotApproved",
+        "type": "error",
+        "inputs": []
+      },
+      {
+        "name": "NoResolver",
+        "type": "error",
+        "inputs": []
+      },
+      {
+        "name": "ResolutionTooEarly",
+        "type": "error",
+        "inputs": []
+      },
+      {
+        "name": "InvalidPhase",
+        "type": "error",
+        "inputs": [
+          {
+            "type": "uint8",
+            "name": "expected"
+          },
+          {
+            "type": "uint8",
+            "name": "actual"
+          }
+        ]
+      },
+      {
+        "name": "NotResolver",
+        "type": "error",
+        "inputs": []
+      },
+      {
+        "name": "NotMarketFactory",
+        "type": "error",
+        "inputs": []
+      },
+      {
+        "name": "DeadlinePassed",
+        "type": "error",
+        "inputs": []
+      },
+      {
+        "name": "VetoWindowActive",
+        "type": "error",
+        "inputs": []
+      },
+      {
+        "name": "NotGuardian",
+        "type": "error",
+        "inputs": []
+      },
+      {
+        "name": "VetoWindowClosed",
+        "type": "error",
+        "inputs": []
+      },
+      {
+        "name": "OwnableUnauthorizedAccount",
+        "type": "error",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "account"
+          }
+        ]
+      },
+      {
+        "name": "OwnableInvalidOwner",
+        "type": "error",
+        "inputs": [
+          {
+            "type": "address",
+            "name": "owner"
+          }
+        ]
+      }
+    ]
+  }
+}

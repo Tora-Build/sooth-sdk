@@ -4,5 +4,6 @@ export default defineConfig({
   test: {
     globals: true,
     pool: "threads",
+    environmentMatchGlobs: [["tests/react/**", "jsdom"]],
   },
 });

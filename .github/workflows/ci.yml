@@ -72,5 +72,5 @@ jobs:
       - uses: ./.github/setup
       - name: Build
         run: pnpm build
-      - name: Verify utility exports and removed subpaths in Node ESM
+      - name: Verify SQF, Factory, React and CLI package entry points
         run: pnpm test:package

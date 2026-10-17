@@ -71,3 +71,47 @@
   Release, publication, and deployment require separate authorization. Earlier
   ADRs describe historical package and release decisions; their core subpath
   examples no longer describe the current exports.
+
+## ADR-005: Shared Factory protocol and frontend SDK
+
+- **Date**: 2026-10-16
+- **Status**: Accepted for local implementation; verification and release pending.
+- **Context**: Alpha's Factory applications implement protocol behavior in
+  options-core and app-local copies. The owner requested one production SDK,
+  migration of those consumers, and a market widget for unrelated applications.
+- **Decision**: Extend the SQF-only scope of ADR-004 with `sooth/factory`,
+  explicit supported-release artifacts, a CLI, and optional `sooth/react`
+  components and hooks. Extract Alpha's working implementation and migrate its
+  consumers; retain SQF root and `/sqf` APIs and keep retired core exports absent.
+  The protocol SDK is independent of Alpha configuration and React. Applications
+  supply trusted deployments, endpoints and wallet adapters. Alpha hosts the
+  embeddable application over the same reusable frontend and protocol APIs.
+- **Consequences**: Registry consumes portable SDK wire types without a reverse
+  SDK dependency. React and React Query are optional peers with separate entry
+  points. Publication and hosted deployment remain separate from this local
+  implementation. Acceptance is defined in `FACTORY_MIGRATION_PLAN.md` and
+  requires consumer adoption, duplicate removal and external-host verification.
+
+## ADR-006: Host-selected node embed
+
+- **Date**: 2026-10-17
+- **Status**: Accepted scope extension; scoped local signed flows verified.
+- **Context**: The initial single-market widget did not provide a host-selected
+  node's browse-to-market-and-back journey or optional user creation.
+- **Decision**: Add `SoothNode` over the existing runtime and `SoothMarket`.
+  Scope catalog browsing, search and status filters to the host's chain, Factory,
+  node and release. Creation and CLOB default off; AMM remains available. Supply
+  native panel/drawer/modal presentations and a node-oriented Alpha generator.
+  Preserve direct `SoothMarket` and the hosted market route as supported
+  independent integrations. Trusted release/RPC configuration remains application
+  owned; host messages never grant signing authority. Wallet handoff preserves
+  node/features/action, and interrupted transactions require reconciliation.
+- **Consequences**: Node browsing and explicit user creation are accepted additions
+  to the migration scope, superseding the existing-market-only limitation.
+  Automated creation from article text remains separate product work. SDK owns
+  reusable UI/protocol behavior; Alpha owns hosted deployment and integration
+  guidance in its [embed documentation](../sooth-alpha/apps/embed/README.md).
+  Existing verification records retain their original scope. Node creation,
+  AMM buy/sell and book placement/cancellation have separate local signed
+  evidence in `STATUS.md`; real extension authentication and deployed-indexer
+  acceptance remain outside that evidence.
