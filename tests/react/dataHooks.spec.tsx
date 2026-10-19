@@ -18,6 +18,11 @@ const resolved = {
 const intent = (shares: string): SoothTradeIntent => ({ side: 'buy', outcome: 1, shares, price: '' });
 const quote = (shares: bigint) => ({ shares }) as SoothLiveQuote;
 const depth = (blockNumber: bigint) => ({ bids: [], asks: [], complete: true, source: 'rpc', blockNumber }) as SoothDepth;
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>(done => { resolve = done; });
+  return { promise, resolve };
+}
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -44,8 +49,8 @@ describe('live quote hook', () => {
     expect(view.result.current).toMatchObject({ data: quote(3n), error: null, loading: false });
   });
   it('discards a slower result for an older intent and never shows it for the new one', async () => {
-    const first = Promise.withResolvers<SoothLiveQuote>();
-    const second = Promise.withResolvers<SoothLiveQuote>();
+    const first = deferred<SoothLiveQuote>();
+    const second = deferred<SoothLiveQuote>();
     vi.mocked(quoteSoothTrade).mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
     const view = renderHook(({ value }) => useSoothLiveQuote(resolved, value), { initialProps: { value: intent('1') } });
     await act(async () => { await vi.advanceTimersByTimeAsync(300); });

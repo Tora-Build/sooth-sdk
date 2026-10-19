@@ -214,9 +214,7 @@ describe('node market summaries', () => {
     let active = 0, peak = 0;
     vi.mocked(readFactoryMarketSnapshot).mockImplementation(async input => {
       active++; peak = Math.max(peak, active);
-      const { promise, resolve } = Promise.withResolvers<void>();
-      setTimeout(resolve, 5);
-      await promise;
+      await new Promise<void>(resolve => setTimeout(resolve, 5));
       active--;
       if (input.market === markets[2]) throw new Error('Market belongs to another node');
       return snapshot({ market: input.market, yesPriceWad: 3n * WAD / 10n });
