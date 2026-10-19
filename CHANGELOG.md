@@ -3,9 +3,13 @@
 ## Unreleased
 
 - Move the Sooth Protocol agent skill from `soothsayer-core` into
-  `skills/sooth-protocol/SKILL.md` and include it in package contents. Replace
+  `skills/sooth-markets/SKILL.md` and include it in package contents. Replace
   old deployment addresses, market calls and script references with the current
   Factory SDK/CLI workflow. Document installation and unpublished availability.
+- Add the `sooth-embed` skill for frontend integration: hosted node iframe
+  snippet and presentations, native `SoothNode`/`SoothMarket`, trusted runtime
+  configuration, wallet adapters and handoff, host message validation, CSP and
+  CORS.
 - Add the independent `swarm-expert-sqf` profile adapter, exact-SQF mandate and
   judgment helpers, and CLI transaction actions. The trusted relay records an
   accepted research mandate before creation and a judgment after the deadline;

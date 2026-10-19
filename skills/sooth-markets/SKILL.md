@@ -1,14 +1,15 @@
 ---
-name: sooth-protocol
+name: sooth-markets
 description: Create, inspect, trade, resolve, settle and claim Sooth Factory prediction markets with the sooth SDK and CLI. Use for agent workflows that interact with Sooth markets or format their resolution rules as SQF.
 metadata: { "openclaw": { "homepage": "https://github.com/Tora-Build/sooth-sdk" } }
 ---
 
-# Sooth Protocol
+# Sooth Markets
 
 Use the `sooth` SDK and its Factory CLI. This skill replaces the older
 SoothSayer agent skill. Market creation, trading and resolution use Factory
-releases, not the old LaunchpadEngine or TruthMarket interfaces.
+releases, not the old LaunchpadEngine or TruthMarket interfaces. To embed
+markets in a website or React app, use the `sooth-embed` skill.
 
 ## Availability and setup
 
