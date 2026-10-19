@@ -1,5 +1,6 @@
 import { factoryAddress, factoryChainId, factoryHash } from '../factory/schema.js';
 import type { Address, Hash } from 'viem';
+import type { SoothLocale } from './ui/i18n.js';
 
 export type SoothVenue = 'amm' | 'book';
 export type SoothTheme = 'light' | 'dark' | 'auto';
@@ -121,6 +122,7 @@ export function soothWidgetUrl(options: {
   instance: string;
   parentOrigin?: string;
   theme?: SoothTheme;
+  lang?: SoothLocale;
   hostEvents?: boolean;
 }): string {
   const origin = new URL(options.origin);
@@ -131,6 +133,8 @@ export function soothWidgetUrl(options: {
     throw new Error('Widget origin must use HTTPS (HTTP is allowed on localhost)');
   if (!/^[a-zA-Z0-9_-]{8,80}$/.test(options.instance))
     throw new Error('An 8–80 character widget instance is required');
+  if (options.lang !== undefined && options.lang !== 'en' && options.lang !== 'zh')
+    throw new Error('Widget language must be "en" or "zh"');
   const url = new URL('/v1/market', origin.origin);
   url.searchParams.set(
     'market',
@@ -138,6 +142,7 @@ export function soothWidgetUrl(options: {
   );
   url.searchParams.set('instance', options.instance);
   url.searchParams.set('theme', options.theme ?? 'auto');
+  if (options.lang) url.searchParams.set('lang', options.lang);
   if (options.parentOrigin) {
     const parent = new URL(options.parentOrigin);
     if (!['https:', 'http:'].includes(parent.protocol) || parent.origin !== options.parentOrigin)

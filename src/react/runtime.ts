@@ -29,6 +29,7 @@ import {
   fetchFactoryCatalogNodes,
   type FactoryCatalogSnapshot,
 } from '../factory/factoryCatalog.js';
+import type { FactoryIndexerOptions } from '../factory/factoryIndexer.js';
 import { anchorEndpoints, type AnchorEndpoint } from '../factory/factoryTrade/anchorClient.js';
 import { TruthMarketAbi } from '../factory/factoryAbi/index.js';
 import type {
@@ -59,6 +60,8 @@ export interface SoothRuntimeConfiguration {
   chains: readonly SoothChainConfiguration[];
   catalogUrl: string;
   canonicalOrigin: string;
+  /** Trusted read-only indexer for charts and depth. Display data only; never feeds signing. */
+  indexerUrl?: string;
 }
 export interface SoothResolvedMarket {
   reference: SoothMarketReference;
@@ -71,6 +74,8 @@ export interface SoothResolvedMarket {
   rules: string;
   canonicalUrl: string;
   refreshCatalog(): Promise<FactoryCatalogSnapshot<FactoryCatalogMarket>>;
+  /** Null when the application configured no indexer. */
+  indexer: FactoryIndexerOptions | null;
 }
 export interface SoothResolvedNode {
   reference: SoothNodeReference;
@@ -80,6 +85,8 @@ export interface SoothResolvedNode {
   node: FactoryCatalogNode;
   catalog: FactoryCatalogSnapshot<FactoryCatalogMarket>;
   refreshCatalog(): Promise<FactoryCatalogSnapshot<FactoryCatalogMarket>>;
+  /** Null when the application configured no indexer. */
+  indexer: FactoryIndexerOptions | null;
 }
 export interface SoothRuntime {
   resolve(market: string | SoothMarketReference): Promise<SoothResolvedMarket>;
@@ -91,6 +98,8 @@ export function createSoothRuntime(configuration: SoothRuntimeConfiguration): So
   const chains = configuration.chains.map((chain) => ({ ...chain, rpcUrls: [...chain.rpcUrls] }));
   const catalogUrl = new URL(configuration.catalogUrl).href;
   const canonicalOrigin = new URL(configuration.canonicalOrigin).origin;
+  const indexerUrl =
+    configuration.indexerUrl === undefined ? null : new URL(configuration.indexerUrl).href;
   const resolveNode = async (
     reference: SoothNodeReference,
     market?: Address,
@@ -111,9 +120,11 @@ export function createSoothRuntime(configuration: SoothRuntimeConfiguration): So
       nativeCurrency: config.nativeCurrency,
       rpcUrls: { default: { http: [...config.rpcUrls] } },
     });
+    // Concurrent display reads share one HTTP request; per-call block pins and errors are kept.
+    // Quorum anchor reads stay unbatched (anchorClient.ts).
     const client = createPublicClient({
       chain,
-      transport: http(config.rpcUrls[0]),
+      transport: http(config.rpcUrls[0], { batch: { batchSize: 50, wait: 16 } }),
     }) as PublicClient;
     const endpoints = anchorEndpoints(reference.chainId, config.rpcUrls);
     const [nodes, catalog] = await Promise.all([
@@ -139,6 +150,7 @@ export function createSoothRuntime(configuration: SoothRuntimeConfiguration): So
       node,
       catalog,
       refreshCatalog: () => fetchFactoryCatalogMarkets(reference, { baseUrl: catalogUrl }),
+      indexer: indexerUrl === null ? null : { baseUrl: indexerUrl },
     };
   };
   return {
@@ -176,6 +188,7 @@ export function createSoothRuntime(configuration: SoothRuntimeConfiguration): So
         rules,
         canonicalUrl: canonicalUrl.href,
         refreshCatalog: resolved.refreshCatalog,
+        indexer: resolved.indexer,
       };
     },
   };

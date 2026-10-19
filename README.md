@@ -135,6 +135,12 @@ Neither a router nor a React Query provider is required. A shared runtime can
 also be supplied through `SoothProvider`; query hooks live in
 `sooth/react/factoryHooks`.
 
+`locale="en"` (default) or `locale="zh"` selects interface text and number/date
+formatting. Market views use one column on narrow containers and two from 860px.
+Deadline values wrap in the stat grid, rule fields stack their labels above the
+full text, and rules/details disclosures start closed. Concurrent display reads
+use JSON-RPC HTTP batching; independent quorum anchor reads remain unbatched.
+
 Direct `<SoothMarket market={marketRef} runtime={runtime} />` remains supported
 for independent single-market integrations. Its reference additionally includes
 the market address and explicit `amm` or `book` venue; it does not require a node

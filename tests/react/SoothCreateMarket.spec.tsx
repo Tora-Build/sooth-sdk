@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { act, cleanup, fireEvent, render } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Address, Hex, TransactionReceipt } from 'viem';
 import { SoothCreateMarket, type SoothCreateMarketProps } from '../../src/react/SoothCreateMarket.js';
@@ -112,8 +112,10 @@ async function click(button: HTMLElement) {
 async function renderCreation(overrides: Partial<SoothCreateMarketProps> = {}, providerWallet?: SoothWalletAdapter) {
   const component = <SoothCreateMarket node={node} wallet={wallet} onCreated={onCreated}
     onCancel={onCancel} onEvent={onEvent} {...overrides} />;
-  const view = render(providerWallet ? <SoothProvider wallet={providerWallet}>{component}</SoothProvider> : component);
+  const rendered = render(providerWallet ? <SoothProvider wallet={providerWallet}>{component}</SoothProvider> : component);
   await act(async () => {});
+  const root = rendered.container.querySelector('[data-sooth-create]')!.shadowRoot!;
+  const view = Object.assign(within(root as unknown as HTMLElement), { root, unmount: rendered.unmount });
   fireEvent.change(view.getByRole('textbox', { name: 'Market question' }), { target: { value: intent.question } });
   fireEvent.change(view.getByRole('textbox', { name: 'Resolution rules' }), { target: { value: intent.rules } });
   fireEvent.change(view.getByLabelText('Trading deadline (UTC)'), { target: { value: '2035-01-01T12:00' } });
@@ -271,7 +273,7 @@ describe('SoothCreateMarket review and wallet boundaries', () => {
     expect(onEvent).toHaveBeenLastCalledWith({
       type: 'transaction-confirmed', hash: approval.hash, chainId: node.reference.chainId,
     });
-    expect(view.getByRole('status').textContent).toBe('Approval confirmed. Review the updated creation before signing the next action.');
+    expect(within(view.getByRole('status')).getByText('Approval confirmed. Review the updated creation before signing the next action.')).toBeTruthy();
     expect(view.queryByLabelText('Pending creation transactions')).toBeNull();
     expect(view.queryByRole('region', { name: 'Creation review' })).toBeNull();
     expect(view.queryByRole('button', { name: 'Confirm market creation' })).toBeNull();
@@ -345,8 +347,27 @@ describe('SoothCreateMarket review and wallet boundaries', () => {
   it('explains how to connect when neither a wallet nor a host callback is available', async () => {
     const view = await renderCreation({ wallet: undefined });
     await click(view.getByRole('button', { name: 'Connect wallet to create' }));
-    expect(view.getByRole('alert').textContent).toBe('Connect a wallet through the host application to create a market.');
+    expect(within(view.getByRole('alert')).getByText('Connect a wallet through the host application to create a market.')).toBeTruthy();
     expect(planSoothCreation).not.toHaveBeenCalled();
+    expect(sendSoothCreation).not.toHaveBeenCalled();
+  });
+
+  it('previews the exact SQF terms and summarizes costs before and after review', async () => {
+    vi.mocked(planSoothCreation).mockResolvedValue(preview(null));
+    const view = await renderCreation();
+    const summary = view.getByRole('complementary', { name: 'Costs and risks' });
+    expect(within(summary).getByText(intent.question)).toBeTruthy();
+    expect(summary.querySelector('pre')!.textContent).toBe(`§question\n${intent.question}\n§rule\n${intent.rules}`);
+    expect(within(summary).getByText('Shown at review')).toBeTruthy();
+    expect(within(summary).getByText('50% YES · 50% NO')).toBeTruthy();
+    expect(within(summary).getByText('100 TEST')).toBeTruthy();
+    expect(within(summary).queryByText(/Lines starting with §/)).toBeNull();
+
+    await click(view.getByRole('button', { name: 'Review creation' }));
+    expect(within(summary).getByText('AMM 1% · Order book 1%')).toBeTruthy();
+    fireEvent.change(view.getByRole('textbox', { name: 'Resolution rules' }), { target: { value: `${intent.rules}\n§meta` } });
+    expect(within(summary).getByText(/Lines starting with §/)).toBeTruthy();
+    expect(view.queryByRole('region', { name: 'Creation review' })).toBeNull();
     expect(sendSoothCreation).not.toHaveBeenCalled();
   });
 });

@@ -1,8 +1,10 @@
-import { useEffect, useId, useRef, useState, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { formatUnits, type Address } from 'viem';
 import { parseZkTlsSpecification } from '../factory/creationTerms.js';
+import { generateSQF } from '../lib/sqf.js';
 import type { SoothResolvedNode } from './runtime.js';
-import type { SoothHostEvent } from './embed.js';
+import type { SoothHostEvent, SoothTheme } from './embed.js';
 import { formatSoothNodeReference } from './node.js';
 import type { SoothWalletAdapter, SoothWalletSession } from './wallet.js';
 import { useSoothWallet } from './hooks.js';
@@ -20,6 +22,10 @@ import {
   removeSoothPendingCreation,
   type SoothPendingCreation,
 } from './creationRecovery.js';
+import { soothText, type SoothLocale, type SoothStringKey } from './ui/i18n.js';
+import { soothBaseCss, soothRootStyle, type SoothAppearanceInput } from './ui/theme.js';
+import { formatBps, formatDeadline } from './ui/format.js';
+import { Disclosure, Notice } from './ui/primitives.js';
 
 export interface SoothCreateMarketProps {
   node: SoothResolvedNode;
@@ -28,42 +34,77 @@ export interface SoothCreateMarketProps {
   onCancel: () => void;
   onWalletUnavailable?: () => void;
   onEvent?: (event: SoothHostEvent) => void;
+  theme?: SoothTheme;
+  appearance?: SoothAppearanceInput;
+  locale?: SoothLocale;
 }
-const field: CSSProperties = { display: 'grid', gap: 6, minWidth: 0 };
-const control: CSSProperties = {
-  width: '100%',
-  boxSizing: 'border-box',
-  padding: '10px 12px',
-  border: '1px solid #94a3b8',
-  borderRadius: 8,
-  font: 'inherit',
-  color: 'inherit',
-  background: 'transparent',
-};
-const button: CSSProperties = {
-  padding: '11px 16px',
-  border: '1px solid #94a3b8',
-  borderRadius: 8,
-  font: 'inherit',
-  cursor: 'pointer',
-};
-const kindLabels: Record<string, string> = {
-  manual: 'Manual resolution',
-  imd: 'IMD evidence review',
-  'imd-testnet': 'IMD testnet evidence review',
-  zktls: 'zkTLS website attestation',
+
+const kindLabels: Readonly<Record<string, SoothStringKey>> = {
+  manual: 'market.manualResolution',
+  imd: 'market.imdReview',
+  'imd-testnet': 'market.imdTestnetReview',
+  zktls: 'create.zktls',
 };
 
+const styles = `${soothBaseCss}
+:host { display: block; min-width: 0; }
+.s-create { display: flex; flex-direction: column; gap: 12px; min-width: 0; overflow-wrap: anywhere; }
+.s-create fieldset { display: flex; flex-direction: column; gap: 16px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.s-create dl, .s-create dd { margin: 0; }
+.s-create pre { margin: 0; padding: 10px 12px; border-radius: var(--s-radius-sm); background: var(--s-surface-2); font: 12px/1.5 var(--s-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.s-create-group { display: flex; flex-direction: column; gap: 12px; }
+.s-create-group + .s-create-group { padding-top: 16px; border-top: 1px solid var(--s-line); }
+.s-create-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+@container sooth (min-width: 560px) { .s-create-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.s-create-question { font-size: 16px; font-weight: 600; }
+.s-create-rules { white-space: pre-wrap; font-size: 13px; color: var(--s-muted); }
+.s-create-placeholder { color: var(--s-faint); font-weight: 400; }
+.s-create-risks > li { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.s-create-pending code { font-family: var(--s-mono); font-size: 12px; }
+`;
+
 /** A node-scoped flow; no existing market identity or automatic wallet handoff is required. */
-export function SoothCreateMarket({
+export function SoothCreateMarket(props: SoothCreateMarketProps) {
+  const container = useRef<HTMLDivElement>(null);
+  const [root, setRoot] = useState<ShadowRoot | null>(null);
+  useEffect(() => {
+    if (container.current)
+      setRoot(container.current.shadowRoot ?? container.current.attachShadow({ mode: 'open' }));
+  }, []);
+  return (
+    <div ref={container} data-sooth-create="v1">
+      {root &&
+        createPortal(
+          <>
+            <style>{styles}</style>
+            <div
+              className="sooth-root"
+              data-theme={props.theme ?? 'auto'}
+              style={soothRootStyle(props.appearance)}
+            >
+              <CreateMarketFlow {...props} />
+            </div>
+          </>,
+          root,
+        )}
+    </div>
+  );
+}
+
+function CreateMarketFlow({
   node,
   wallet: suppliedWallet,
   onCreated,
   onCancel,
   onWalletUnavailable,
   onEvent,
+  locale,
 }: SoothCreateMarketProps) {
   const { adapter: wallet } = useSoothWallet(suppliedWallet);
+  const strings = useMemo(() => soothText(locale), [locale]);
+  const { t } = strings;
+  const text = useRef(strings);
+  text.current = strings;
   const id = useId();
   const reference = formatSoothNodeReference(node.reference);
   const [session, setSession] = useState<SoothWalletSession | null>(null);
@@ -130,7 +171,9 @@ export function SoothCreateMarket({
         setLoading(false);
       } catch (cause) {
         if (!mounted.current || generation !== epoch.current) return;
-        setError(cause instanceof Error ? cause.message : 'Unable to read creation permissions.');
+        setError(
+          cause instanceof Error ? cause.message : text.current.t('create.permissionsFailed'),
+        );
         setLoading(false);
       }
     };
@@ -181,28 +224,20 @@ export function SoothCreateMarket({
               }
               setPreview(null);
               setRefresh((n) => n + 1);
-              if (result.status === 'failed')
-                setError(
-                  'The transaction reverted. Review the current configuration before trying again.',
-                );
+              if (result.status === 'failed') setError(text.current.t('tx.reverted'));
               else if (result.market) {
-                setNotice(`Market created: ${result.market}. Waiting for catalog availability.`);
+                setNotice(text.current.t('create.created', { market: result.market }));
                 try {
                   callbacks.current.onCreated(result.market);
                 } catch {
                   /* The receipt remains authoritative. */
                 }
-              } else
-                setNotice(
-                  'Approval confirmed. Review the updated creation before signing the next action.',
-                );
+              } else setNotice(text.current.t('create.approvalConfirmed'));
             }
           } catch (cause) {
             if (active)
               setError(
-                cause instanceof Error
-                  ? cause.message
-                  : 'Receipt verification is unavailable. Your transaction remains saved.',
+                cause instanceof Error ? cause.message : text.current.t('tx.receiptUnavailable'),
               );
           }
         }
@@ -239,7 +274,7 @@ export function SoothCreateMarket({
       await action();
     } catch (cause) {
       if (mounted.current)
-        setError(cause instanceof Error ? cause.message : 'Creation could not continue.');
+        setError(cause instanceof Error ? cause.message : text.current.t('create.failed'));
     } finally {
       busyRef.current = false;
       if (mounted.current) setBusy(false);
@@ -251,16 +286,14 @@ export function SoothCreateMarket({
     const generation = epoch.current,
       draftRevision = revision.current;
     await run(async () => {
-      if (!selected) throw new Error('Choose an admitted resolution profile.');
+      if (!selected) throw new Error(text.current.t('create.chooseProfile'));
       const timestamp = Date.parse(`${deadline}:00Z`);
-      if (!Number.isFinite(timestamp)) throw new Error('Choose a valid UTC deadline.');
+      if (!Number.isFinite(timestamp)) throw new Error(text.current.t('create.invalidDeadline'));
       let resolution: SoothCreationIntent['resolution'];
       if (selected.binding.kind === 'manual') resolution = { kind: 'manual' };
       else if (selected.binding.kind === 'imd' || selected.binding.kind === 'imd-testnet') {
         if (![sourceChainId, fromBlock, toBlock].every((value) => /^\d+$/.test(value)))
-          throw new Error(
-            'Enter the evidence source chain and inclusive block range as whole numbers.',
-          );
+          throw new Error(text.current.t('create.evidenceInvalid'));
         resolution = {
           kind: 'imd',
           context: {
@@ -297,7 +330,7 @@ export function SoothCreateMarket({
       switchChain: (chainId) => wallet.switchChain(chainId),
       sendTransaction: (request) => {
         if (!mounted.current || generation !== epoch.current || draftRevision !== revision.current)
-          throw new Error('The creation view or wallet changed. Reopen and review before signing.');
+          throw new Error(text.current.t('create.viewChanged'));
         return wallet.sendTransaction(request);
       },
     };
@@ -313,8 +346,8 @@ export function SoothCreateMarket({
             setPending(loadSoothPendingCreations(reference));
             setNotice(
               record.storageAvailable
-                ? 'Transaction submitted. Waiting for its verified receipt.'
-                : `Recovery storage is unavailable. Keep this page open and save transaction ${record.hash}.`,
+                ? text.current.t('tx.submitted')
+                : text.current.t('tx.storageUnavailable', { hash: record.hash }),
             );
           }
           try {
@@ -330,40 +363,68 @@ export function SoothCreateMarket({
       );
     });
   }
+
+  // Display-only: the same SQF encoding planSoothCreation commits, so the creator sees the terms.
+  const terms = generateSQF({ question: question.trim(), rule: { description: rules.trim() } });
+  const sectionMarkers = /(?:^|\n)§/.test(question) || /(?:^|\n)§/.test(rules);
+  const deadlineSeconds = Date.parse(`${deadline}:00Z`) / 1000;
+  const yesPercent = Number(probability);
+  const odds =
+    probability.trim() !== '' && yesPercent > 0 && yesPercent < 100
+      ? t('create.oddsValue', { yes: yesPercent, no: Number((100 - yesPercent).toFixed(4)) })
+      : '—';
+  const tokenSymbol = options?.tokens.find((item) => item.address === token)?.symbol ?? '';
+  const field = (name: string) => `${id}-${name}`;
+  const kindLabel = (kind: string) => {
+    const key = kindLabels[kind];
+    return key ? t(key) : kind;
+  };
+
   return (
-    <section aria-labelledby={`${id}-title`} style={{ display: 'grid', gap: 18, minWidth: 0 }}>
-      <div
-        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}
-      >
-        <h2 id={`${id}-title`} style={{ margin: 0 }}>
-          Create a market
-        </h2>
-        <button type="button" style={button} disabled={busy} onClick={onCancel}>
-          Back to markets
+    <section className="s-create" aria-labelledby={field('title')}>
+      <header className="s-between">
+        <div className="s-stack" style={{ gap: 2 }}>
+          <span className="s-label">{t('create.section')}</span>
+          <h1 id={field('title')}>{t('create.heading')}</h1>
+        </div>
+        <button
+          type="button"
+          className="s-btn s-btn-ghost s-btn-sm"
+          disabled={busy}
+          onClick={onCancel}
+        >
+          {t('create.backToMarkets')}
         </button>
-      </div>
-      <p style={{ margin: 0 }}>
-        Set the question, resolution rules and initial AMM liquidity. Creation registers both
-        trading venues on this node.
-      </p>
+      </header>
+      <p className="s-muted">{t('create.intro')}</p>
       {error && (
-        <p role="alert" style={{ margin: 0 }}>
-          {error}
-        </p>
+        <Notice tone="error">
+          <p>{error}</p>
+        </Notice>
       )}
       {notice && (
-        <p role="status" style={{ margin: 0, overflowWrap: 'anywhere' }}>
-          {notice}
-        </p>
+        <Notice>
+          <p>{notice}</p>
+        </Notice>
       )}
       {pending.length > 0 && (
-        <div aria-label="Pending creation transactions" style={{ display: 'grid', gap: 8 }}>
+        <div
+          role="group"
+          aria-label={t('create.pendingTitle')}
+          className="s-card s-card-flat s-create-pending"
+        >
+          <span className="s-card-title">{t('create.pendingTitle')}</span>
           {pending.map((record) => (
-            <p key={record.hash} style={{ margin: 0, overflowWrap: 'anywhere' }}>
-              {record.kind === 'createMarket' ? 'Market creation' : 'Collateral approval'} awaiting
-              receipt: <code>{record.hash}</code>
+            <p key={record.hash} className="s-small">
+              {t('create.awaitingReceipt', {
+                kind:
+                  record.kind === 'createMarket'
+                    ? t('create.kindCreate')
+                    : t('create.kindApproval'),
+              })}
+              : <code>{record.hash}</code>
               <br />
-              Account: {record.account}
+              {t('create.account')}: <code>{record.account}</code>
             </p>
           ))}
         </div>
@@ -371,13 +432,12 @@ export function SoothCreateMarket({
       {!session ? (
         <button
           type="button"
-          style={button}
+          className="s-btn s-btn-primary s-btn-block"
           disabled={busy}
           onClick={() => {
             if (!wallet) {
               onWalletUnavailable?.();
-              if (!onWalletUnavailable)
-                setError('Connect a wallet through the host application to create a market.');
+              if (!onWalletUnavailable) setError(t('wallet.connectToCreate'));
               return;
             }
             void run(async () => {
@@ -386,12 +446,12 @@ export function SoothCreateMarket({
             });
           }}
         >
-          Connect wallet to create
+          {t('create.connect')}
         </button>
       ) : session.chainId !== node.reference.chainId ? (
         <button
           type="button"
-          style={button}
+          className="s-btn s-btn-primary s-btn-block"
           disabled={busy}
           onClick={() =>
             void run(async () => {
@@ -400,344 +460,474 @@ export function SoothCreateMarket({
             })
           }
         >
-          Switch to chain {node.reference.chainId}
+          {t('create.switchChain', { chainId: node.reference.chainId })}
         </button>
       ) : null}
-      {loading && <p role="status">Checking node permissions and supported resolution profiles…</p>}
-      {!loading && options?.paused && <p>Market creation is paused by this node.</p>}
+      {loading && (
+        <Notice>
+          <p>{t('create.checking')}</p>
+        </Notice>
+      )}
+      {!loading && options?.paused && (
+        <Notice tone="warn">
+          <p>{t('create.paused')}</p>
+        </Notice>
+      )}
       {!loading && session && !options?.walletMayCreate && !options?.paused && (
-        <p>This account is not allowed to create markets on this node.</p>
+        <Notice tone="warn">
+          <p>{t('create.notAllowed')}</p>
+        </Notice>
       )}
-      {options && (
-        <form
-          onSubmit={(event) => void review(event)}
-          style={{ display: 'grid', gap: 16 }}
-          onChange={changed}
-        >
-          <fieldset
-            disabled={locked}
-            style={{ display: 'grid', gap: 16, border: 0, margin: 0, padding: 0, minWidth: 0 }}
-          >
-            <label style={field}>
-              Question
-              <input
-                aria-label="Market question"
-                required
-                minLength={10}
-                maxLength={1000}
-                style={control}
-                value={question}
-                onChange={(event) => setQuestion(event.target.value)}
-              />
-            </label>
-            <label style={field}>
-              Resolution rules
-              <textarea
-                aria-label="Resolution rules"
-                required
-                rows={4}
-                maxLength={18000}
-                style={control}
-                value={rules}
-                onChange={(event) => setRules(event.target.value)}
-              />
-            </label>
-            <small>
-              Explain exactly what YES, NO and INVALID mean, which evidence counts, and when the
-              outcome can be determined.
-            </small>
-            <label style={field}>
-              Trading deadline (UTC)
-              <input
-                aria-label="Trading deadline (UTC)"
-                type="datetime-local"
-                required
-                style={control}
-                value={deadline}
-                onChange={(event) => setDeadline(event.target.value)}
-              />
-            </label>
-            <label style={field}>
-              Collateral
-              <select
-                aria-label="Creation collateral"
-                required
-                style={control}
-                value={token}
-                onChange={(event) => setToken(event.target.value)}
+      <div className="s-layout">
+        <div className="s-layout-main">
+          {options && (
+            <form className="s-card" onSubmit={(event) => void review(event)} onChange={changed}>
+              <fieldset disabled={locked}>
+                <div className="s-create-group">
+                  <h2>{t('create.stepQuestion')}</h2>
+                  <div className="s-field">
+                    <label className="s-field-label" htmlFor={field('question')}>
+                      {t('create.question')}
+                    </label>
+                    <input
+                      id={field('question')}
+                      className="s-input"
+                      required
+                      minLength={10}
+                      maxLength={1000}
+                      placeholder={t('create.questionPlaceholder')}
+                      value={question}
+                      onChange={(event) => setQuestion(event.target.value)}
+                    />
+                  </div>
+                  <div className="s-field">
+                    <label className="s-field-label" htmlFor={field('rules')}>
+                      {t('create.rules')}
+                    </label>
+                    <textarea
+                      id={field('rules')}
+                      className="s-textarea"
+                      required
+                      rows={4}
+                      maxLength={18000}
+                      placeholder={t('create.rulesPlaceholder')}
+                      aria-describedby={field('rules-hint')}
+                      value={rules}
+                      onChange={(event) => setRules(event.target.value)}
+                    />
+                    <span id={field('rules-hint')} className="s-field-hint">
+                      {t('create.rulesHint')}
+                    </span>
+                  </div>
+                </div>
+                <div className="s-create-group">
+                  <h2>{t('create.stepResolution')}</h2>
+                  <div className="s-field">
+                    <label className="s-field-label" htmlFor={field('deadline')}>
+                      {t('create.deadline')}
+                    </label>
+                    <input
+                      id={field('deadline')}
+                      className="s-input"
+                      type="datetime-local"
+                      required
+                      value={deadline}
+                      onChange={(event) => setDeadline(event.target.value)}
+                    />
+                  </div>
+                  <div className="s-field">
+                    <label className="s-field-label" htmlFor={field('profile')}>
+                      {t('create.profile')}
+                    </label>
+                    <select
+                      id={field('profile')}
+                      className="s-select"
+                      required
+                      aria-describedby={selected ? field('profile-hint') : undefined}
+                      value={adjudicator}
+                      onChange={(event) => setAdjudicator(event.target.value)}
+                    >
+                      {options.profiles.map((item) => (
+                        <option key={item.binding.address} value={item.binding.address}>
+                          {kindLabel(item.binding.kind)} · {item.binding.address}
+                        </option>
+                      ))}
+                    </select>
+                    {selected && (
+                      <span id={field('profile-hint')} className="s-field-hint">
+                        {t('create.challengePeriod', { seconds: selected.vetoPeriod })}{' '}
+                        {selected.earlyResolution
+                          ? t('market.earlyResolutionAllowed')
+                          : t('market.earlyResolutionDenied')}
+                      </span>
+                    )}
+                  </div>
+                  <div className="s-field">
+                    <label className="s-field-label" htmlFor={field('resolver')}>
+                      {t('market.approvedResolver')}
+                    </label>
+                    <select
+                      id={field('resolver')}
+                      className="s-select"
+                      required
+                      value={resolver}
+                      onChange={(event) => setResolver(event.target.value)}
+                    >
+                      {selected?.resolvers.map((address) => (
+                        <option key={address} value={address}>
+                          {address}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {(selected?.binding.kind === 'imd' ||
+                    selected?.binding.kind === 'imd-testnet') && (
+                    <>
+                      <p className="s-field-hint">{t('create.imdNote')}</p>
+                      <div className="s-field">
+                        <label className="s-field-label" htmlFor={field('source-chain')}>
+                          {t('create.evidenceChain')}
+                        </label>
+                        <input
+                          id={field('source-chain')}
+                          className="s-input s-input-num"
+                          required
+                          inputMode="numeric"
+                          value={sourceChainId}
+                          onChange={(event) => setSourceChainId(event.target.value)}
+                        />
+                      </div>
+                      <div className="s-create-row">
+                        <div className="s-field">
+                          <label className="s-field-label" htmlFor={field('from-block')}>
+                            {t('create.evidenceFrom')}
+                          </label>
+                          <input
+                            id={field('from-block')}
+                            className="s-input s-input-num"
+                            required
+                            inputMode="numeric"
+                            value={fromBlock}
+                            onChange={(event) => setFromBlock(event.target.value)}
+                          />
+                        </div>
+                        <div className="s-field">
+                          <label className="s-field-label" htmlFor={field('to-block')}>
+                            {t('create.evidenceThrough')}
+                          </label>
+                          <input
+                            id={field('to-block')}
+                            className="s-input s-input-num"
+                            required
+                            inputMode="numeric"
+                            value={toBlock}
+                            onChange={(event) => setToBlock(event.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  {selected?.binding.kind === 'zktls' && (
+                    <>
+                      <div className="s-field">
+                        <label className="s-field-label" htmlFor={field('zktls')}>
+                          {t('create.zktlsSpec')}
+                        </label>
+                        <textarea
+                          id={field('zktls')}
+                          className="s-textarea s-input-num"
+                          required
+                          rows={8}
+                          aria-describedby={field('zktls-hint')}
+                          value={specification}
+                          onChange={(event) => setSpecification(event.target.value)}
+                        />
+                        <span id={field('zktls-hint')} className="s-field-hint">
+                          {t('create.zktlsHint')}
+                        </span>
+                      </div>
+                      <div className="s-field">
+                        <label className="s-field-label" htmlFor={field('max-age')}>
+                          {t('create.attestationWindow')}
+                        </label>
+                        <input
+                          id={field('max-age')}
+                          className="s-input s-input-num"
+                          type="number"
+                          min={1}
+                          max={3600}
+                          required
+                          value={maxAge}
+                          onChange={(event) => setMaxAge(event.target.value)}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+                <div className="s-create-group">
+                  <h2>{t('create.stepFunding')}</h2>
+                  <div className="s-field">
+                    <label className="s-field-label" htmlFor={field('token')}>
+                      {t('create.creationCollateral')}
+                    </label>
+                    <select
+                      id={field('token')}
+                      className="s-select"
+                      required
+                      value={token}
+                      onChange={(event) => setToken(event.target.value)}
+                    >
+                      {options.tokens.map((item) => (
+                        <option key={item.address} value={item.address}>
+                          {item.symbol} · {item.address}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="s-create-row">
+                    <div className="s-field">
+                      <label className="s-field-label" htmlFor={field('liquidity')}>
+                        {t('create.liquidityDepth')}
+                      </label>
+                      <input
+                        id={field('liquidity')}
+                        className="s-input s-input-num"
+                        required
+                        inputMode="decimal"
+                        aria-describedby={field('liquidity-hint')}
+                        value={liquidity}
+                        onChange={(event) => setLiquidity(event.target.value)}
+                      />
+                      <span id={field('liquidity-hint')} className="s-field-hint">
+                        {t('create.liquidityHint')}
+                      </span>
+                    </div>
+                    <div className="s-field">
+                      <label className="s-field-label" htmlFor={field('budget')}>
+                        {t('create.maxCollateral')}
+                      </label>
+                      <input
+                        id={field('budget')}
+                        className="s-input s-input-num"
+                        required
+                        inputMode="decimal"
+                        aria-describedby={field('budget-hint')}
+                        value={budget}
+                        onChange={(event) => setBudget(event.target.value)}
+                      />
+                      <span id={field('budget-hint')} className="s-field-hint">
+                        {t('create.budgetHint')}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="s-field">
+                    <label className="s-field-label" htmlFor={field('probability')}>
+                      {t('create.initialProbability')}
+                    </label>
+                    <input
+                      id={field('probability')}
+                      className="s-input s-input-num"
+                      required
+                      inputMode="decimal"
+                      value={probability}
+                      onChange={(event) => setProbability(event.target.value)}
+                    />
+                  </div>
+                </div>
+              </fieldset>
+              <button
+                type="submit"
+                className="s-btn s-btn-primary s-btn-block"
+                disabled={
+                  locked ||
+                  !session ||
+                  session.chainId !== node.reference.chainId ||
+                  !options.walletMayCreate ||
+                  !selected ||
+                  !token
+                }
               >
-                {options.tokens.map((item) => (
-                  <option key={item.address} value={item.address}>
-                    {item.symbol} · {item.address}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label style={field}>
-              Resolution profile
-              <select
-                aria-label="Resolution profile"
-                required
-                style={control}
-                value={adjudicator}
-                onChange={(event) => setAdjudicator(event.target.value)}
-              >
-                {options.profiles.map((item) => (
-                  <option key={item.binding.address} value={item.binding.address}>
-                    {kindLabels[item.binding.kind]} · {item.binding.address}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label style={field}>
-              Approved resolver
-              <select
-                aria-label="Approved resolver"
-                required
-                style={control}
-                value={resolver}
-                onChange={(event) => setResolver(event.target.value)}
-              >
-                {selected?.resolvers.map((address) => (
-                  <option key={address} value={address}>
-                    {address}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {selected && (
-              <small>
-                Resolution challenge period: {selected.vetoPeriod} seconds.{' '}
-                {selected.earlyResolution
-                  ? 'This profile permits resolution before the trading deadline.'
-                  : 'This profile does not permit early resolution.'}
-              </small>
-            )}
-            {(selected?.binding.kind === 'imd' || selected?.binding.kind === 'imd-testnet') && (
-              <div style={{ display: 'grid', gap: 12 }}>
-                <p style={{ margin: 0 }}>
-                  IMD commits to the question, rules and evidence source block range. Certificates
-                  must use the selected profile’s verified certificate domain.
+                {busy ? t('trade.checking') : t('create.review')}
+              </button>
+            </form>
+          )}
+          {options && options.unavailable.length > 0 && (
+            <Disclosure
+              summary={t('create.unavailableOptions', { count: options.unavailable.length })}
+            >
+              {options.unavailable.map((item) => (
+                <p key={item.address} className="s-small s-muted">
+                  {item.address}: {item.reason}
                 </p>
-                <label style={field}>
-                  Evidence source chain ID
-                  <input
-                    aria-label="Evidence source chain ID"
-                    required
-                    inputMode="numeric"
-                    style={control}
-                    value={sourceChainId}
-                    onChange={(event) => setSourceChainId(event.target.value)}
-                  />
-                </label>
-                <label style={field}>
-                  Evidence from block
-                  <input
-                    aria-label="Evidence from block"
-                    required
-                    inputMode="numeric"
-                    style={control}
-                    value={fromBlock}
-                    onChange={(event) => setFromBlock(event.target.value)}
-                  />
-                </label>
-                <label style={field}>
-                  Evidence through block
-                  <input
-                    aria-label="Evidence through block"
-                    required
-                    inputMode="numeric"
-                    style={control}
-                    value={toBlock}
-                    onChange={(event) => setToBlock(event.target.value)}
-                  />
-                </label>
-              </div>
-            )}
-            {selected?.binding.kind === 'zktls' && (
-              <div style={{ display: 'grid', gap: 12 }}>
-                <label style={field}>
-                  zkTLS request and extraction specification (JSON)
-                  <textarea
-                    aria-label="zkTLS specification"
-                    required
-                    rows={8}
-                    style={control}
-                    value={specification}
-                    onChange={(event) => setSpecification(event.target.value)}
-                  />
-                </label>
-                <small>
-                  Supply request (url, header, method, body), responseResolve entries (keyName,
-                  parseType, parsePath), and attConditions. Headers and conditions are JSON strings.
-                  These terms are public; omit secrets.
-                </small>
-                <label style={field}>
-                  Attestation window after deadline (seconds)
-                  <input
-                    aria-label="Attestation window"
-                    type="number"
-                    min={1}
-                    max={3600}
-                    required
-                    style={control}
-                    value={maxAge}
-                    onChange={(event) => setMaxAge(event.target.value)}
-                  />
-                </label>
-              </div>
-            )}
-            <label style={field}>
-              Liquidity depth
-              <input
-                aria-label="Liquidity depth"
-                required
-                inputMode="decimal"
-                style={control}
-                value={liquidity}
-                onChange={(event) => setLiquidity(event.target.value)}
-              />
-            </label>
-            <small>
-              Depth is measured in collateral token units and controls how quickly AMM prices move.
-              It is not the deposit amount. Minimum depth is 0.1.
-            </small>
-            <label style={field}>
-              Maximum initial collateral budget
-              <input
-                aria-label="Maximum initial collateral budget"
-                required
-                inputMode="decimal"
-                style={control}
-                value={budget}
-                onChange={(event) => setBudget(event.target.value)}
-              />
-            </label>
-            <small>
-              The protocol calculates the actual initial funding. Creation fails if it exceeds this
-              cap; unused budget stays in your wallet. Gas is additional.
-            </small>
-            <label style={field}>
-              Initial YES probability (%)
-              <input
-                aria-label="Initial YES probability (%)"
-                required
-                inputMode="decimal"
-                style={control}
-                value={probability}
-                onChange={(event) => setProbability(event.target.value)}
-              />
-            </label>
-          </fieldset>
-          <button
-            type="submit"
-            style={button}
-            disabled={
-              locked ||
-              !session ||
-              session.chainId !== node.reference.chainId ||
-              !options.walletMayCreate ||
-              !selected ||
-              !token
-            }
-          >
-            {busy ? 'Checking…' : 'Review creation'}
-          </button>
-        </form>
-      )}
-      {options && options.unavailable.length > 0 && (
-        <details>
-          <summary>Unavailable creation options ({options.unavailable.length})</summary>
-          {options.unavailable.map((item) => (
-            <p key={item.address} style={{ overflowWrap: 'anywhere' }}>
-              {item.address}: {item.reason}
+              ))}
+            </Disclosure>
+          )}
+          {preview && (
+            <section aria-label={t('create.creationReview')} className="s-card">
+              <h2>{t('create.reviewTitle')}</h2>
+              <p className="s-create-question">{preview.intent.question}</p>
+              <p className="s-create-rules">{preview.intent.rules}</p>
+              <dl>
+                <div className="s-kv">
+                  <dt>{t('create.maxFunding')}</dt>
+                  <dd>
+                    {formatUnits(preview.params.maxInputNative, preview.token.decimals)}{' '}
+                    {preview.token.symbol}
+                  </dd>
+                </div>
+                <div className="s-kv">
+                  <dt>{t('create.initialProbabilityShort')}</dt>
+                  <dd>{preview.intent.probability}%</dd>
+                </div>
+                <div className="s-kv">
+                  <dt>{t('create.liquidityDepth')}</dt>
+                  <dd>
+                    {preview.intent.liquidity} {preview.token.symbol}
+                  </dd>
+                </div>
+                <div className="s-kv">
+                  <dt>{t('market.ammFee')}</dt>
+                  <dd>{formatBps(preview.ammConfig.feeBps)}</dd>
+                </div>
+                <div className="s-kv">
+                  <dt>{t('market.bookFee')}</dt>
+                  <dd>{formatBps(preview.bookConfig.feeBps)}</dd>
+                </div>
+                <div className="s-kv">
+                  <dt>{t('market.tradingDeadline')}</dt>
+                  <dd>{formatDeadline(preview.params.deadline, strings.locale, 'UTC')} UTC</dd>
+                </div>
+                <div className="s-kv">
+                  <dt>{t('trade.reviewExpires')}</dt>
+                  <dd>{formatDeadline(preview.params.quoteDeadline, strings.locale, 'UTC')} UTC</dd>
+                </div>
+              </dl>
+              <p className="s-small">
+                {preview.approveNative === null
+                  ? t('create.simulated')
+                  : preview.approveNative === 0n
+                    ? t('trade.resetFirst')
+                    : t('create.approveNote', {
+                        amount: formatUnits(preview.approveNative, preview.token.decimals),
+                        symbol: preview.token.symbol,
+                      })}
+              </p>
+              <Disclosure summary={t('market.committedProfile')}>
+                <pre>
+                  {JSON.stringify(
+                    {
+                      account: preview.account,
+                      collateral: preview.token.address,
+                      resolver: preview.intent.resolver,
+                      profile: preview.profile.binding,
+                      resolution: preview.intent.resolution,
+                      ammFees: preview.ammConfig,
+                      bookFees: preview.bookConfig,
+                      params: preview.params,
+                    },
+                    (_key, value: unknown) =>
+                      typeof value === 'bigint' ? value.toString() : value,
+                    2,
+                  )}
+                </pre>
+              </Disclosure>
+              <button
+                type="button"
+                className="s-btn s-btn-primary s-btn-block"
+                disabled={locked}
+                onClick={() => void submit()}
+              >
+                {busy
+                  ? t('wallet.waiting')
+                  : preview.approveNative === null
+                    ? t('create.confirm')
+                    : preview.approveNative === 0n
+                      ? t('create.resetAllowance')
+                      : t('create.approveBudget')}
+              </button>
+            </section>
+          )}
+        </div>
+        <aside className="s-layout-side" aria-label={t('create.summaryTitle')}>
+          <div className="s-card">
+            <span className="s-card-title">{t('create.previewTitle')}</span>
+            <p className={`s-create-question${question.trim() ? '' : ' s-create-placeholder'}`}>
+              {question.trim() || t('create.previewQuestion')}
             </p>
-          ))}
-        </details>
-      )}
-      {preview && (
-        <section
-          aria-label="Creation review"
-          style={{
-            display: 'grid',
-            gap: 12,
-            padding: 16,
-            border: '1px solid #94a3b8',
-            borderRadius: 12,
-          }}
-        >
-          <h3 style={{ margin: 0 }}>Review market creation</h3>
-          <p style={{ margin: 0 }}>{preview.intent.question}</p>
-          <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{preview.intent.rules}</p>
-          <dl
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
-              gap: 8,
-              margin: 0,
-            }}
-          >
-            <dt>Maximum initial funding</dt>
-            <dd style={{ margin: 0 }}>
-              {formatUnits(preview.params.maxInputNative, preview.token.decimals)}{' '}
-              {preview.token.symbol}
-            </dd>
-            <dt>Initial YES probability</dt>
-            <dd style={{ margin: 0 }}>{preview.intent.probability}%</dd>
-            <dt>Liquidity depth</dt>
-            <dd style={{ margin: 0 }}>
-              {preview.intent.liquidity} {preview.token.symbol}
-            </dd>
-            <dt>AMM trading fee</dt>
-            <dd style={{ margin: 0 }}>{preview.ammConfig.feeBps / 100}%</dd>
-            <dt>Order book trading fee</dt>
-            <dd style={{ margin: 0 }}>{preview.bookConfig.feeBps / 100}%</dd>
-            <dt>Trading deadline</dt>
-            <dd style={{ margin: 0 }}>
-              {new Date(Number(preview.params.deadline) * 1000).toISOString()}
-            </dd>
-            <dt>Review expires</dt>
-            <dd style={{ margin: 0 }}>
-              {new Date(Number(preview.params.quoteDeadline) * 1000).toISOString()}
-            </dd>
-          </dl>
-          <p style={{ margin: 0 }}>
-            {preview.approveNative === null
-              ? 'The exact creation call has been simulated successfully. Confirm to fund and create this market.'
-              : preview.approveNative === 0n
-                ? 'Reset the existing insufficient allowance to zero first. You will review again after confirmation.'
-                : `Approve only ${formatUnits(preview.approveNative, preview.token.decimals)} ${preview.token.symbol}. After confirmation, review the simulated creation and sign it separately.`}
-          </p>
-          <details>
-            <summary>Committed profile and fee details</summary>
-            <pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontSize: 12 }}>
-              {JSON.stringify(
-                {
-                  account: preview.account,
-                  collateral: preview.token.address,
-                  resolver: preview.intent.resolver,
-                  profile: preview.profile.binding,
-                  resolution: preview.intent.resolution,
-                  ammFees: preview.ammConfig,
-                  bookFees: preview.bookConfig,
-                  params: preview.params,
-                },
-                (_key, value: unknown) => (typeof value === 'bigint' ? value.toString() : value),
-                2,
-              )}
-            </pre>
-          </details>
-          <button type="button" style={button} disabled={locked} onClick={() => void submit()}>
-            {busy
-              ? 'Waiting for wallet…'
-              : preview.approveNative === null
-                ? 'Confirm market creation'
-                : preview.approveNative === 0n
-                  ? 'Reset collateral allowance'
-                  : 'Approve collateral budget'}
-          </button>
-        </section>
-      )}
+            <p className={`s-create-rules${rules.trim() ? '' : ' s-create-placeholder'}`}>
+              {rules.trim() || t('create.previewRules')}
+            </p>
+            <dl>
+              <div className="s-kv">
+                <dt>{t('create.openingOdds')}</dt>
+                <dd>{odds}</dd>
+              </div>
+              <div className="s-kv">
+                <dt>{t('market.tradingDeadline')}</dt>
+                <dd>
+                  {Number.isFinite(deadlineSeconds)
+                    ? `${formatDeadline(deadlineSeconds, strings.locale, 'UTC')} UTC`
+                    : '—'}
+                </dd>
+              </div>
+            </dl>
+            {sectionMarkers && (
+              <Notice tone="warn">
+                <p>{t('create.sectionMarkers')}</p>
+              </Notice>
+            )}
+            <Disclosure summary={t('create.encodedTerms')}>
+              <pre>{terms}</pre>
+              <span className="s-small s-muted">
+                {t('create.termsLength', { count: terms.length.toLocaleString() })}
+              </span>
+            </Disclosure>
+          </div>
+          <div className="s-card">
+            <span className="s-card-title">{t('create.summaryTitle')}</span>
+            <dl>
+              <div className="s-kv">
+                <dt>{t('create.maxFunding')}</dt>
+                <dd>{budget.trim() ? `${budget.trim()} ${tokenSymbol}`.trim() : '—'}</dd>
+              </div>
+              <div className="s-kv">
+                <dt>{t('create.tradingFees')}</dt>
+                <dd>
+                  {preview
+                    ? t('create.feesValue', {
+                        amm: formatBps(preview.ammConfig.feeBps),
+                        book: formatBps(preview.bookConfig.feeBps),
+                      })
+                    : t('create.feesAtReview')}
+                </dd>
+              </div>
+              <div className="s-kv">
+                <dt>{t('create.resolution')}</dt>
+                <dd>{selected ? kindLabel(selected.binding.kind) : '—'}</dd>
+              </div>
+              <div className="s-kv">
+                <dt>{t('create.gas')}</dt>
+                <dd>{t('create.gasSeparate')}</dd>
+              </div>
+            </dl>
+            <p className="s-small s-muted">{t('create.fundingRisk')}</p>
+            <ul className="s-list s-create-risks">
+              <li>
+                <strong>{t('create.riskVolumeTitle')}</strong>
+                <span className="s-muted">{t('create.riskVolume')}</span>
+              </li>
+              <li>
+                <strong>{t('create.riskSettlementTitle')}</strong>
+                <span className="s-muted">{t('create.riskSettlement')}</span>
+              </li>
+              <li>
+                <strong>{t('create.riskContractTitle')}</strong>
+                <span className="s-muted">{t('create.riskContract')}</span>
+              </li>
+            </ul>
+          </div>
+        </aside>
+      </div>
     </section>
   );
 }
