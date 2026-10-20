@@ -99,7 +99,7 @@ export const soothBaseCss = `
   box-sizing: border-box;
   min-height: 100%;
   overflow: hidden;
-  background: var(--s-bg);
+  background: var(--sooth-canvas-background, var(--s-bg));
   color: var(--s-text);
   font: 400 14px/1.45 var(--s-font);
   -webkit-font-smoothing: antialiased;
@@ -119,7 +119,7 @@ export const soothBaseCss = `
 .s-visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
 /* Layout: single column (mobile baseline), two columns from 860px container width. */
-.s-page { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
+.s-page { display: flex; flex-direction: column; gap: 12px; padding: var(--sooth-page-padding, 16px); }
 .s-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-items: start; }
 .s-layout-main, .s-layout-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .s-row { display: flex; align-items: center; gap: 8px; }
@@ -128,7 +128,7 @@ export const soothBaseCss = `
 .s-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .s-grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 @container sooth (min-width: 860px) {
-  .s-page { padding: 24px; gap: 16px; }
+  .s-page { padding: var(--sooth-page-padding, 24px); gap: 16px; }
   .s-layout { grid-template-columns: minmax(0, 1fr) minmax(320px, 380px); gap: 16px; }
   .s-layout-side { position: sticky; top: 16px; }
   .s-wide-only { display: revert; }
@@ -139,7 +139,7 @@ export const soothBaseCss = `
 }
 
 /* Cards */
-.s-card { background: var(--s-surface); border: 1px solid var(--s-line); border-radius: var(--s-radius); padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.s-card { background: var(--sooth-card-background, var(--s-surface)); border: var(--sooth-card-border, 1px solid var(--s-line)); border-radius: var(--sooth-card-radius, var(--s-radius)); padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .s-card-flat { background: var(--s-surface-2); border-color: transparent; }
 .s-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 24px; }
 .s-card-title { font-size: 13px; font-weight: 600; color: var(--s-muted); }
