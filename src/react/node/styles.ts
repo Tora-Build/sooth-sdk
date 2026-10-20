@@ -12,7 +12,7 @@ dialog[data-presentation=drawer] > .sooth-root { min-height: 100%; border-radius
   dialog[data-presentation=modal], dialog[data-presentation=drawer] { width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; }
   dialog[data-presentation] > .sooth-root { min-height: 100%; border-radius: 0; }
 }
-.s-node { border: 1px solid var(--s-line); border-radius: var(--s-radius); overflow-wrap: anywhere; }
+.s-node { border: var(--sooth-card-border, 1px solid var(--s-line)); border-radius: var(--sooth-card-radius, var(--s-radius)); overflow-wrap: anywhere; }
 .s-node-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .s-node-title { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
 .s-node-title .s-disclosure { border-top: 0; }
@@ -34,7 +34,8 @@ dialog[data-presentation=drawer] > .sooth-root { min-height: 100%; border-radius
 @container sooth (min-width: 620px) { .s-node-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @container sooth (min-width: 980px) { .s-node-list { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .s-node-list > li { display: flex; min-width: 0; }
-.s-node-card { flex: 1; gap: 10px; }
+/* List items stay boxed when a host flattens page sections. */
+.s-node-card { flex: 1; gap: 10px; background: var(--s-surface); border: 1px solid var(--s-line); border-radius: var(--s-radius); }
 .s-node-card-tags { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
 .s-node-card-open { appearance: none; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-height: 44px; margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .s-node-card-open h3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }

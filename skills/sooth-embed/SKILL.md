@@ -97,6 +97,10 @@ adds a fresh copy each time the dialog opens and deletes it on close. The
 hosted node always renders as a panel inside the frame. The host dialog
 supplies the drawer (max 480px) or modal (max 960px) boundary.
 
+The framed routes fill the iframe edge to edge, with no page inset, outer
+border or card boxes. The host's panel, drawer or modal is the only boundary.
+Do not add a border, padding or a repeated market title around the frame.
+
 URL parameters for `/v1/node`:
 
 | Parameter | Values | Notes |

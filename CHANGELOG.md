@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Let a host flatten the React widgets inside its own frame. The widgets read
+  optional inherited CSS variables (`--sooth-canvas-background`,
+  `--sooth-page-padding`, `--sooth-card-background`, `--sooth-card-border`,
+  `--sooth-card-radius`). Each one defaults to the current value, so native
+  consumers see no change. Node list cards keep their own border.
 - Move the Sooth Protocol agent skill from `soothsayer-core` into
   `skills/sooth-markets/SKILL.md` and include it in package contents. Replace
   old deployment addresses, market calls and script references with the current
