@@ -46,7 +46,7 @@ export interface SoothSubmittedTransaction extends SoothPendingTransaction {
   storageAvailable: boolean;
 }
 
-function sharesAmount(value: string): bigint {
+export function sharesAmount(value: string): bigint {
   if (typeof value !== 'string' || !/^\d+(?:\.\d{1,18})?$/.test(value)) {
     throw new Error('Enter shares as a decimal with at most 18 fractional digits.');
   }
@@ -55,7 +55,7 @@ function sharesAmount(value: string): bigint {
   return amount;
 }
 
-async function checkNewExposure(
+export async function checkNewExposure(
   resolved: SoothResolvedMarket,
   data: SoothMarketData,
 ): Promise<void> {
@@ -263,12 +263,28 @@ export async function sendSoothAction(
           action,
         });
         const grantsAllowance = action.kind === 'approve' && action.amountNative > 0n;
-        if (action.kind === 'trade' || action.kind === 'placeOrder' || grantsAllowance) {
+        const addsLiquidity = action.kind === 'increaseLiquidity';
+        if (
+          action.kind === 'trade' ||
+          action.kind === 'placeOrder' ||
+          grantsAllowance ||
+          addsLiquidity
+        ) {
           const current = { ...resolved, context: request.verifiedContext };
           const data = await readSoothMarket(current, account);
-          if (!data.snapshot.tradingOpen) throw new Error('Trading is closed for this market.');
+          const { tradingOpen, liquidityOpen } = data.snapshot;
+          if (addsLiquidity) {
+            if (!liquidityOpen) throw new Error('Liquidity additions are closed for this market.');
+          } else if (
+            !tradingOpen &&
+            // An AMM approval alone adds no exposure; the deposit it funds is checked when sent.
+            !(action.kind === 'approve' && action.venue === 'amm' && liquidityOpen)
+          ) {
+            throw new Error('Trading is closed for this market.');
+          }
           const addsExposure =
             grantsAllowance ||
+            addsLiquidity ||
             (action.kind === 'trade' && action.deltaShares > 0n) ||
             (action.kind === 'placeOrder' && action.order.action === BOOK_BUY);
           if (addsExposure) await checkNewExposure(current, data);

@@ -124,7 +124,8 @@ describe('creation submission safety', () => {
   });
   it('prevents concurrent sends and releases its guard after settlement', async () => {
     const preview = await planSoothCreation(node, account, intent);
-    const { promise, resolve: release } = Promise.withResolvers<{ account: Address; chainId: number }>();
+    let release!: (session: { account: Address; chainId: number }) => void;
+    const promise = new Promise<{ account: Address; chainId: number }>(done => { release = done; });
     vi.mocked(wallet.getSession).mockReturnValueOnce(promise);
     const first = sendSoothCreation(node, wallet, preview, 'approveCreation', vi.fn());
     await expect(sendSoothCreation(node, wallet, preview, 'approveCreation', vi.fn())).rejects.toThrow('already being submitted');

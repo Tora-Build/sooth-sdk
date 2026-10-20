@@ -49,7 +49,14 @@ export function useSoothRuntime(supplied?: SoothRuntime): SoothRuntime | undefin
   const provider = useContext(SoothContext);
   return supplied ?? provider.runtime;
 }
-export function useSoothWallet(supplied?: SoothWalletAdapter) {
+export interface SoothWalletState {
+  adapter: SoothWalletAdapter | null;
+  session: { account: Address; chainId: number } | null;
+  error: string | null;
+  connect: () => Promise<{ account: Address; chainId: number }>;
+  switchChain: (chainId: number) => Promise<void>;
+}
+export function useSoothWallet(supplied?: SoothWalletAdapter): SoothWalletState {
   const provider = useContext(SoothContext);
   const [injected, setInjected] = useState<SoothWalletAdapter | null>(null);
   const adapter = supplied ?? provider.wallet ?? injected;
@@ -106,10 +113,18 @@ export function useSoothWallet(supplied?: SoothWalletAdapter) {
   );
   return { adapter, session, error, connect, switchChain };
 }
+export interface SoothMarketState {
+  resolved: SoothResolvedMarket | null;
+  data: SoothMarketData | null;
+  error: string | null;
+  loading: boolean;
+  updatedAt: number | null;
+  refresh: () => void;
+}
 export function useSoothMarket(
   market: string | SoothMarketReference,
   options: { runtime?: SoothRuntime; account?: Address; refreshInterval?: number } = {},
-) {
+): SoothMarketState {
   const provider = useContext(SoothContext);
   const runtime = options.runtime ?? provider.runtime;
   const key = typeof market === 'string' ? market : formatSoothMarketReference(market);
@@ -169,11 +184,18 @@ export function useSoothMarket(
   }, [key, runtime, options.account, options.refreshInterval, revision]);
   return { resolved, data, error, loading, updatedAt, refresh };
 }
+export interface SoothTransactionRecoveryState {
+  pending: SoothPendingTransaction[];
+  error: string | null;
+  result: string | null;
+  events: FactoryReceiptEvent[];
+  addPending: (record: SoothPendingTransaction) => void;
+}
 export function useSoothTransactionRecovery(
   resolved: SoothResolvedMarket | null,
   onEvent?: (event: SoothHostEvent) => void,
   onConfirmed?: () => void,
-) {
+): SoothTransactionRecoveryState {
   const [pending, setPending] = useState<SoothPendingTransaction[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);

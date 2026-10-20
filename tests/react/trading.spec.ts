@@ -282,6 +282,7 @@ describe('Sooth explicit action submission', () => {
     vi.mocked(resolved.refreshCatalog).mockRejectedValue(new Error('Policy unavailable'));
     await expect(sendSoothAction(resolved, wallet, account, approval, vi.fn())).rejects.toThrow('Policy unavailable');
     data.snapshot.tradingOpen = false;
+    data.snapshot.liquidityOpen = false;
     await expect(sendSoothAction(resolved, wallet, account, approval, vi.fn())).rejects.toThrow('Trading is closed');
     expect(wallet.sendTransaction).not.toHaveBeenCalled();
     expect(resolved.client.simulateContract).not.toHaveBeenCalled();
@@ -295,6 +296,62 @@ describe('Sooth explicit action submission', () => {
     expect(wallet.sendTransaction).toHaveBeenCalledOnce();
     expect(readSoothMarket).not.toHaveBeenCalled();
     expect(resolved.refreshCatalog).not.toHaveBeenCalled();
+  });
+  const deposit: FactoryTransactionAction = {
+    kind: 'increaseLiquidity', additionalB: WAD,
+    limits: { maxTokenIn: 100n, minLpOut: 1n, minYesPrice: 1n, maxYesPrice: WAD, deadline: 2_000n, expectedStateHash: hash(7) },
+  };
+  it('submits a liquidity deposit only after a fresh listed-market policy check', async () => {
+    data.snapshot.tradingOpen = false;
+    await sendSoothAction(resolved, wallet, account, deposit, vi.fn());
+    expect(readSoothMarket).toHaveBeenCalledOnce();
+    expect(resolved.refreshCatalog).toHaveBeenCalledOnce();
+    expect(wallet.sendTransaction).toHaveBeenCalledOnce();
+  });
+  it('refuses a liquidity deposit before signing when fresh policy is unavailable or the market is unlisted', async () => {
+    vi.mocked(resolved.refreshCatalog).mockRejectedValueOnce(new Error('Policy unavailable'));
+    await expect(sendSoothAction(resolved, wallet, account, deposit, vi.fn())).rejects.toThrow('Policy unavailable');
+    const hidden = catalog();
+    hidden.items[0]!.listing.state = 'disabled';
+    vi.mocked(resolved.refreshCatalog).mockResolvedValueOnce(hidden);
+    await expect(sendSoothAction(resolved, wallet, account, deposit, vi.fn())).rejects.toThrow('not listed');
+    expect(resolved.client.simulateContract).not.toHaveBeenCalled();
+    expect(wallet.sendTransaction).not.toHaveBeenCalled();
+  });
+  it('refuses a liquidity deposit before signing when liquidity closed at the fresh block', async () => {
+    data.snapshot.liquidityOpen = false;
+    await expect(sendSoothAction(resolved, wallet, account, deposit, vi.fn())).rejects.toThrow('Liquidity additions are closed');
+    expect(resolved.refreshCatalog).not.toHaveBeenCalled();
+    expect(resolved.client.simulateContract).not.toHaveBeenCalled();
+    expect(wallet.sendTransaction).not.toHaveBeenCalled();
+  });
+  it('allows a nonzero AMM approval with open liquidity after trading closes, still checking fresh policy', async () => {
+    data.snapshot.tradingOpen = false;
+    await sendSoothAction(resolved, wallet, account, approval, vi.fn());
+    expect(resolved.refreshCatalog).toHaveBeenCalledOnce();
+    expect(wallet.sendTransaction).toHaveBeenCalledOnce();
+    vi.mocked(resolved.refreshCatalog).mockRejectedValueOnce(new Error('Policy unavailable'));
+    await expect(sendSoothAction(resolved, wallet, account, approval, vi.fn())).rejects.toThrow('Policy unavailable');
+    expect(wallet.sendTransaction).toHaveBeenCalledOnce();
+  });
+  it('refuses a nonzero book approval after trading closes even with open liquidity', async () => {
+    data.snapshot.tradingOpen = false;
+    const bookApproval = { kind: 'approve', venue: 'book', amountNative: 100n } as const;
+    await expect(sendSoothAction(resolved, wallet, account, bookApproval, vi.fn())).rejects.toThrow('Trading is closed');
+    expect(resolved.client.simulateContract).not.toHaveBeenCalled();
+    expect(wallet.sendTransaction).not.toHaveBeenCalled();
+  });
+  it('gates an approval by its own venue, not the widget venue', async () => {
+    // The spender itself is derived from action.venue in buildFactoryTransaction (covered in factoryClient.test.ts).
+    resolved.reference.venue = 'book';
+    data.snapshot.tradingOpen = false;
+    await sendSoothAction(resolved, wallet, account, approval, vi.fn());
+    expect(buildFactoryTransaction).toHaveBeenCalledWith(expect.objectContaining({ action: { kind: 'approve', venue: 'amm', amountNative: 100n } }));
+    expect(wallet.sendTransaction).toHaveBeenCalledOnce();
+    resolved.reference.venue = 'amm';
+    const bookApproval = { kind: 'approve', venue: 'book', amountNative: 100n } as const;
+    await expect(sendSoothAction(resolved, wallet, account, bookApproval, vi.fn())).rejects.toThrow('Trading is closed');
+    expect(wallet.sendTransaction).toHaveBeenCalledOnce();
   });
   it('returns the persisted broadcast when a host pending callback throws', async () => {
     const onPending = vi.fn(() => { throw new Error('Host notification failed'); });

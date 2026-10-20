@@ -73,7 +73,8 @@ A plain HTML host without the SDK must write the reference in lowercase.
 ## Path A: hosted iframe snippet
 
 1. Open `<widget-origin>/v1/generator`. Choose the node, an optional starting
-   market, the creation and order-book flags, presentation, title and theme.
+   market, the creation and order-book flags, presentation, title, theme and
+   language.
 2. For host notifications, enter the host page's exact origin. Enable
    transaction notifications only if the host needs them.
 3. Select **Generate node embed**, preview it, then **Copy HTML**.
@@ -103,6 +104,7 @@ URL parameters for `/v1/node`:
 | `node` | full node reference | Required |
 | `instance` | `[a-zA-Z0-9_-]{8,80}` | Generated if missing. Set it explicitly so the host can check messages. Unique per embed on the page |
 | `theme` | `auto`, `light`, `dark` | Default `auto` |
+| `lang` | `en`, `zh` | Default `en`. Any other value is refused. Localizes the widget and its wallet window |
 | `create`, `clob` | `1` | Opt-in creation and order book. Both default off. AMM is always on |
 | `initialMarket` | market address | Must belong to the node |
 | `venue` | `amm`, `book` | `book` falls back to AMM unless `clob=1` |
@@ -111,7 +113,7 @@ URL parameters for `/v1/node`:
 
 `/v1/market?market=<market reference>&instance=<id>` is the direct single-market
 route. In code,
-`await generateSoothEmbed({ runtime, origin, market, instance, parentOrigin?, theme?, hostEvents?, title? })`
+`await generateSoothEmbed({ runtime, origin, market, instance, parentOrigin?, theme?, lang?, hostEvents?, title? })`
 resolves the market against the trusted runtime and resolves to its iframe
 HTML. That iframe differs slightly from the node snippet: `max-width:560px`,
 `loading="lazy"` and no `referrerpolicy`.
@@ -152,12 +154,14 @@ HTML. That iframe differs slightly from the node snippet: `max-width:560px`,
 
 ### Styling limits
 
-The iframe accepts only `theme` (`auto`, `light`, `dark`). Its fonts, colors,
-accent and radius are the widget's own; host CSS cannot reach inside the frame.
-Set `theme` to the host's actual scheme: a light-only host must use `light`,
-or the frame turns dark on visitors whose system uses dark mode. Native React
-adds `appearance={{ accent, radius }}` only; fonts and background stay fixed.
-Compare screenshots of the host page and the frame before you ship.
+The iframe accepts only `theme` (`auto`, `light`, `dark`) and `lang` (`en`,
+`zh`). Its fonts, colors, accent and radius are the widget's own; host CSS
+cannot reach inside the frame. Set `theme` to the host's actual scheme: a
+light-only host must use `light`, or the frame turns dark on visitors whose
+system uses dark mode. Native React adds `appearance={{ accent, radius }}` and
+`locale` only; fonts and background stay fixed. Market views use one column
+below 860px of container width and two columns above it. Compare screenshots
+of the host page and the frame before you ship.
 
 ### Host messages
 
@@ -243,9 +247,14 @@ export const runtime = createSoothRuntime({
     rpcUrls: [RPC_A, RPC_B],
   }],
   catalogUrl: 'https://registry.sooth.market',
+  indexerUrl: 'https://east-indexer.sooth.market', // optional: charts and depth
   canonicalOrigin: WIDGET_ORIGIN,
 });
 ```
+
+`indexerUrl` feeds price history, order-book and depth charts only. Quotes,
+bounds, approvals and signing always use fresh chain reads. Without it, the
+charts show their unavailable state.
 
 The runtime refuses a node whose release is not in `releases`, a chain with
 fewer than two RPC URLs, a node not in the catalog, and a market whose catalog
@@ -256,8 +265,9 @@ URLs, catalog data or messages.
 
 In native mode the host page calls the catalog and RPCs itself.
 
-- Allow `connect-src` for `catalogUrl` and every entry in `rpcUrls`. Each of
-  those services must send CORS headers for the host's origin.
+- Allow `connect-src` for `catalogUrl`, `indexerUrl` (if set) and every entry
+  in `rpcUrls`. Each of those services must send CORS headers for the host's
+  origin.
 - The components add a `<style>` element to their shadow root. Allow it with a
   `style-src` hash or `'unsafe-inline'`; otherwise they render unstyled.
 
@@ -274,6 +284,7 @@ import { SoothNode } from 'sooth/react';
   features={{ create: false, clob: false }}
   presentation="panel"
   theme="auto"
+  locale="en"
   appearance={{ accent: '#225c46', radius: 12 }}
   onEvent={(event) => { /* ready, market-opened, transaction-* */ }}
 />

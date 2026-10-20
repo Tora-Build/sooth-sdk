@@ -1,13 +1,14 @@
-import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { type Address } from 'viem';
 import { factoryAddress, type FactoryCatalogMarket } from '../factory/schema.js';
 import type { FactoryCatalogSnapshot } from '../factory/factoryCatalog.js';
-import { parseSQFSafe } from '../lib/sqf.js';
 import { SoothMarket } from './SoothMarket.js';
 import { SoothCreateMarket } from './SoothCreateMarket.js';
 import { useSoothRuntime } from './hooks.js';
 import { describeSoothError } from './errors.js';
+import type { SoothMarketSummary } from './data.js';
+import { useSoothNodeMarkets } from './dataHooks.js';
 import {
   formatSoothMarketReference,
   parseSoothMarketReference,
@@ -28,6 +29,21 @@ import {
 import type { SoothResolvedNode, SoothRuntime } from './runtime.js';
 import type { SoothWalletAdapter } from './wallet.js';
 import type { SoothTradeIntent } from './trading.js';
+import { soothText, type SoothLocale } from './ui/i18n.js';
+import { soothRootStyle } from './ui/theme.js';
+import { Disclosure, Notice, Segmented, Skeleton } from './ui/primitives.js';
+import {
+  categoryLabel,
+  matchesFilter,
+  nodeCategories,
+  nodeEntry,
+  sortEntries,
+  type SoothNodeEntry,
+  type SoothNodeFilter,
+  type SoothNodeSort,
+} from './node/catalog.js';
+import { SoothMarketCard } from './node/MarketCard.js';
+import { soothNodeCss } from './node/styles.js';
 
 export interface SoothNodeProps {
   node: string | SoothNodeReference;
@@ -39,6 +55,7 @@ export interface SoothNodeProps {
   onClose?: () => void;
   theme?: SoothTheme;
   appearance?: { accent?: string; radius?: number };
+  locale?: SoothLocale;
   initialMarket?: Address;
   initialVenue?: SoothVenue;
   initialIntent?: SoothTradeIntent;
@@ -49,13 +66,8 @@ export interface SoothNodeProps {
   onCreationWalletUnavailable?: () => void;
 }
 
-const styles = `
-:host{display:block;min-width:0;font:15px/1.5 system-ui,sans-serif;color-scheme:light dark}
-*,*:before,*:after{box-sizing:border-box}.node{--bg:#fff;--fg:#17202d;--muted:#566275;--line:#dce2eb;--sub:#f4f6fa;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:var(--sooth-radius,16px);padding:24px;width:100%;min-width:0;overflow-wrap:anywhere}.node[data-theme=dark]{--bg:#141a25;--fg:#f2f5fc;--muted:#b0bdd0;--line:#364256;--sub:#202a3a;color-scheme:dark}@media(prefers-color-scheme:dark){.node[data-theme=auto]{--bg:#141a25;--fg:#f2f5fc;--muted:#b0bdd0;--line:#364256;--sub:#202a3a;color-scheme:dark}}
-dialog{padding:0;border:0;background:transparent;color:inherit;max-height:100dvh;max-width:100vw;overflow:auto}dialog::backdrop{background:rgb(10 17 30 / .55);backdrop-filter:blur(3px)}dialog[data-presentation=modal]{width:min(960px,calc(100vw - 48px));margin:auto}dialog[data-presentation=drawer]{width:min(480px,100vw);height:100dvh;max-height:100dvh;margin:0 0 0 auto}dialog[data-presentation=drawer]>.node{min-height:100%;border-radius:var(--sooth-radius,16px) 0 0 var(--sooth-radius,16px)}
-h2,h3,p{margin:0}h2{font-size:1.55rem;line-height:1.25}h3{font-size:1.05rem;line-height:1.4}.eyebrow{text-transform:uppercase;letter-spacing:.09em;font-size:.72rem;font-weight:750;color:var(--sooth-accent,#315ed8)}.muted{color:var(--muted);font-size:.85rem}.header,.toolbar,.tabs,.meta{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.header{align-items:flex-start;justify-content:space-between;margin-bottom:22px}.title{flex:1;min-width:160px}.title p{margin-top:8px}.toolbar{margin:18px 0}.search{flex:1;min-width:160px}.tabs{gap:6px}button,input,select{font:inherit}button{cursor:pointer;min-height:44px;padding:10px 15px;border:1px solid transparent;border-radius:10px;background:var(--sooth-accent,#315ed8);color:white;font-weight:650}button.secondary{background:var(--sub);color:var(--fg);border-color:var(--line)}button[aria-pressed=true]{border-color:var(--sooth-accent,#315ed8);box-shadow:inset 0 0 0 1px var(--sooth-accent,#315ed8)}button:disabled{opacity:.55;cursor:wait}input,select{width:100%;min-height:44px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--fg)}label{display:block;font-size:.85rem;font-weight:650;margin-bottom:4px}:focus-visible{outline:3px solid var(--sooth-accent,#315ed8);outline-offset:3px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:12px;list-style:none;padding:0;margin:18px 0}.card{display:flex;flex-direction:column;gap:16px;width:100%;height:100%;text-align:left;background:var(--bg);color:var(--fg);border:1px solid var(--line);padding:18px;font-weight:400}.card:hover{border-color:var(--sooth-accent,#315ed8);background:var(--sub)}.card .meta{justify-content:space-between;margin-top:auto;font-size:.8rem;color:var(--muted)}.status{font-size:.72rem;font-weight:700;border-radius:20px;padding:4px 9px;background:var(--sub);align-self:flex-start}.outcome{font-size:1.15rem;font-weight:750}.empty,.notice{padding:22px;border:1px solid var(--line);border-radius:12px;background:var(--sub);margin:16px 0}.empty p,.notice p{margin:8px 0 14px}.error{border-color:#b34343}.provenance{padding-top:16px;border-top:1px solid var(--line)}.back{margin-bottom:16px}.venue{margin-bottom:16px}.address{font-family:ui-monospace,monospace;font-size:.8rem}
-@media(max-width:520px){.node{padding:18px;border-radius:12px}dialog[data-presentation=modal],dialog[data-presentation=drawer]{width:100vw;height:100dvh;max-height:100dvh;margin:0}dialog[data-presentation]>.node{min-height:100%;border-radius:0}.header{gap:8px}.toolbar{align-items:stretch}.tabs{width:100%}.tabs button{flex:1;padding:8px}}
-`;
+/** Cards rendered per step; summaries are read only for rendered cards. */
+const PAGE_SIZE = 20;
 
 /** Isolated styling; modal presentations use the browser's focus and inert handling. */
 export function SoothNode(props: SoothNodeProps) {
@@ -77,11 +89,19 @@ export function SoothNode(props: SoothNodeProps) {
       {root &&
         createPortal(
           <>
-            <style>{styles}</style>
+            <style>{soothNodeCss}</style>
             {identity ? (
               <NodeExperience key={identity} {...props} node={identity} />
             ) : (
-              <div role="alert">{invalid}</div>
+              <div
+                className="sooth-root s-node s-page"
+                data-theme={props.theme ?? 'auto'}
+                style={soothRootStyle(props.appearance)}
+              >
+                <Notice tone="error">
+                  <p>{invalid}</p>
+                </Notice>
+              </div>
             )}
           </>,
           root,
@@ -90,8 +110,30 @@ export function SoothNode(props: SoothNodeProps) {
   );
 }
 
+function SearchIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+      <circle cx="7" cy="7" r="4.75" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M10.5 10.5l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function outcomeIntent(outcome: 0 | 1, summary: SoothMarketSummary | undefined): SoothTradeIntent {
+  const yes = summary?.yes ?? null;
+  const cents =
+    yes === null
+      ? 50
+      : Math.min(99, Math.max(1, Math.round((outcome === 1 ? yes : 1 - yes) * 100)));
+  return { side: 'buy', outcome, shares: '', price: String(cents) };
+}
+
 function NodeExperience(props: SoothNodeProps) {
   const runtime = useSoothRuntime(props.runtime);
+  const strings = useMemo(() => soothText(props.locale), [props.locale]);
+  const { t } = strings;
+  const text = useRef(strings);
+  text.current = strings;
   const reference = useMemo(() => parseSoothNodeReference(props.node), [props.node]);
   const [resolved, setResolved] = useState<SoothResolvedNode | null>(null);
   const [catalog, setCatalog] = useState<FactoryCatalogSnapshot<FactoryCatalogMarket> | null>(null);
@@ -99,8 +141,15 @@ function NodeExperience(props: SoothNodeProps) {
   const [loading, setLoading] = useState(true);
   const [attempt, setAttempt] = useState(0);
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<'open' | 'resolved' | 'all'>('open');
+  const [filter, setFilter] = useState<SoothNodeFilter>('open');
+  const [category, setCategory] = useState('all');
+  const [sort, setSort] = useState<SoothNodeSort>('ending');
+  const [limit, setLimit] = useState(PAGE_SIZE);
+  const [now, setNow] = useState(() => Date.now());
   const [selected, setSelected] = useState<Address | undefined>(props.initialMarket);
+  const [cardIntent, setCardIntent] = useState<
+    { market: Address; intent: SoothTradeIntent } | undefined
+  >();
   const [creating, setCreating] = useState(props.initialView === 'create');
   const [created, setCreated] = useState<Address | undefined>();
   const [requestedVenue, setRequestedVenue] = useState<SoothVenue>(props.initialVenue ?? 'amm');
@@ -124,6 +173,7 @@ function NodeExperience(props: SoothNodeProps) {
   useEffect(() => {
     setSelected(props.initialMarket);
     setCreated(undefined);
+    setCardIntent(undefined);
   }, [props.initialMarket]);
   useEffect(() => {
     setCreating(props.initialView === 'create');
@@ -139,7 +189,7 @@ function NodeExperience(props: SoothNodeProps) {
     setResolved(null);
     setCatalog(null);
     if (!runtime) {
-      setError('Configure a Sooth runtime to load this node.');
+      setError(text.current.t('node.configure'));
       setLoading(false);
       return;
     }
@@ -155,7 +205,7 @@ function NodeExperience(props: SoothNodeProps) {
           value.context.release.releaseId.toLowerCase() !== reference.releaseId ||
           value.catalog.items.some((item) => !isSoothNodeScope(reference, item.identity))
         )
-          throw new Error('The returned catalog does not belong to the configured node.');
+          throw new Error(text.current.t('node.catalogMismatch'));
         setResolved(value);
         setCatalog(value.catalog);
         events.current?.({ type: 'ready' });
@@ -180,7 +230,7 @@ function NodeExperience(props: SoothNodeProps) {
       try {
         const next = await resolved.refreshCatalog();
         if (next.items.some((item) => !isSoothNodeScope(reference, item.identity)))
-          throw new Error('The returned catalog does not belong to the configured node.');
+          throw new Error(text.current.t('node.catalogMismatch'));
         if (active) {
           setCatalog(next);
           setError(null);
@@ -220,7 +270,7 @@ function NodeExperience(props: SoothNodeProps) {
         resolveNode: async (input) => {
           const wanted = parseSoothNodeReference(input);
           if (formatSoothNodeReference(wanted) !== formatSoothNodeReference(reference))
-            throw new Error('Node is outside this embed.');
+            throw new Error(text.current.t('node.outOfScope'));
           return runtime.resolveNode(wanted);
         },
         resolve: async (input) => {
@@ -230,14 +280,14 @@ function NodeExperience(props: SoothNodeProps) {
             wanted.releaseId !== reference.releaseId ||
             (!props.features?.clob && wanted.venue !== 'amm')
           )
-            throw new Error('Market is outside this embed.');
+            throw new Error(text.current.t('market.outOfScope'));
           const value = await runtime.resolve(wanted);
           if (
             formatSoothMarketReference(value.reference) !== formatSoothMarketReference(wanted) ||
             !isSoothNodeScope(reference, value.context) ||
             value.context.release.releaseId.toLowerCase() !== reference.releaseId
           )
-            throw new Error('Resolved market is outside this embed.');
+            throw new Error(text.current.t('market.resolvedOutOfScope'));
           return value;
         },
       },
@@ -260,109 +310,376 @@ function NodeExperience(props: SoothNodeProps) {
     };
   }, [presentation, isOpen]);
 
+  const creatingView = creating && props.features?.create === true;
+  const listView = isOpen && !loading && resolved !== null && !selected && !creatingView;
+
+  // Browsing state: listed markets, then status and search, then category, then sort.
+  const entries = useMemo(
+    () => (catalog?.items ?? []).filter((item) => item.listing.state === 'listed').map(nodeEntry),
+    [catalog],
+  );
+  const needle = query.toLowerCase().trim();
+  const matching = useMemo(
+    () =>
+      entries.filter(
+        (entry) =>
+          matchesFilter(entry.item, filter) && entry.question.toLowerCase().includes(needle),
+      ),
+    [entries, filter, needle],
+  );
+  const categories = useMemo(() => {
+    const counted = nodeCategories(matching);
+    if (category === 'all' || counted.some((entry) => entry.id === category)) return counted;
+    const chosen = entries.find((entry) => entry.category === category);
+    return chosen ? [...counted, { id: category, text: chosen.categoryText, count: 0 }] : counted;
+  }, [matching, entries, category]);
+  const activeCategory = categories.some((entry) => entry.id === category) ? category : 'all';
+  const [summaryCache, setSummaryCache] = useState<ReadonlyMap<string, SoothMarketSummary>>(
+    () => new Map(),
+  );
+  const sorted = useMemo(
+    () =>
+      sortEntries(
+        activeCategory === 'all'
+          ? matching
+          : matching.filter((entry) => entry.category === activeCategory),
+        sort,
+        summaryCache,
+        now,
+      ),
+    [matching, activeCategory, sort, summaryCache, now],
+  );
+  const shown = sorted.slice(0, limit);
+  const requestKey = shown
+    .map((entry) => entry.item.address)
+    .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+    .join(',');
+  const requested = useMemo(
+    () => (requestKey ? (requestKey.split(',') as Address[]) : []),
+    [requestKey],
+  );
+  const summaries = useSoothNodeMarkets(listView ? resolved : null, requested);
+  useEffect(() => {
+    const data = summaries.data;
+    if (!data) return;
+    setSummaryCache((previous) => {
+      const next = new Map(previous);
+      for (const address of requested) {
+        const summary = data.get(address);
+        if (summary) next.set(address.toLowerCase(), summary);
+        else next.delete(address.toLowerCase());
+      }
+      return next;
+    });
+  }, [summaries.data, requested]);
+  useEffect(() => {
+    if (!listView) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, [listView]);
+
+  const browse = (update: () => void) => {
+    update();
+    setLimit(PAGE_SIZE);
+  };
+  const openMarket = (entry: SoothNodeEntry, outcome?: 0 | 1) => {
+    const address = entry.item.address;
+    setSelected(address);
+    setRequestedVenue(soothNodeVenue(props.features, props.initialVenue));
+    setCardIntent(
+      outcome === undefined
+        ? undefined
+        : {
+            market: address,
+            intent: outcomeIntent(outcome, summaryCache.get(address.toLowerCase())),
+          },
+    );
+  };
   const back = () => {
     setSelected(undefined);
     setCreated(undefined);
     setCreating(false);
+    setCardIntent(undefined);
   };
-  const appearance = {
-    '--sooth-accent': props.appearance?.accent,
-    '--sooth-radius':
-      props.appearance?.radius === undefined
-        ? undefined
-        : `${Math.max(0, Math.min(32, props.appearance.radius))}px`,
-  } as CSSProperties;
-  const visible =
-    catalog?.items.filter(
-      (item) =>
-        item.listing.state === 'listed' &&
-        (filter === 'all' ||
-          (filter === 'resolved' ? item.state.phase === 'settled' : item.tradingOpen === true)) &&
-        (parseSQFSafe(item.question).question || item.question)
-          .toLowerCase()
-          .includes(query.toLowerCase().trim()),
-    ) ?? [];
-  const body = (
-    <section
-      className="node"
-      data-theme={props.theme ?? 'auto'}
-      style={appearance}
-      aria-labelledby={`${id}-title`}
-    >
-      <header className="header">
-        <div className="title">
-          <div className="eyebrow">Prediction markets</div>
-          <h2 id={`${id}-title`}>{resolved?.node.metadata.label || 'Explore markets'}</h2>
-          {resolved?.node.metadata.description && (
-            <details className="muted">
-              <summary>About this node</summary>
-              <p>{resolved.node.metadata.description}</p>
-            </details>
-          )}
+
+  const emptyTitle =
+    query || activeCategory !== 'all'
+      ? t('node.noMatchTitle')
+      : filter === 'resolved'
+        ? t('node.noResolved')
+        : filter === 'open'
+          ? t('node.noOpen')
+          : t('node.emptyTitle');
+  const emptyBody = query
+    ? t('node.noMatchBody')
+    : filter !== 'all'
+      ? t('node.browseAll')
+      : props.features?.create
+        ? t('node.emptyCreate')
+        : t('node.emptyBody');
+
+  const list = (
+    <>
+      <div className="s-node-tools">
+        <div className="s-node-search">
+          <label htmlFor={`${id}-search`} className="s-visually-hidden">
+            {t('node.search')}
+          </label>
+          <SearchIcon />
+          <input
+            id={`${id}-search`}
+            className="s-input"
+            type="search"
+            placeholder={t('node.searchPlaceholder')}
+            value={query}
+            onChange={(event) => {
+              const value = event.target.value;
+              browse(() => setQuery(value));
+            }}
+          />
         </div>
-        {presentation !== 'panel' && (
-          <button className="secondary" aria-label="Close markets" onClick={requestClose}>
-            Close
-          </button>
+        <div className="s-node-filters">
+          <Segmented
+            label={t('node.statusFilter')}
+            value={filter}
+            onChange={(value) => browse(() => setFilter(value))}
+            options={[
+              { value: 'open', label: t('node.filterOpen') },
+              { value: 'resolved', label: t('node.filterResolved') },
+              { value: 'all', label: t('node.filterAll') },
+            ]}
+          />
+          <label className="s-node-sort">
+            <span className="s-visually-hidden">{t('node.sortBy')}</span>
+            <select
+              className="s-select"
+              value={sort}
+              onChange={(event) => {
+                const value = event.target.value as SoothNodeSort;
+                browse(() => setSort(value));
+              }}
+            >
+              <option value="ending">{t('node.sortEnding')}</option>
+              <option value="newest">{t('node.sortNewest')}</option>
+              <option value="liquidity">{t('node.sortLiquidity')}</option>
+            </select>
+          </label>
+        </div>
+        {(categories.length > 1 || activeCategory !== 'all') && (
+          <div role="group" aria-label={t('node.categories')} className="s-node-rail">
+            {[
+              { id: 'all', label: t('common.all'), count: matching.length },
+              ...categories.map((entry) => ({
+                id: entry.id,
+                label: categoryLabel({ category: entry.id, categoryText: entry.text }, t),
+                count: entry.count,
+              })),
+            ].map((chip) => (
+              <button
+                key={chip.id}
+                type="button"
+                className="s-chip s-node-cat"
+                aria-pressed={activeCategory === chip.id}
+                onClick={() => browse(() => setCategory(chip.id))}
+              >
+                {chip.label} <span className="s-node-cat-count">{chip.count}</span>
+              </button>
+            ))}
+          </div>
         )}
-      </header>
-      {loading && (
-        <div className="empty" role="status">
-          <h3>Loading markets…</h3>
-          <p>Connecting to this node and checking its release.</p>
-        </div>
+      </div>
+      {summaries.error && summaryCache.size === 0 && (
+        <p className="s-small s-muted">{t('node.pricesUnavailable')}</p>
       )}
-      {error && (
-        <div className="notice error" role="alert">
-          <h3>{resolved ? 'Market updates are unavailable' : 'Unable to load markets'}</h3>
-          <p>{error}</p>
-          <button className="secondary" onClick={() => setAttempt((value) => value + 1)}>
-            Try again
-          </button>
-        </div>
-      )}
-      {!loading && resolved && (
-        <>
-          {(selected || (creating && props.features?.create)) && (
-            <button className="secondary back" onClick={back}>
-              ← All markets
+      {shown.length ? (
+        <ul className="s-node-list">
+          {shown.map((entry) => (
+            <li key={entry.item.key}>
+              <SoothMarketCard
+                entry={entry}
+                summary={summaryCache.get(entry.item.address.toLowerCase())}
+                summaryLoading={summaries.loading}
+                strings={strings}
+                now={now}
+                onOpen={(outcome) => openMarket(entry, outcome)}
+              />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="s-node-empty">
+          <h2>{emptyTitle}</h2>
+          <p className="s-muted">{emptyBody}</p>
+          {query && (
+            <button
+              type="button"
+              className="s-btn s-btn-secondary s-btn-sm"
+              onClick={() => browse(() => setQuery(''))}
+            >
+              {t('node.clearSearch')}
             </button>
           )}
-          {creating && props.features?.create ? (
-            <SoothCreateMarket
-              node={resolved}
-              wallet={props.wallet}
-              onCancel={back}
-              onWalletUnavailable={props.onCreationWalletUnavailable}
-              onEvent={props.onEvent}
-              onCreated={(address) => {
-                setCreated(factoryAddress(address));
-                setSelected(factoryAddress(address));
-                setCreating(false);
-                setRequestedVenue('amm');
-              }}
-            />
-          ) : selected ? (
-            <>
-              {market ? (
+        </div>
+      )}
+      {sorted.length > shown.length && (
+        <div className="s-node-more">
+          <span className="s-small s-muted">
+            {t('node.showing', { shown: shown.length, total: sorted.length })}
+          </span>
+          <button
+            type="button"
+            className="s-btn s-btn-secondary"
+            onClick={() => setLimit((value) => value + PAGE_SIZE)}
+          >
+            {t('common.showMore')}
+          </button>
+        </div>
+      )}
+      <p className="s-node-foot">
+        {[
+          t('node.provenance'),
+          catalog?.indexed
+            ? t('node.provenanceBlock', { block: catalog.indexed.blockNumber.toLocaleString() })
+            : null,
+          catalog?.facts.source === 'last-known-good' ? t('node.provenanceStale') : null,
+          t('node.provenanceLive'),
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+      </p>
+    </>
+  );
+
+  const body = (
+    <section
+      className="sooth-root s-node"
+      data-theme={props.theme ?? 'auto'}
+      style={soothRootStyle(props.appearance)}
+      aria-labelledby={`${id}-title`}
+    >
+      <div className="s-page">
+        <header className="s-node-head">
+          <div className="s-node-title">
+            <span className="s-label">
+              {t('node.title')}
+              {listView && entries.length > 0
+                ? ` · ${t('node.marketCount', { count: entries.length })}`
+                : ''}
+            </span>
+            <h1 id={`${id}-title`}>{resolved?.node.metadata.label || t('node.explore')}</h1>
+            {resolved?.node.metadata.description && listView && (
+              <Disclosure summary={t('node.about')}>
+                <p className="s-small s-muted">{resolved.node.metadata.description}</p>
+              </Disclosure>
+            )}
+          </div>
+          <div className="s-node-actions">
+            {listView && props.features?.create && (
+              <button
+                type="button"
+                className="s-btn s-btn-primary s-btn-sm"
+                onClick={() => setCreating(true)}
+              >
+                {t('node.createMarket')}
+              </button>
+            )}
+            {presentation !== 'panel' && (
+              <button
+                type="button"
+                className="s-icon-btn"
+                aria-label={t('node.closeMarkets')}
+                onClick={requestClose}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                  <path
+                    d="M3.5 3.5l9 9m0-9l-9 9"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
+        </header>
+        {loading && (
+          <div className="s-node-list" role="status">
+            <span className="s-visually-hidden">{t('node.loadingMarkets')}</span>
+            <Skeleton className="s-node-skeleton" height={188} />
+            <Skeleton className="s-node-skeleton" height={188} />
+            <Skeleton className="s-node-skeleton" height={188} />
+          </div>
+        )}
+        {error && (
+          <Notice
+            tone="error"
+            title={resolved ? t('market.updatesUnavailable') : t('node.loadFailed')}
+            action={
+              <button
+                type="button"
+                className="s-btn s-btn-secondary s-btn-sm"
+                onClick={() => setAttempt((value) => value + 1)}
+              >
+                {t('common.retry')}
+              </button>
+            }
+          >
+            <p>{error}</p>
+          </Notice>
+        )}
+        {!loading && resolved && (
+          <>
+            {(selected || creatingView) && (
+              <button
+                type="button"
+                className="s-btn s-btn-ghost s-btn-sm s-node-back"
+                onClick={back}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                  <path
+                    d="M10 3.5L5.5 8l4.5 4.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                {t('node.allMarkets')}
+              </button>
+            )}
+            {creatingView ? (
+              <SoothCreateMarket
+                node={resolved}
+                wallet={props.wallet}
+                theme={props.theme}
+                appearance={props.appearance}
+                locale={props.locale}
+                onCancel={back}
+                onWalletUnavailable={props.onCreationWalletUnavailable}
+                onEvent={props.onEvent}
+                onCreated={(address) => {
+                  setCreated(factoryAddress(address));
+                  setSelected(factoryAddress(address));
+                  setCreating(false);
+                  setRequestedVenue('amm');
+                  setCardIntent(undefined);
+                }}
+              />
+            ) : selected ? (
+              market ? (
                 <>
                   {props.features?.clob && (
-                    <div className="tabs venue" aria-label="Trading venue">
-                      <button
-                        className="secondary"
-                        aria-pressed={venue === 'amm'}
-                        onClick={() => setRequestedVenue('amm')}
-                      >
-                        AMM
-                      </button>
-                      <button
-                        className="secondary"
-                        aria-pressed={venue === 'book'}
-                        onClick={() => setRequestedVenue('book')}
-                      >
-                        Order book
-                      </button>
-                    </div>
+                    <Segmented
+                      label={t('market.tradingVenue')}
+                      size="sm"
+                      value={venue}
+                      onChange={setRequestedVenue}
+                      options={[
+                        { value: 'amm', label: t('common.amm') },
+                        { value: 'book', label: t('common.book') },
+                      ]}
+                    />
                   )}
                   <SoothMarket
                     market={market}
@@ -370,145 +687,40 @@ function NodeExperience(props: SoothNodeProps) {
                     wallet={props.wallet}
                     theme={props.theme}
                     appearance={props.appearance}
+                    locale={props.locale}
                     onEvent={props.onEvent}
                     initialIntent={
-                      props.initialMarket?.toLowerCase() === market.market.toLowerCase()
-                        ? props.initialIntent
-                        : undefined
+                      cardIntent?.market.toLowerCase() === market.market.toLowerCase()
+                        ? cardIntent.intent
+                        : props.initialMarket?.toLowerCase() === market.market.toLowerCase()
+                          ? props.initialIntent
+                          : undefined
                     }
                     onWalletUnavailable={(intent) => props.onWalletUnavailable?.(intent, market)}
                   />
                 </>
               ) : (
-                <div className="empty" role="status">
-                  <h3>{created ? 'Your market is created' : 'Market unavailable in this node'}</h3>
-                  <p>
-                    {created
-                      ? 'The transaction is confirmed. Waiting for the catalog to index your market; it will open here automatically.'
-                      : 'This address is not in the configured node catalog. Browse the available markets or refresh the catalog.'}
+                <div className="s-node-empty" role="status">
+                  <h2>{created ? t('create.createdTitle') : t('market.unavailable')}</h2>
+                  <p className="s-muted">
+                    {created ? t('create.indexing') : t('node.notInCatalog')}
                   </p>
-                  <p className="address">{selected}</p>
-                  <button className="secondary" onClick={() => setAttempt((value) => value + 1)}>
-                    Refresh catalog
-                  </button>
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              <div className="toolbar">
-                <div className="search">
-                  <label htmlFor={`${id}-search`}>Find a market</label>
-                  <input
-                    id={`${id}-search`}
-                    type="search"
-                    placeholder="Search questions"
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                  />
-                </div>
-                {props.features?.create && (
-                  <button onClick={() => setCreating(true)}>Create market</button>
-                )}
-              </div>
-              <div className="tabs" aria-label="Market status">
-                {(['open', 'resolved', 'all'] as const).map((value) => (
+                  <p className="s-num s-small">{selected}</p>
                   <button
-                    key={value}
-                    className="secondary"
-                    aria-pressed={filter === value}
-                    onClick={() => setFilter(value)}
+                    type="button"
+                    className="s-btn s-btn-secondary s-btn-sm"
+                    onClick={() => setAttempt((value) => value + 1)}
                   >
-                    {value === 'open' ? 'Open' : value === 'resolved' ? 'Resolved' : 'All'}
+                    {t('node.refreshCatalog')}
                   </button>
-                ))}
-              </div>
-              {visible.length ? (
-                <ul className="cards">
-                  {visible.map((item) => {
-                    const question = parseSQFSafe(item.question).question || item.question;
-                    const settled = item.state.phase === 'settled';
-                    const outcome =
-                      settled && item.state.outcome !== null
-                        ? item.state.outcome === 1
-                          ? 'YES won'
-                          : item.state.outcome === 0
-                            ? 'NO won'
-                            : 'Invalid result'
-                        : null;
-                    const deadline = Number(item.deadline) * 1_000;
-                    return (
-                      <li key={item.key}>
-                        <button
-                          className="card"
-                          onClick={() => {
-                            setSelected(item.address);
-                            setRequestedVenue(soothNodeVenue(props.features, props.initialVenue));
-                          }}
-                        >
-                          <span className="status">
-                            {settled
-                              ? 'Resolved'
-                              : item.tradingOpen
-                                ? 'Open'
-                                : item.state.phase === 'live'
-                                  ? 'Closed'
-                                  : 'Resolving'}
-                          </span>
-                          <h3>{question}</h3>
-                          <div className={outcome ? 'outcome' : 'muted'}>
-                            {outcome || 'Open market to see live probability'}
-                          </div>
-                          <div className="meta">
-                            <span title={item.tokenA}>
-                              Collateral {item.tokenA.slice(0, 6)}…{item.tokenA.slice(-4)}
-                            </span>
-                            {Number.isFinite(deadline) && deadline > 0 && (
-                              <span>{new Date(deadline).toLocaleDateString()}</span>
-                            )}
-                          </div>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <div className="empty">
-                  <h3>
-                    {query
-                      ? 'No matching markets'
-                      : filter === 'resolved'
-                        ? 'No resolved markets yet'
-                        : filter === 'open'
-                          ? 'No open markets right now'
-                          : 'No markets yet'}
-                  </h3>
-                  <p>
-                    {query
-                      ? 'Try another question or clear your search.'
-                      : filter !== 'all'
-                        ? 'Choose All to browse the full catalog.'
-                        : props.features?.create
-                          ? 'Create the first market for this node.'
-                          : 'Markets will appear here when they are listed.'}
-                  </p>
-                  {query && (
-                    <button className="secondary" onClick={() => setQuery('')}>
-                      Clear search
-                    </button>
-                  )}
                 </div>
-              )}
-              <p className="muted provenance">
-                Catalog snapshot
-                {catalog?.indexed ? ` · block ${catalog.indexed.blockNumber.toLocaleString()}` : ''}
-                {catalog?.facts.source === 'last-known-good' ? ' · last available data' : ''}.
-                Prices and trading availability are verified live when you open a market.
-              </p>
-            </>
-          )}
-        </>
-      )}
+              )
+            ) : (
+              list
+            )}
+          </>
+        )}
+      </div>
     </section>
   );
   return presentation === 'panel' ? (

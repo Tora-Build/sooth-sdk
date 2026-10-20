@@ -78,3 +78,34 @@ export {
   type SoothHostEvent,
   type SoothEmbedMessage,
 } from './embed.js';
+export {
+  readSoothPriceHistory,
+  readSoothDepth,
+  quoteSoothTrade,
+  readSoothLiquidity,
+  planSoothAddLiquidity,
+  readSoothNodeMarkets,
+  readSoothMarketSummary,
+  type SoothChartInterval,
+  type SoothPricePoint,
+  type SoothPriceHistory,
+  type SoothDepth,
+  type SoothDepthLevel,
+  type SoothLiveQuote,
+  type SoothLiquidity,
+  type SoothLiquidityReceipt,
+  type SoothLiquidityClaim,
+  type SoothLiquidityPreview,
+  type SoothLpEntitlements,
+  type SoothMarketSummary,
+} from './data.js';
+export {
+  useSoothPriceHistory,
+  useSoothDepth,
+  useSoothLiveQuote,
+  useSoothLiquidity,
+  useSoothNodeMarkets,
+  useSoothMarketSummary,
+  type SoothDataState,
+} from './dataHooks.js';
+export type { SoothLocale } from './ui/i18n.js';

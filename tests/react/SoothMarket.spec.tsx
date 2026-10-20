@@ -1,10 +1,16 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { act, cleanup, fireEvent, render, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, within, type BoundFunctions, type queries } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Address, Hex } from 'viem';
 import { SoothMarket } from '../../src/react/SoothMarket.js';
 import { useSoothMarket, useSoothTransactionRecovery, useSoothWallet } from '../../src/react/hooks.js';
+import {
+  useSoothDepth, useSoothLiquidity, useSoothLiveQuote, useSoothMarketSummary, useSoothPriceHistory,
+} from '../../src/react/dataHooks.js';
+import {
+  planSoothAddLiquidity, type SoothLiquidity, type SoothLiquidityPreview, type SoothLiveQuote,
+} from '../../src/react/data.js';
 import { formatSoothMarketReference } from '../../src/react/embed.js';
 import type { SoothMarketData, SoothResolvedMarket } from '../../src/react/runtime.js';
 import { planSoothTrade, sendSoothAction, type SoothTradePreview } from '../../src/react/trading.js';
@@ -18,6 +24,16 @@ vi.mock('../../src/react/hooks.js', () => ({
 vi.mock('../../src/react/trading.js', () => ({
   planSoothTrade: vi.fn(),
   sendSoothAction: vi.fn(),
+}));
+vi.mock('../../src/react/dataHooks.js', () => ({
+  useSoothPriceHistory: vi.fn(),
+  useSoothDepth: vi.fn(),
+  useSoothLiveQuote: vi.fn(),
+  useSoothLiquidity: vi.fn(),
+  useSoothMarketSummary: vi.fn(),
+}));
+vi.mock('../../src/react/data.js', () => ({
+  planSoothAddLiquidity: vi.fn(),
 }));
 
 const address = (n: number) => `0x${n.toString(16).padStart(40, '0')}` as Address;
@@ -33,6 +49,7 @@ const resolved = {
   question: 'Will the proposal pass?',
   rules: 'Resolves YES if the proposal passes before the deadline.',
   canonicalUrl: 'https://example.test/market',
+  record: { question: 'Will the proposal pass?' },
 } as SoothResolvedMarket;
 const wallet: SoothWalletAdapter = {
   connect: vi.fn(), getSession: vi.fn(), switchChain: vi.fn(), sendTransaction: vi.fn(),
@@ -103,6 +120,8 @@ beforeEach(() => {
   vi.mocked(useSoothTransactionRecovery).mockReturnValue({
     pending: [], events: [], error: null, result: null, addPending: vi.fn(),
   });
+  for (const hook of [useSoothPriceHistory, useSoothDepth, useSoothLiveQuote, useSoothLiquidity, useSoothMarketSummary])
+    vi.mocked(hook).mockReturnValue(idle());
   vi.mocked(sendSoothAction).mockResolvedValue({
     version: 1, market: formatSoothMarketReference(resolved.reference), account,
     chainId: resolved.reference.chainId, hash: hash(3), to: data.token.address,
@@ -110,6 +129,15 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+
+function idle() {
+  return { data: null, error: null, loading: false, refresh: vi.fn() };
+}
+
+/** Error notices carry a decorative icon; compare the announced message only. */
+function alertText(ui: BoundFunctions<typeof queries>) {
+  return ui.getByRole('alert').querySelector('.s-notice-body')?.textContent;
+}
 
 const changedMessage = 'The approval amount or reset step changed. Review the updated authorization and confirm again.';
 
@@ -120,17 +148,17 @@ describe('SoothMarket embedded ticket', () => {
     expect(ui.getByRole('heading', { name: resolved.question })).toBeTruthy();
     expect(ui.getByText('Live AMM probability')).toBeTruthy();
     expect(ui.getByText('62.5%')).toBeTruthy();
-    expect(ui.getByRole('button', { name: 'YES', pressed: true })).toBeTruthy();
-    await click(ui.getByRole('button', { name: 'NO' }));
-    await click(ui.getByRole('button', { name: 'Sell' }));
-    expect(ui.getByRole('button', { name: 'NO', pressed: true })).toBeTruthy();
-    expect(ui.getByRole('button', { name: 'Sell', pressed: true })).toBeTruthy();
+    expect(ui.getByRole('radio', { name: 'YES', checked: true })).toBeTruthy();
+    await click(ui.getByRole('radio', { name: 'NO' }));
+    await click(ui.getByRole('radio', { name: 'Sell' }));
+    expect(ui.getByRole('radio', { name: 'NO', checked: true })).toBeTruthy();
+    expect(ui.getByRole('radio', { name: 'Sell', checked: true })).toBeTruthy();
     await click(ui.getByRole('button', { name: 'Review sell' }));
     expect(planSoothTrade).toHaveBeenCalledWith(resolved, account, {
       ...props.initialIntent, side: 'sell', outcome: 0,
     });
-    expect(ui.getByText('Market and wallet details').closest('details')?.open).toBe(false);
-    expect(ui.getByText('Resolution rules').closest('details')?.open).toBe(false);
+    expect(ui.getByRole('button', { name: 'Market and wallet details' }).getAttribute('aria-expanded')).toBe('false');
+    expect(ui.getByRole('button', { name: 'Resolution rules' }).getAttribute('aria-expanded')).toBe('false');
   });
 
   it('does not invent a probability when the live price is unavailable', () => {
@@ -264,7 +292,7 @@ describe('SoothMarket approval review in shadow DOM', () => {
 
     await click(ui.getByRole('button', { name: 'Approve exact amount' }));
     expect(sendSoothAction).not.toHaveBeenCalled();
-    expect(ui.getByRole('alert').textContent).toBe(changedMessage);
+    expect(alertText(ui)).toBe(changedMessage);
     expect(ui.getByText(/Authorize only/).textContent).toMatch(/\b6\.250*\s+TEST\b/);
     expect(ui.getByText(/Authorize only/).textContent).not.toMatch(/\b5(?:\.0+)?\s+TEST\b/);
 
@@ -291,10 +319,10 @@ describe('SoothMarket approval review in shadow DOM', () => {
     await click(ui.getByRole('button', { name: 'Review buy' }));
     await click(ui.getByRole('button', { name: first }));
     expect(sendSoothAction).not.toHaveBeenCalled();
-    expect(ui.getByRole('alert').textContent).toBe(changedMessage);
+    expect(alertText(ui)).toBe(changedMessage);
     expect(ui.getByText(/Authorize only/).textContent).toMatch(/\b5(?:\.0+)?\s+TEST\b/);
     expect(ui.queryByRole('button', { name: first })).toBeNull();
-    expect(Boolean(ui.queryByText(/existing allowance must first be reset to zero/))).toBe(to > 0n);
+    expect(Boolean(ui.queryByText(/Reset the existing insufficient allowance to zero first/))).toBe(to > 0n);
 
     await click(ui.getByRole('button', { name: next }));
     expect(planSoothTrade).toHaveBeenCalledTimes(3);
@@ -347,7 +375,7 @@ describe('SoothMarket trade confirmation', () => {
     await act(async () => { resolvePlan(reviewed); });
 
     expect(sendSoothAction).not.toHaveBeenCalled();
-    expect(ui.getByRole('alert').textContent).toBe('Trade inputs changed. Review the trade again before signing.');
+    expect(alertText(ui)).toBe('Trade inputs changed. Review the trade again before signing.');
     expect((ui.getByRole('textbox', { name: 'Shares' }) as HTMLInputElement).value).toBe('20');
     expect(ui.queryByRole('button', { name: 'Confirm buy' })).toBeNull();
     expect((ui.getByRole('button', { name: 'Review buy' }) as HTMLButtonElement).disabled).toBe(false);
@@ -432,7 +460,7 @@ describe('SoothMarket settled position eligibility', () => {
     };
     marketState = { ...marketState, resolved: selected, data: settledData(venue, yes, no) };
     const { ui, rerender } = renderMarket(selected.reference);
-    const name = `Claim settled ${venue} position`;
+    const name = venue === 'amm' ? 'Claim settled AMM position' : 'Claim settled order book position';
     const claim = ui.getByRole('button', { name });
     expect((claim as HTMLButtonElement).disabled).toBe(false);
 
@@ -469,7 +497,7 @@ describe('SoothMarket settled position eligibility', () => {
     marketState = { ...marketState, resolved: book, data: bookData };
     const { ui } = renderMarket(book.reference);
 
-    expect(ui.queryByRole('button', { name: 'Claim settled book position' })).toBeNull();
+    expect(ui.queryByRole('button', { name: 'Claim settled order book position' })).toBeNull();
     expect(sendSoothAction).not.toHaveBeenCalled();
     const claimDeferred = ui.queryByRole('button', { name: 'Claim deferred collateral' });
     expect(claimDeferred !== null).toBe(deferred > 0n);
@@ -480,7 +508,224 @@ describe('SoothMarket settled position eligibility', () => {
       expect(sendSoothAction).toHaveBeenCalledWith(book, expect.objectContaining({ sendTransaction: expect.any(Function) }), account, {
         kind: 'claimDeferred',
       }, expect.any(Function));
-      expect(ui.queryByRole('button', { name: 'Claim settled book position' })).toBeNull();
+      expect(ui.queryByRole('button', { name: 'Claim settled order book position' })).toBeNull();
     }
+  });
+});
+
+const bookMarket: SoothResolvedMarket = { ...resolved, reference: { ...resolved.reference, venue: 'book' } };
+
+function bookData(account: Partial<NonNullable<SoothMarketData['account']>> = {}): SoothMarketData {
+  return {
+    ...data,
+    snapshot: { ...data.snapshot, shareUnit: 10n ** 18n, bookFeeBps: 50 } as SoothMarketData['snapshot'],
+    account: {
+      ...data.account!,
+      positions: undefined,
+      inventory: {
+        blockNumber: 10n, account, bookToken: data.token.address, bookTokenDecimals: 6,
+        shareUnit: 10n ** 18n, yesOwned: 0n, noOwned: 0n, yesReserved: 0n,
+        noReserved: 0n, cashReserved: 0n, balance: 100_000_000n, allowance: 0n,
+      },
+      entitlements: { ...data.account!.entitlements, floorWad: null, bookTimeoutRefundNative: 0n, bookDeferredNative: 0n },
+      ...account,
+    },
+  };
+}
+
+function liveQuote(overrides: Partial<SoothLiveQuote> = {}): SoothLiveQuote {
+  return {
+    side: 'buy', outcome: 1, shares: 10n ** 19n, amountNative: 6_100_000n, feeNative: 61_000n,
+    averagePrice: 0.6, priceBefore: 0.625, priceAfter: 0.64, priceImpact: 0.015, blockNumber: 10n,
+    ...overrides,
+  };
+}
+
+describe('SoothMarket live quote', () => {
+  it('shows the display quote before review and signs only the freshly planned trade', async () => {
+    vi.mocked(useSoothLiveQuote).mockReturnValue({ ...idle(), data: liveQuote() });
+    const reviewed = { ...preview(5_000_000n, 5_000_000n), approveNative: null };
+    vi.mocked(planSoothTrade).mockResolvedValue(reviewed);
+    const { ui } = renderMarket();
+
+    const quote = ui.getByRole('region', { name: 'Live quote' });
+    expect(within(quote).getByText('You pay')).toBeTruthy();
+    expect(quote.textContent).toMatch(/6\.1000 TEST/);
+    expect(quote.textContent).toMatch(/62\.5% → 64\.0%/);
+    expect(useSoothLiveQuote).toHaveBeenLastCalledWith(resolved, props.initialIntent);
+    expect(planSoothTrade).not.toHaveBeenCalled();
+    expect(sendSoothAction).not.toHaveBeenCalled();
+
+    await click(ui.getByRole('button', { name: 'Review buy' }));
+    expect(ui.queryByRole('region', { name: 'Live quote' })).toBeNull();
+    await click(ui.getByRole('button', { name: 'Confirm buy' }));
+    expect(planSoothTrade).toHaveBeenCalledTimes(2);
+    expect(planSoothTrade).toHaveBeenLastCalledWith(resolved, account, props.initialIntent);
+    expect(sendSoothAction).toHaveBeenCalledTimes(1);
+    expect(sendSoothAction).toHaveBeenCalledWith(resolved, expect.objectContaining({ sendTransaction: expect.any(Function) }), account,
+      reviewed.action, expect.any(Function));
+  });
+
+  it('does not request a quote for shares the trade planner would reject', () => {
+    const { ui } = renderMarket();
+    fireEvent.change(ui.getByRole('textbox', { name: 'Shares' }), { target: { value: '1.2.3' } });
+    expect(useSoothLiveQuote).toHaveBeenLastCalledWith(resolved, null);
+    expect(ui.queryByRole('region', { name: 'Live quote' })).toBeNull();
+  });
+
+  it.each([
+    { priceImpact: 0.019, level: 'none' },
+    { priceImpact: 0.021, level: 'warn' },
+    { priceImpact: 0.05, level: 'warn' },
+    { priceImpact: 0.051, level: 'high' },
+    { priceImpact: -0.06, level: 'high' },
+  ])('warns for a $priceImpact price impact at level $level', ({ priceImpact, level }) => {
+    vi.mocked(useSoothLiveQuote).mockReturnValue({ ...idle(), data: liveQuote({ priceImpact }) });
+    const { ui } = renderMarket();
+    const warn = ui.queryByText('Price impact above 2%. Consider trading in smaller sizes.');
+    const high = ui.queryByText('High impact! Price moves more than 5% on this trade.');
+    expect(warn !== null).toBe(level === 'warn');
+    expect(high !== null).toBe(level === 'high');
+    if (level === 'high') expect(high!.closest('[role="alert"]')).not.toBeNull();
+  });
+});
+
+describe('SoothMarket sell presets', () => {
+  it('sets MAX to the owned AMM shares of the selected outcome and offers it only for sells', async () => {
+    data.account!.positions!.positions[0] = { ...data.account!.positions!.positions[0]!, yes: 12_500_000_000_000_000_000n, no: 3n * 10n ** 18n };
+    vi.mocked(planSoothTrade).mockResolvedValue(preview(5_000_000n));
+    const { ui } = renderMarket();
+    expect(ui.queryByRole('button', { name: 'Max' })).toBeNull();
+    await click(ui.getByRole('radio', { name: 'Sell' }));
+    await click(ui.getByRole('button', { name: 'Max' }));
+    expect((ui.getByRole('textbox', { name: 'Shares' }) as HTMLInputElement).value).toBe('12.5');
+    await click(ui.getByRole('radio', { name: 'NO' }));
+    await click(ui.getByRole('button', { name: 'Max' }));
+    expect((ui.getByRole('textbox', { name: 'Shares' }) as HTMLInputElement).value).toBe('3');
+    await click(ui.getByRole('button', { name: 'Review sell' }));
+    expect(planSoothTrade).toHaveBeenCalledWith(resolved, account, { side: 'sell', outcome: 0, shares: '3', price: '50' });
+  });
+
+  it('limits book MAX to unreserved whole share units', async () => {
+    const book = bookData();
+    book.account!.inventory = { ...book.account!.inventory!, yesOwned: 30_500_000_000_000_000_000n, yesReserved: 10n ** 19n };
+    marketState = { ...marketState, resolved: bookMarket, data: book };
+    const { ui } = renderMarket(bookMarket.reference);
+    await click(ui.getByRole('radio', { name: 'Sell' }));
+    await click(ui.getByRole('button', { name: 'Max' }));
+    expect((ui.getByRole('textbox', { name: 'Shares' }) as HTMLInputElement).value).toBe('20');
+  });
+});
+
+describe('SoothMarket open orders', () => {
+  it('shows partial order discovery as an error, never as an empty list', async () => {
+    marketState = { ...marketState, resolved: bookMarket, data: bookData({ ordersError: 'log range too large' }) };
+    const { ui } = renderMarket(bookMarket.reference);
+    await click(ui.getByRole('tab', { name: 'Orders' }));
+    expect(alertText(ui)).toContain('Open-order discovery is incomplete: log range too large');
+    expect(ui.queryByText('No open orders.')).toBeNull();
+    await click(ui.getByRole('button', { name: 'Retry orders' }));
+    expect(marketState.refresh).toHaveBeenCalledOnce();
+  });
+
+  it('lists open orders at their outcome price and cancels exactly the selected order', async () => {
+    const order = {
+      orderId: 7n, market: resolved.reference.market, maker: account, action: 0, outcome: 0,
+      yesTick: 400, amount: 5n * 10n ** 18n, expiry: 1_900_000_000n, cashReserved: 3_000_000n,
+    };
+    marketState = {
+      ...marketState, resolved: bookMarket,
+      data: bookData({ orders: { blockNumber: 10n, orders: [order], complete: true } }),
+    };
+    const { ui } = renderMarket(bookMarket.reference);
+    await click(ui.getByRole('tab', { name: 'Orders (1)' }));
+    expect(ui.getByText('60.0¢')).toBeTruthy();
+    await click(ui.getByRole('button', { name: 'Cancel order #7' }));
+    expect(sendSoothAction).toHaveBeenCalledWith(bookMarket, expect.objectContaining({ sendTransaction: expect.any(Function) }), account, {
+      kind: 'cancelOrder', orderId: 7n,
+    }, expect.any(Function));
+  });
+});
+
+describe('SoothMarket liquidity deposits', () => {
+  const lpToken = { address: address(7), decimals: 6, symbol: 'LPT' };
+  function liquidity(): SoothLiquidity {
+    return {
+      blockNumber: 10n, token: lpToken, liquidityOpen: true, settled: false, receipts: [], claims: [],
+      entitlements: {} as SoothLiquidity['entitlements'],
+    };
+  }
+  function lpPreview(approveNative: bigint | null, allowance = 0n): SoothLiquidityPreview {
+    return {
+      action: {
+        kind: 'increaseLiquidity', additionalB: 10n ** 20n,
+        limits: { maxTokenIn: 25_000_000n } as SoothLiquidityPreview['action']['limits'],
+      },
+      approveNative, approvalVenue: 'amm', allowance, requiredNative: 25_000_000n,
+      quotedNative: 24_900_000n, receiptUnits: 10n ** 20n, feeBps: 0, data,
+      description: 'Add 24.9 LPT of AMM liquidity at the current price.',
+    };
+  }
+  async function openDeposit(ui: BoundFunctions<typeof queries>) {
+    await click(ui.getByRole('tab', { name: 'Liquidity' }));
+    fireEvent.change(ui.getByRole('textbox', { name: 'Deposit amount' }), { target: { value: '25' } });
+    await click(ui.getByRole('button', { name: 'Review deposit' }));
+    expect(planSoothAddLiquidity).toHaveBeenLastCalledWith(bookMarket, account, 25_000_000n);
+  }
+
+  it.each([
+    { allowance: 0n, button: 'Approve exact amount', amount: 25_000_000n },
+    { allowance: 1_000_000n, button: 'Reset allowance to zero', amount: 0n },
+  ])('approves the AMM spender from a book market: $button', async ({ allowance, button, amount }) => {
+    vi.mocked(useSoothLiquidity).mockReturnValue({ ...idle(), data: liquidity() });
+    vi.mocked(planSoothAddLiquidity).mockResolvedValue(lpPreview(25_000_000n, allowance));
+    marketState = { ...marketState, resolved: bookMarket, data: bookData() };
+    const { ui } = renderMarket(bookMarket.reference);
+    await openDeposit(ui);
+    expect(ui.getByText(/Authorize only 25 LPT for the verified AMM spender/)).toBeTruthy();
+    expect(sendSoothAction).not.toHaveBeenCalled();
+
+    await click(ui.getByRole('button', { name: button }));
+    expect(planSoothAddLiquidity).toHaveBeenCalledTimes(2);
+    expect(sendSoothAction).toHaveBeenCalledTimes(1);
+    expect(sendSoothAction).toHaveBeenCalledWith(bookMarket, expect.objectContaining({ sendTransaction: expect.any(Function) }), account, {
+      kind: 'approve', venue: 'amm', amountNative: amount,
+    }, expect.any(Function));
+  });
+
+  it('requires reconfirmation when the re-planned approval changes', async () => {
+    vi.mocked(useSoothLiquidity).mockReturnValue({ ...idle(), data: liquidity() });
+    vi.mocked(planSoothAddLiquidity)
+      .mockResolvedValueOnce(lpPreview(25_000_000n))
+      .mockResolvedValueOnce(lpPreview(25_000_000n, 1_000_000n));
+    marketState = { ...marketState, resolved: bookMarket, data: bookData() };
+    const { ui } = renderMarket(bookMarket.reference);
+    await openDeposit(ui);
+    await click(ui.getByRole('button', { name: 'Approve exact amount' }));
+    expect(sendSoothAction).not.toHaveBeenCalled();
+    expect(alertText(ui)).toBe(changedMessage);
+    expect(ui.getByRole('button', { name: 'Reset allowance to zero' })).toBeTruthy();
+  });
+
+  it('signs the re-planned deposit only when it matches the review', async () => {
+    vi.mocked(useSoothLiquidity).mockReturnValue({ ...idle(), data: liquidity() });
+    const reviewed = lpPreview(null);
+    const moved = { ...lpPreview(null), quotedNative: 24_950_000n };
+    vi.mocked(planSoothAddLiquidity)
+      .mockResolvedValueOnce(reviewed)
+      .mockResolvedValueOnce(moved)
+      .mockResolvedValueOnce(moved);
+    marketState = { ...marketState, resolved: bookMarket, data: bookData() };
+    const { ui } = renderMarket(bookMarket.reference);
+    await openDeposit(ui);
+    await click(ui.getByRole('button', { name: 'Confirm deposit' }));
+    expect(sendSoothAction).not.toHaveBeenCalled();
+    expect(alertText(ui)).toBe('The quote changed. Review the updated bounds and confirm again.');
+
+    await click(ui.getByRole('button', { name: 'Confirm deposit' }));
+    expect(planSoothAddLiquidity).toHaveBeenCalledTimes(3);
+    expect(sendSoothAction).toHaveBeenCalledTimes(1);
+    expect(sendSoothAction).toHaveBeenCalledWith(bookMarket, expect.objectContaining({ sendTransaction: expect.any(Function) }), account,
+      moved.action, expect.any(Function));
   });
 });

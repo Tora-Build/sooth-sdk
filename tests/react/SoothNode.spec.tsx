@@ -9,7 +9,9 @@ import type { SoothResolvedNode, SoothRuntime } from '../../src/react/runtime.js
 import type { FactoryCatalogMarket } from '../../src/factory/schema.js';
 import type { SoothMarketProps } from '../../src/react/SoothMarket.js';
 import type { SoothCreateMarketProps } from '../../src/react/SoothCreateMarket.js';
+import { readSoothNodeMarkets, type SoothMarketSummary } from '../../src/react/data.js';
 
+vi.mock('../../src/react/data.js', () => ({ readSoothNodeMarkets: vi.fn() }));
 const children = vi.hoisted(() => ({ market: vi.fn(), create: vi.fn() }));
 vi.mock('../../src/react/SoothMarket.js', () => ({ SoothMarket: (props: SoothMarketProps) => {
   children.market(props);
@@ -22,16 +24,24 @@ vi.mock('../../src/react/SoothCreateMarket.js', () => ({ SoothCreateMarket: (pro
 const address = (digit: string) => `0x${digit.repeat(40)}` as Address;
 const hash = (digit: string) => `0x${digit.repeat(64)}` as Hash;
 const reference = { chainId: 46630, factory: address('1'), nodeId: hash('2'), releaseId: hash('3') };
-function market(digit: string, question: string, settled = false): FactoryCatalogMarket {
+function market(digit: string, question: string, settled = false, options: { at?: Address; deadline?: number; block?: number } = {}): FactoryCatalogMarket {
+  const at = options.at ?? address(digit);
   return {
-    key: digit, address: address(digit), identity: reference, question, tokenA: address('8'),
-    deadline: '2000000000', tradingOpen: !settled,
+    key: at, address: at, identity: reference, question, tokenA: address('8'),
+    deadline: String(options.deadline ?? 2_000_000_000), tradingOpen: !settled,
+    creation: { blockNumber: options.block ?? 1 },
     state: { phase: settled ? 'settled' : 'live', outcome: settled ? 1 : null },
     listing: { state: 'listed' },
   } as FactoryCatalogMarket;
 }
-function fixture() {
-  const catalog = { items: [market('4', 'Will the launch happen?'), market('5', 'Did the vote pass?', true)], facts: { source: 'live', ageSeconds: 0 }, indexed: { blockNumber: 123 } } as SoothResolvedNode['catalog'];
+const numbered = (n: number) => `0x${n.toString(16).padStart(40, '0')}` as Address;
+const sqf = (question: string, category: string) => `§question\n${question}\n§category\n${category}`;
+const summary = (yes: number | null, liquidity: bigint | null = 1_000_000n): SoothMarketSummary => ({
+  yes, tradingOpen: true, deadline: 2_000_000_000n, liquidityNative: liquidity, tokenDecimals: 6, tokenSymbol: 'USDC',
+});
+const cardTitles = (root: ShadowRoot) => [...root.querySelectorAll('.s-node-card h3')].map((node) => node.textContent);
+function fixture(items: FactoryCatalogMarket[] = [market('4', 'Will the launch happen?'), market('5', 'Did the vote pass?', true)]) {
+  const catalog = { items, facts: { source: 'live', ageSeconds: 0 }, indexed: { blockNumber: 123 } } as SoothResolvedNode['catalog'];
   const resolved = {
     reference, context: { ...reference, release: { releaseId: reference.releaseId } },
     node: { node: reference, metadata: { label: 'Community forecasts', description: 'Markets chosen by this community' } },
@@ -40,8 +50,8 @@ function fixture() {
   const runtime: SoothRuntime = { resolveNode: vi.fn().mockResolvedValue(resolved), resolve: vi.fn() };
   return { resolved, runtime };
 }
-async function mount(props: Partial<SoothNodeProps> = {}) {
-  const { runtime, resolved } = fixture();
+async function mount(props: Partial<SoothNodeProps> = {}, items?: FactoryCatalogMarket[]) {
+  const { runtime, resolved } = fixture(items);
   const view = render(<SoothNode node={reference} runtime={runtime} {...props} />);
   const root = view.container.querySelector('[data-sooth-node]')!.shadowRoot!;
   const ui = within(root as unknown as HTMLElement);
@@ -50,6 +60,7 @@ async function mount(props: Partial<SoothNodeProps> = {}) {
 }
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(readSoothNodeMarkets).mockResolvedValue(new Map());
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: vi.fn(function(this: HTMLDialogElement) { this.setAttribute('open', ''); }) });
   Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value: vi.fn(function(this: HTMLDialogElement) { this.removeAttribute('open'); }) });
 });
@@ -65,7 +76,7 @@ describe('SoothNode browsing and scope', () => {
     fireEvent.click(ui.getByRole('button', { name: /Will the launch happen/ }));
     await ui.findByTestId('market-detail');
     expect(children.market.mock.lastCall?.[0].market).toEqual({ ...reference, market: address('4'), venue: 'amm' });
-    expect(ui.queryByRole('button', { name: 'Order book' })).toBeNull();
+    expect(ui.queryByRole('radio', { name: 'Order book' })).toBeNull();
     expect(onMarketChange).toHaveBeenLastCalledWith({ ...reference, market: address('4'), venue: 'amm' });
     fireEvent.click(ui.getByRole('button', { name: /All markets/ }));
     expect((ui.getByRole('searchbox') as HTMLInputElement).value).toBe('launch');
@@ -73,7 +84,7 @@ describe('SoothNode browsing and scope', () => {
   });
   it('filters settled outcomes and handles empty search without losing the catalog', async () => {
     const { ui } = await mount();
-    fireEvent.click(ui.getByRole('button', { name: 'Resolved' }));
+    fireEvent.click(ui.getByRole('radio', { name: 'Resolved' }));
     expect(ui.getByText('YES won')).toBeTruthy();
     expect(ui.queryByText('Will the launch happen?')).toBeNull();
     fireEvent.change(ui.getByRole('searchbox'), { target: { value: 'missing' } });
@@ -84,9 +95,9 @@ describe('SoothNode browsing and scope', () => {
   it('gates creation and CLOB explicitly and falls back when CLOB is disabled', async () => {
     const { ui, rerender, runtime } = await mount({ features: { create: true, clob: true }, initialMarket: address('4'), initialVenue: 'book' });
     expect(children.market.mock.lastCall?.[0].market.venue).toBe('book');
-    fireEvent.click(ui.getByRole('button', { name: 'AMM' }));
+    fireEvent.click(ui.getByRole('radio', { name: 'AMM' }));
     expect(children.market.mock.lastCall?.[0].market.venue).toBe('amm');
-    fireEvent.click(ui.getByRole('button', { name: 'Order book' }));
+    fireEvent.click(ui.getByRole('radio', { name: 'Order book' }));
     rerender(<SoothNode node={reference} runtime={runtime} features={{ create: true }} initialMarket={address('4')} initialVenue="book" />);
     expect(children.market.mock.lastCall?.[0].market.venue).toBe('amm');
     fireEvent.click(ui.getByRole('button', { name: /All markets/ }));
@@ -149,6 +160,96 @@ describe('SoothNode browsing and scope', () => {
     expect(ui.getByRole('heading', { name: 'Your market is created' })).toBeTruthy();
     await ui.findByTestId('market-detail');
     expect(children.market.mock.lastCall?.[0].market.market).toBe(address('9'));
+  });
+});
+
+describe('SoothNode market list', () => {
+  it('derives category chips with counts from SQF and filters within the status and search', async () => {
+    const items = [
+      market('4', sqf('Will the final be played?', 'Sports')),
+      market('5', sqf('Will the derby sell out?', 'sports')),
+      market('6', sqf('Will BTC close above 100k?', 'Crypto')),
+      market('7', 'Will it rain tomorrow?'),
+      market('9', sqf('Was the cup awarded?', 'Sports'), true),
+    ];
+    const { ui, root } = await mount({}, items);
+    const rail = ui.getByRole('group', { name: 'Categories' });
+    expect(within(rail).getAllByRole('button').map((chip) => chip.textContent)).toEqual(['All 4', 'Sports 2', 'Crypto 1', 'Other 1']);
+    expect(cardTitles(root)).toHaveLength(4);
+    fireEvent.click(within(rail).getByRole('button', { name: 'Sports 2' }));
+    expect(cardTitles(root).sort()).toEqual(['Will the derby sell out?', 'Will the final be played?']);
+    expect(within(ui.getByRole('article', { name: 'Will the derby sell out?' })).getByText('Sports')).toBeTruthy();
+    fireEvent.change(ui.getByRole('searchbox'), { target: { value: 'derby' } });
+    expect(within(rail).getByRole('button', { name: 'Sports 1' }).getAttribute('aria-pressed')).toBe('true');
+    expect(cardTitles(root)).toEqual(['Will the derby sell out?']);
+    fireEvent.change(ui.getByRole('searchbox'), { target: { value: '' } });
+    fireEvent.click(ui.getByRole('radio', { name: 'All' }));
+    expect(within(rail).getAllByRole('button').map((chip) => chip.textContent)).toEqual(['All 5', 'Sports 3', 'Crypto 1', 'Other 1']);
+    expect(cardTitles(root)).toHaveLength(3);
+    fireEvent.click(within(rail).getByRole('button', { name: 'Other 1' }));
+    expect(cardTitles(root)).toEqual(['Will it rain tomorrow?']);
+  });
+  it('sorts by closing soon, newest and live liquidity', async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const items = [
+      market('4', 'Closes in a week', false, { deadline: now + 7 * 86_400, block: 30 }),
+      market('5', 'Closes tomorrow', false, { deadline: now + 86_400, block: 10 }),
+      market('6', 'Closes next month', false, { deadline: now + 30 * 86_400, block: 20 }),
+    ];
+    const liquidity = new Map([[address('4'), 5_000_000n], [address('5'), 1_000_000n], [address('6'), 9_000_000n]]);
+    vi.mocked(readSoothNodeMarkets).mockImplementation(async (_node, addresses) =>
+      new Map(addresses.map((at) => [at, summary(0.5, liquidity.get(at)!)])));
+    const { ui, root } = await mount({}, items);
+    expect(cardTitles(root)).toEqual(['Closes tomorrow', 'Closes in a week', 'Closes next month']);
+    await ui.findByText('9.00 USDC');
+    const sort = ui.getByRole('combobox', { name: 'Sort by' });
+    fireEvent.change(sort, { target: { value: 'newest' } });
+    expect(cardTitles(root)).toEqual(['Closes in a week', 'Closes next month', 'Closes tomorrow']);
+    fireEvent.change(sort, { target: { value: 'liquidity' } });
+    expect(cardTitles(root)).toEqual(['Closes next month', 'Closes in a week', 'Closes tomorrow']);
+  });
+  it('opens the market from YES/NO with that outcome preselected and degrades without a summary', async () => {
+    vi.mocked(readSoothNodeMarkets).mockImplementation(async (_node, addresses) =>
+      new Map(addresses.filter((at) => at === address('4')).map((at) => [at, summary(0.62)])));
+    const onMarketChange = vi.fn();
+    const { ui } = await mount({ onMarketChange }, [market('4', 'Will the launch happen?'), market('6', 'Will the bridge open?')]);
+    const card = ui.getByRole('article', { name: 'Will the launch happen?' });
+    await within(card).findByText('62%');
+    expect(within(card).getByRole('button', { name: 'YES 62¢' })).toBeTruthy();
+    fireEvent.click(within(card).getByRole('button', { name: 'NO 38¢' }));
+    await ui.findByTestId('market-detail');
+    expect(children.market.mock.lastCall?.[0].market).toEqual({ ...reference, market: address('4'), venue: 'amm' });
+    expect(children.market.mock.lastCall?.[0].initialIntent).toEqual({ side: 'buy', outcome: 0, shares: '', price: '38' });
+    expect(onMarketChange).toHaveBeenLastCalledWith({ ...reference, market: address('4'), venue: 'amm' });
+
+    fireEvent.click(ui.getByRole('button', { name: /All markets/ }));
+    const other = ui.getByRole('article', { name: 'Will the bridge open?' });
+    await within(other).findByText('Probability unavailable');
+    fireEvent.click(within(other).getByRole('button', { name: 'YES —' }));
+    expect(children.market.mock.lastCall?.[0].market.market).toBe(address('6'));
+    expect(children.market.mock.lastCall?.[0].initialIntent).toEqual({ side: 'buy', outcome: 1, shares: '', price: '50' });
+
+    fireEvent.click(ui.getByRole('button', { name: /All markets/ }));
+    fireEvent.click(ui.getByRole('button', { name: /Will the launch happen/ }));
+    expect(children.market.mock.lastCall?.[0].initialIntent).toBeUndefined();
+  });
+  it('renders 20 cards at a time and reads summaries only for rendered cards', async () => {
+    const items = Array.from({ length: 45 }, (_, index) =>
+      market('0', `Market number ${index + 1}?`, false, { at: numbered(0x100 + index), deadline: 2_000_000_000 + index }));
+    const { ui, root } = await mount({}, items);
+    const requested = () => [...vi.mocked(readSoothNodeMarkets).mock.lastCall![1]].sort();
+    await waitFor(() => expect(readSoothNodeMarkets).toHaveBeenCalled());
+    expect(cardTitles(root)).toHaveLength(20);
+    expect(requested()).toEqual(items.slice(0, 20).map((item) => item.address).sort());
+    expect(ui.getByText('Showing 20 of 45')).toBeTruthy();
+    fireEvent.click(ui.getByRole('button', { name: 'Show more' }));
+    expect(cardTitles(root)).toHaveLength(40);
+    await waitFor(() => expect(requested()).toEqual(items.slice(0, 40).map((item) => item.address).sort()));
+    fireEvent.click(ui.getByRole('button', { name: 'Show more' }));
+    expect(cardTitles(root)).toHaveLength(45);
+    expect(ui.queryByRole('button', { name: 'Show more' })).toBeNull();
+    await waitFor(() => expect(requested()).toHaveLength(45));
+    expect(vi.mocked(readSoothNodeMarkets).mock.calls.map(([, addresses]) => addresses.length)).toEqual([20, 40, 45]);
   });
 });
 

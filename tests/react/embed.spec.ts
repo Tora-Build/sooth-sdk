@@ -19,6 +19,14 @@ describe('Sooth embed identity and trust boundary', () => {
     expect(() => soothWidgetUrl({ origin: 'http://widget.example', market, instance: 'article_123' })).toThrow('HTTPS');
     expect(() => soothWidgetUrl({ origin: 'https://widget.example', market, instance: 'article_123', parentOrigin: '*' })).toThrow();
   });
+  it('sets the widget language only when one of the supported languages is provided', () => {
+    const options = { origin: 'https://widget.example', market, instance: 'article_123' };
+    expect(new URL(soothWidgetUrl(options)).searchParams.has('lang')).toBe(false);
+    expect(new URL(soothWidgetUrl({ ...options, lang: 'zh' })).searchParams.get('lang')).toBe('zh');
+    expect(renderSoothEmbedSnippet({ ...options, lang: 'en', title: 'Market' })).toContain('lang=en');
+    expect(() => soothWidgetUrl({ ...options, lang: 'fr' as 'en' })).toThrow('language');
+    expect(() => renderSoothEmbedSnippet({ ...options, lang: '' as 'en', title: 'Market' })).toThrow('language');
+  });
   it('requires exact origin, source, instance and full market for every accepted message', () => {
     const source = window;
     const data = { protocol: SOOTH_EMBED_PROTOCOL, instance: 'article_123', market: reference, event: { type: 'transaction-confirmed', hash: `0x${'55'.repeat(32)}`, chainId: 46630 } };

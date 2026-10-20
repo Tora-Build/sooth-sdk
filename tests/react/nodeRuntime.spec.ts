@@ -45,6 +45,12 @@ describe('trusted node runtime', () => {
     await expect(createSoothRuntime(configuration).resolveNode(reference)).rejects.toThrow('does not match');
     expect(verifyFactoryNode).not.toHaveBeenCalled();
   });
+  it('exposes only the trusted indexer URL from host configuration', async () => {
+    expect((await createSoothRuntime(configuration).resolveNode(reference)).indexer).toBeNull();
+    const node = await createSoothRuntime({ ...configuration, indexerUrl: 'https://indexer.test' }).resolveNode(reference);
+    expect(node.indexer).toEqual({ baseUrl: 'https://indexer.test/' });
+    expect(() => createSoothRuntime({ ...configuration, indexerUrl: 'not a url' })).toThrow();
+  });
   it('propagates authenticated binding failures instead of displaying unverified catalogs', async () => {
     vi.mocked(verifyFactoryNode).mockRejectedValue(new Error('Independent endpoints disagree'));
     await expect(createSoothRuntime(configuration).resolveNode(reference)).rejects.toThrow('Independent endpoints disagree');
