@@ -300,14 +300,14 @@ describe('SoothMarket approval review in shadow DOM', () => {
     const { ui } = renderMarket();
 
     await click(ui.getByRole('button', { name: 'Review buy' }));
-    expect(ui.getByText(/Authorize only/).textContent).toMatch(/\b5(?:\.0+)?\s+TEST\b/);
+    expect(ui.getByText(/approved for the verified/).textContent).toMatch(/\b5(?:\.0+)?\s+TEST\b/);
     expect(sendSoothAction).not.toHaveBeenCalled();
 
     await click(ui.getByRole('button', { name: 'Approve exact amount' }));
     expect(sendSoothAction).not.toHaveBeenCalled();
     expect(alertText(ui)).toBe(changedMessage);
-    expect(ui.getByText(/Authorize only/).textContent).toMatch(/\b6\.250*\s+TEST\b/);
-    expect(ui.getByText(/Authorize only/).textContent).not.toMatch(/\b5(?:\.0+)?\s+TEST\b/);
+    expect(ui.getByText(/approved for the verified/).textContent).toMatch(/\b6\.250*\s+TEST\b/);
+    expect(ui.getByText(/approved for the verified/).textContent).not.toMatch(/\b5(?:\.0+)?\s+TEST\b/);
 
     await click(ui.getByRole('button', { name: 'Approve exact amount' }));
     expect(planSoothTrade).toHaveBeenCalledTimes(3);
@@ -317,6 +317,30 @@ describe('SoothMarket approval review in shadow DOM', () => {
       kind: 'approve', venue: 'amm', amountNative: 6_250_000n,
     }, expect.any(Function));
     expect(ui.queryByRole('alert')).toBeNull();
+  });
+
+  it.each([
+    { button: 'Approve unlimited TEST', amount: (1n << 256n) - 1n },
+    { button: 'Approve exact amount', amount: 5_000_000n },
+  ])('approves the reviewed buy: $button', async ({ button, amount }) => {
+    vi.mocked(planSoothTrade).mockResolvedValue(preview(5_000_000n));
+    const { ui } = renderMarket();
+    await click(ui.getByRole('button', { name: 'Review buy' }));
+    expect(ui.getByText(/one approval covers your later trades/)).toBeTruthy();
+    await click(ui.getByRole('button', { name: button }));
+    expect(sendSoothAction).toHaveBeenCalledTimes(1);
+    expect(sendSoothAction).toHaveBeenCalledWith(resolved, expect.objectContaining({ sendTransaction: expect.any(Function) }), account, {
+      kind: 'approve', venue: 'amm', amountNative: amount,
+    }, expect.any(Function));
+  });
+
+  it('offers only the zero reset, never unlimited, while an insufficient allowance exists', async () => {
+    vi.mocked(planSoothTrade).mockResolvedValue(preview(5_000_000n, 1_000_000n));
+    const { ui } = renderMarket();
+    await click(ui.getByRole('button', { name: 'Review buy' }));
+    expect(ui.getByRole('button', { name: 'Reset allowance to zero' })).toBeTruthy();
+    expect(ui.queryByRole('button', { name: /Approve unlimited/ })).toBeNull();
+    expect(ui.queryByRole('button', { name: 'Approve exact amount' })).toBeNull();
   });
 
   it.each([
@@ -333,7 +357,7 @@ describe('SoothMarket approval review in shadow DOM', () => {
     await click(ui.getByRole('button', { name: first }));
     expect(sendSoothAction).not.toHaveBeenCalled();
     expect(alertText(ui)).toBe(changedMessage);
-    expect(ui.getByText(/Authorize only/).textContent).toMatch(/\b5(?:\.0+)?\s+TEST\b/);
+    expect(ui.getByText(/approved for the verified/).textContent).toMatch(/\b5(?:\.0+)?\s+TEST\b/);
     expect(ui.queryByRole('button', { name: first })).toBeNull();
     expect(Boolean(ui.queryByText(/Reset the existing insufficient allowance to zero first/))).toBe(to > 0n);
 
@@ -359,7 +383,7 @@ describe('SoothMarket approval review in shadow DOM', () => {
     rerender(<SoothMarket {...props} />);
 
     expect(ui.getByRole('region', { name: 'Trade review' })).toBeTruthy();
-    expect(ui.getByText(/Authorize only/).textContent).toMatch(/\b5(?:\.0+)?\s+TEST\b/);
+    expect(ui.getByText(/approved for the verified/).textContent).toMatch(/\b5(?:\.0+)?\s+TEST\b/);
     expect(ui.getByRole('button', { name: 'Approve exact amount' })).toBeTruthy();
     expect(planSoothTrade).toHaveBeenCalledTimes(1);
     expect(sendSoothAction).not.toHaveBeenCalled();
@@ -687,6 +711,7 @@ describe('SoothMarket liquidity deposits', () => {
   }
 
   it.each([
+    { allowance: 0n, button: 'Approve unlimited LPT', amount: (1n << 256n) - 1n },
     { allowance: 0n, button: 'Approve exact amount', amount: 25_000_000n },
     { allowance: 1_000_000n, button: 'Reset allowance to zero', amount: 0n },
   ])('approves the AMM spender from a book market: $button', async ({ allowance, button, amount }) => {
@@ -695,7 +720,7 @@ describe('SoothMarket liquidity deposits', () => {
     marketState = { ...marketState, resolved: bookMarket, data: bookData() };
     const { ui } = renderMarket(bookMarket.reference);
     await openDeposit(ui);
-    expect(ui.getByText(/Authorize only 25 LPT for the verified AMM spender/)).toBeTruthy();
+    expect(ui.getByText(/This deposit needs 25 LPT approved for the verified AMM spender/)).toBeTruthy();
     expect(sendSoothAction).not.toHaveBeenCalled();
 
     await click(ui.getByRole('button', { name: button }));

@@ -285,15 +285,41 @@ export function TradePanel({ strings, resolved, data, actions, walletAction }: T
                   {book ? resolved.context.contracts.book : resolved.context.contracts.amm}
                 </code>
               </Disclosure>
-              {preview.allowance > 0n && <p>{t('trade.resetFirst')}</p>}
-              <button
-                type="button"
-                className="s-btn s-btn-primary s-btn-block"
-                onClick={() => void actions.approve()}
-                disabled={!ready}
-              >
-                {preview.allowance > 0n ? t('trade.resetAllowance') : t('trade.approveExact')}
-              </button>
+              {preview.allowance > 0n ? (
+                <>
+                  <p>{t('trade.resetFirst')}</p>
+                  <button
+                    type="button"
+                    className="s-btn s-btn-primary s-btn-block"
+                    onClick={() => void actions.approve()}
+                    disabled={!ready}
+                  >
+                    {t('trade.resetAllowance')}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="s-small s-muted">
+                    {t('trade.unlimitedNote', { symbol: token.symbol })}
+                  </p>
+                  <button
+                    type="button"
+                    className="s-btn s-btn-primary s-btn-block"
+                    onClick={() => void actions.approve('unlimited')}
+                    disabled={!ready}
+                  >
+                    {t('trade.approveUnlimited', { symbol: token.symbol })}
+                  </button>
+                  <button
+                    type="button"
+                    className="s-btn s-btn-secondary s-btn-block"
+                    onClick={() => void actions.approve('exact')}
+                    disabled={!ready}
+                  >
+                    {t('trade.approveExact')}
+                  </button>
+                </>
+              )}
             </>
           ) : (
             <button

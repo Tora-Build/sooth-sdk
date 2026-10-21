@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { parseUnits, type Address } from 'viem';
+import { approvalAmount, type ApprovalMode } from '../../factory/factoryTrade/tokenApproval.js';
 import { planSoothAddLiquidity, type SoothLiquidity, type SoothLiquidityPreview } from '../data.js';
 import type { SoothDataState } from '../dataHooks.js';
 import { describeSoothError } from '../errors.js';
@@ -103,7 +104,7 @@ export function LiquidityPanel({
       if (mounted.current) setPlanning(false);
     }
   };
-  const approve = () =>
+  const approve = (mode: ApprovalMode = 'unlimited') =>
     plan(async (next) => {
       if (!preview || preview.approveNative === null) return;
       if (next.approveNative === null) {
@@ -121,7 +122,7 @@ export function LiquidityPanel({
       await actions.execute({
         kind: 'approve',
         venue: 'amm',
-        amountNative: next.allowance > 0n ? 0n : next.approveNative,
+        amountNative: approvalAmount({ ...next, approveNative: next.approveNative }, mode),
       });
     });
   const submit = () =>
@@ -314,15 +315,41 @@ export function LiquidityPanel({
               <Disclosure summary={t('trade.approvalRecipient')}>
                 <code>{resolved.context.contracts.amm}</code>
               </Disclosure>
-              {preview.allowance > 0n && <p>{t('trade.resetFirst')}</p>}
-              <button
-                type="button"
-                className="s-btn s-btn-primary s-btn-block"
-                disabled={disabled}
-                onClick={() => void approve()}
-              >
-                {preview.allowance > 0n ? t('trade.resetAllowance') : t('trade.approveExact')}
-              </button>
+              {preview.allowance > 0n ? (
+                <>
+                  <p>{t('trade.resetFirst')}</p>
+                  <button
+                    type="button"
+                    className="s-btn s-btn-primary s-btn-block"
+                    disabled={disabled}
+                    onClick={() => void approve()}
+                  >
+                    {t('trade.resetAllowance')}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="s-small s-muted">
+                    {t('trade.unlimitedNote', { symbol: token.symbol })}
+                  </p>
+                  <button
+                    type="button"
+                    className="s-btn s-btn-primary s-btn-block"
+                    disabled={disabled}
+                    onClick={() => void approve('unlimited')}
+                  >
+                    {t('trade.approveUnlimited', { symbol: token.symbol })}
+                  </button>
+                  <button
+                    type="button"
+                    className="s-btn s-btn-secondary s-btn-block"
+                    disabled={disabled}
+                    onClick={() => void approve('exact')}
+                  >
+                    {t('trade.approveExact')}
+                  </button>
+                </>
+              )}
             </>
           ) : (
             <button

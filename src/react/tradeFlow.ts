@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Address } from 'viem';
 import type { FactoryTransactionAction } from '../factory/factoryTransactions.js';
+import { approvalAmount, type ApprovalMode } from '../factory/factoryTrade/tokenApproval.js';
 import type { SoothHostEvent } from './embed.js';
 import { describeSoothError } from './errors.js';
 import {
@@ -46,7 +47,8 @@ export interface SoothMarketActions {
   /** `connect()` hands off to `onWalletUnavailable` instead of connecting. */
   walletUnavailable: boolean;
   review: () => Promise<void>;
-  approve: () => Promise<void>;
+  /** Sign the reviewed approval: unlimited (default) or the exact amount; a reset is zero. */
+  approve: (mode?: ApprovalMode) => Promise<void>;
   submit: () => Promise<void>;
   clearReview: () => void;
   /** Sign exactly one explicit action (cancel, claim, settle, LP) under the same guards. */
@@ -172,8 +174,8 @@ export function useSoothMarketActions(options: SoothMarketActionsOptions): Sooth
       const next = await planSoothTrade(resolved, account, intent);
       if (revision === intentRevision.current) setPreview(next);
     });
-  /** Re-plan and sign only the reviewed exact approval (or zero reset). */
-  const approve = () =>
+  /** Re-plan and sign only the reviewed approval (unlimited or exact), or the zero reset. */
+  const approve = (mode: ApprovalMode = 'unlimited') =>
     run(async () => {
       if (!resolved || !account || !preview || preview.approveNative === null) return;
       const revision = intentRevision.current;
@@ -196,7 +198,7 @@ export function useSoothMarketActions(options: SoothMarketActionsOptions): Sooth
       await send({
         kind: 'approve',
         venue: resolved.reference.venue,
-        amountNative: next.allowance > 0n ? 0n : next.approveNative,
+        amountNative: approvalAmount({ ...next, approveNative: next.approveNative }, mode),
       });
     });
   /** Re-plan and sign the reviewed trade only if its bounds are unchanged. */
