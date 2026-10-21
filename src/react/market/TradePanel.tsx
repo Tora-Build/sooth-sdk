@@ -13,7 +13,7 @@ import {
 } from '../ui/format.js';
 import type { SoothStrings } from '../ui/i18n.js';
 import { Chips, Disclosure, Notice, Segmented, Spinner } from '../ui/primitives.js';
-import { exactToken, sellableShares, validShares } from './shared.js';
+import { exactToken, sellableShares, validShares, yesProbability } from './shared.js';
 
 const PRESETS = ['10', '50', '100', '500'];
 /** Demo SimpleTradingPanel thresholds on the traded outcome's price move. */
@@ -43,6 +43,7 @@ export function TradePanel({ strings, resolved, data, actions, walletAction }: T
   const outcomeLabel = intent.outcome === 1 ? t('common.yes') : t('common.no');
   const update = (patch: Partial<typeof intent>) => actions.setIntent({ ...intent, ...patch });
   const sellable = sellableShares(data, intent.outcome);
+  const yes = yesProbability(data);
   const sharesValid = validShares(intent.shares);
   const tickValid = !book || centsToTick(intent.price) !== null;
   const quote = useSoothLiveQuote(resolved, sharesValid && tickValid ? intent : null);
@@ -81,8 +82,30 @@ export function TradePanel({ strings, resolved, data, actions, walletAction }: T
           value={intent.outcome === 1 ? 'yes' : 'no'}
           onChange={(value) => update({ outcome: value === 'yes' ? 1 : 0 })}
           options={[
-            { value: 'yes', label: t('common.yes'), outcome: 'yes' },
-            { value: 'no', label: t('common.no'), outcome: 'no' },
+            {
+              value: 'yes',
+              label: (
+                <>
+                  {t('common.yes')}
+                  <span className="s-seg-price" aria-hidden="true">
+                    {formatCents(yes)}
+                  </span>
+                </>
+              ),
+              outcome: 'yes',
+            },
+            {
+              value: 'no',
+              label: (
+                <>
+                  {t('common.no')}
+                  <span className="s-seg-price" aria-hidden="true">
+                    {formatCents(yes === null ? null : 1 - yes)}
+                  </span>
+                </>
+              ),
+              outcome: 'no',
+            },
           ]}
         />
         <div className="s-field">

@@ -86,7 +86,7 @@ function renderMarket(market = props.market) {
   const region = host!.shadowRoot!.querySelector<HTMLElement>('[aria-label="Sooth prediction market"]');
   expect(region).not.toBeNull();
   const ui = within(region!);
-  return { ...view, ui };
+  return { ...view, ui, region: region! };
 }
 
 async function click(button: HTMLElement) {
@@ -161,6 +161,16 @@ describe('SoothMarket embedded ticket', () => {
     expect(ui.getByRole('button', { name: 'Resolution rules' }).getAttribute('aria-expanded')).toBe('false');
   });
 
+  it('has one outcome control: the YES/NO toggle shows the prices, with no price cards beside it', () => {
+    const { ui, region } = renderMarket();
+    expect(ui.getAllByRole('radio', { name: 'YES' })).toHaveLength(1);
+    expect(ui.getAllByRole('radio', { name: 'NO' })).toHaveLength(1);
+    expect(ui.queryByRole('button', { name: /^Buy (YES|NO) at/ })).toBeNull();
+    expect(region.querySelector('.s-price-cards')).toBeNull();
+    expect(ui.getByRole('radio', { name: 'YES' }).textContent).toBe('YES62.5¢');
+    expect(ui.getByRole('radio', { name: 'NO' }).textContent).toBe('NO37.5¢');
+  });
+
   it('does not invent a probability when the live price is unavailable', () => {
     marketState = { ...marketState, data: { ...data, snapshot: { ...data.snapshot, yesPriceWad: -1n } } };
     const { ui } = renderMarket();
@@ -189,12 +199,15 @@ describe('SoothMarket embedded ticket', () => {
     marketState = {
       ...marketState, data: { ...data, snapshot: { ...data.snapshot, tradingOpen: false, isResolving } },
     };
-    const { ui } = renderMarket();
+    const { ui, region } = renderMarket();
     expect(ui.getByText(message)).toBeTruthy();
     expect(ui.queryByRole('form', { name: 'Trade shares' })).toBeNull();
     expect(ui.queryByRole('textbox', { name: 'Shares' })).toBeNull();
     expect(ui.queryByRole('button', { name: 'Review buy' })).toBeNull();
     expect(ui.getByRole('heading', { name: 'Your positions' })).toBeTruthy();
+    // No trade panel: the price cards show the last prices, and pick nothing.
+    expect(region.querySelectorAll('.s-price-cards .s-price-card-static')).toHaveLength(2);
+    expect(region.querySelector('.s-price-cards button')).toBeNull();
   });
 
   it.each([
