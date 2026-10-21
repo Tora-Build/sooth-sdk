@@ -187,7 +187,6 @@ function MarketExperience(props: SoothMarketProps) {
                 data={data}
                 tradingOpen={tradingOpen}
                 live={tradingOpen && !market.error}
-                onPick={(outcome) => actions.setIntent({ ...actions.intent, side: 'buy', outcome })}
               />
             </div>
             <div className="s-layout-side">

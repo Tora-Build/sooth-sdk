@@ -13,7 +13,7 @@ import {
 } from '../ui/format.js';
 import type { SoothStrings } from '../ui/i18n.js';
 import { Chips, Disclosure, Notice, Segmented, Spinner } from '../ui/primitives.js';
-import { exactToken, sellableShares, validShares } from './shared.js';
+import { exactToken, sellableShares, validShares, yesProbability } from './shared.js';
 
 const PRESETS = ['10', '50', '100', '500'];
 /** Demo SimpleTradingPanel thresholds on the traded outcome's price move. */
@@ -43,6 +43,7 @@ export function TradePanel({ strings, resolved, data, actions, walletAction }: T
   const outcomeLabel = intent.outcome === 1 ? t('common.yes') : t('common.no');
   const update = (patch: Partial<typeof intent>) => actions.setIntent({ ...intent, ...patch });
   const sellable = sellableShares(data, intent.outcome);
+  const yes = yesProbability(data);
   const sharesValid = validShares(intent.shares);
   const tickValid = !book || centsToTick(intent.price) !== null;
   const quote = useSoothLiveQuote(resolved, sharesValid && tickValid ? intent : null);
@@ -81,8 +82,30 @@ export function TradePanel({ strings, resolved, data, actions, walletAction }: T
           value={intent.outcome === 1 ? 'yes' : 'no'}
           onChange={(value) => update({ outcome: value === 'yes' ? 1 : 0 })}
           options={[
-            { value: 'yes', label: t('common.yes'), outcome: 'yes' },
-            { value: 'no', label: t('common.no'), outcome: 'no' },
+            {
+              value: 'yes',
+              label: (
+                <>
+                  {t('common.yes')}
+                  <span className="s-seg-price" aria-hidden="true">
+                    {formatCents(yes)}
+                  </span>
+                </>
+              ),
+              outcome: 'yes',
+            },
+            {
+              value: 'no',
+              label: (
+                <>
+                  {t('common.no')}
+                  <span className="s-seg-price" aria-hidden="true">
+                    {formatCents(yes === null ? null : 1 - yes)}
+                  </span>
+                </>
+              ),
+              outcome: 'no',
+            },
           ]}
         />
         <div className="s-field">
@@ -262,15 +285,41 @@ export function TradePanel({ strings, resolved, data, actions, walletAction }: T
                   {book ? resolved.context.contracts.book : resolved.context.contracts.amm}
                 </code>
               </Disclosure>
-              {preview.allowance > 0n && <p>{t('trade.resetFirst')}</p>}
-              <button
-                type="button"
-                className="s-btn s-btn-primary s-btn-block"
-                onClick={() => void actions.approve()}
-                disabled={!ready}
-              >
-                {preview.allowance > 0n ? t('trade.resetAllowance') : t('trade.approveExact')}
-              </button>
+              {preview.allowance > 0n ? (
+                <>
+                  <p>{t('trade.resetFirst')}</p>
+                  <button
+                    type="button"
+                    className="s-btn s-btn-primary s-btn-block"
+                    onClick={() => void actions.approve()}
+                    disabled={!ready}
+                  >
+                    {t('trade.resetAllowance')}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="s-small s-muted">
+                    {t('trade.unlimitedNote', { symbol: token.symbol })}
+                  </p>
+                  <button
+                    type="button"
+                    className="s-btn s-btn-primary s-btn-block"
+                    onClick={() => void actions.approve('unlimited')}
+                    disabled={!ready}
+                  >
+                    {t('trade.approveUnlimited', { symbol: token.symbol })}
+                  </button>
+                  <button
+                    type="button"
+                    className="s-btn s-btn-secondary s-btn-block"
+                    onClick={() => void actions.approve('exact')}
+                    disabled={!ready}
+                  >
+                    {t('trade.approveExact')}
+                  </button>
+                </>
+              )}
             </>
           ) : (
             <button

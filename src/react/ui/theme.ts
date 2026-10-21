@@ -152,6 +152,7 @@ export const soothBaseCss = `
 .s-price-card { min-height: 64px; padding: 10px 12px; border-radius: var(--s-radius-sm); border: 1px solid var(--s-line); background: var(--s-surface); color: var(--s-text); display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; font: inherit; cursor: pointer; text-align: left; }
 .s-price-card[data-outcome=yes] { background: var(--s-yes); border-color: var(--s-yes); color: var(--s-on-yes); }
 .s-price-card[data-outcome=no] { background: var(--s-no-fill); border-color: var(--s-no); color: var(--s-text); }
+.s-seg-price { margin-left: 8px; font-family: var(--s-mono); font-variant-numeric: tabular-nums; font-weight: 500; opacity: 0.75; }
 .s-price-card-label { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; }
 .s-price-card-value { font-family: var(--s-mono); font-variant-numeric: tabular-nums; font-size: 22px; font-weight: 600; line-height: 1.15; }
 .s-prob { font-family: var(--s-mono); font-variant-numeric: tabular-nums; font-size: 34px; font-weight: 600; line-height: 1.05; letter-spacing: -0.02em; }

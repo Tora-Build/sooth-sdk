@@ -170,6 +170,22 @@ describe('Factory binding and transaction targets', () => {
     expect(() => anchorReader(46630, [endpoints()[0]!, { ...endpoints()[1]!, url: 'https://one.example#secondary' }])).toThrow();
     expect(() => anchorReader(46630, endpoints(), { minAnswers: 1 })).toThrow();
   });
+  it('asks a failed endpoint once more before it refuses the head check', async () => {
+    const eps = endpoints(); let calls = 0;
+    eps[1]!.reader.getBlockNumber = async () => { if (calls++ === 0) throw new Error('dropped'); return 100n; };
+    await expect(anchorReader(46630, eps).getBlockNumber()).resolves.toBe(100n);
+    expect(calls).toBe(2);
+    eps[1]!.reader.getBlockNumber = async () => { throw new Error('dropped'); };
+    await expect(anchorReader(46630, eps, { retries: 0 }).getBlockNumber()).rejects.toThrow(/Only 1 of 2 RPC endpoints answered for the chain head/);
+  });
+  it('does not keep a failed head check: the next read asks again', async () => {
+    const eps = endpoints(); let down = true;
+    eps[1]!.reader.getBlockNumber = async () => { if (down) throw new Error('timeout'); return 100n; };
+    const reader = anchorReader(46630, eps);
+    await expect(reader.getBlockNumber()).rejects.toThrow(/Only 1 of 2 RPC endpoints answered for the chain head; 2 must answer and agree/);
+    down = false;
+    await expect(reader.getBlockNumber()).resolves.toBe(100n);
+  });
   it('refuses an endpoint on another chain', async () => {
     const eps = endpoints(); eps[1]!.reader.getChainId = async () => 1;
     await expect(verifyFactoryNode({ identity, release, endpoints: eps })).rejects.toThrow();
@@ -430,5 +446,15 @@ describe('financial units and strict portfolios', () => {
     expect(freshReceiptBlock({ ...identity, chainId: 1 }, 1_001)).toBeUndefined();
     expect(freshReceiptBlock(identity, 61_001)).toBeUndefined();
     forgetReceipt(identity);
+  });
+});
+
+describe('approval amount', () => {
+  it('signs unlimited or the exact amount as chosen, and a reset is always zero', async () => {
+    const { approvalAmount, UNLIMITED_APPROVAL } = await import('../../src/factory/factoryTrade.js');
+    expect(UNLIMITED_APPROVAL).toBe((1n << 256n) - 1n);
+    expect(approvalAmount({ allowance: 0n, approveNative: 5n }, 'unlimited')).toBe(UNLIMITED_APPROVAL);
+    expect(approvalAmount({ allowance: 0n, approveNative: 5n }, 'exact')).toBe(5n);
+    expect(approvalAmount({ allowance: 1n, approveNative: 5n }, 'unlimited')).toBe(0n);
   });
 });

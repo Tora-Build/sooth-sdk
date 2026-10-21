@@ -17,19 +17,10 @@ export interface MarketHeaderProps {
   tradingOpen: boolean;
   /** The latest read succeeded and trading is open. */
   live: boolean;
-  /** Price cards pick the outcome to buy while trading is open. */
-  onPick: (outcome: 0 | 1) => void;
 }
 
 /** Question, status, deadline, venue and the YES/NO prices (Mobile MarketDetailM header). */
-export function MarketHeader({
-  strings,
-  resolved,
-  data,
-  tradingOpen,
-  live,
-  onPick,
-}: MarketHeaderProps) {
+export function MarketHeader({ strings, resolved, data, tradingOpen, live }: MarketHeaderProps) {
   const { t, locale } = strings;
   const { snapshot } = data;
   const now = useNow(30_000);
@@ -93,37 +84,24 @@ export function MarketHeader({
             <p>{t('market.probabilityUnavailable')}</p>
           )}
           {book && <p className="s-small s-muted">{t('market.referenceProbability')}</p>}
-          <div className="s-price-cards">
-            {cards.map((card) => {
-              const label = card.outcome === 1 ? t('common.yes') : t('common.no');
-              const body = (
-                <>
-                  <span className="s-price-card-label">{label}</span>
-                  <span className="s-price-card-value">{formatCents(card.price)}</span>
-                </>
-              );
-              return tradingOpen ? (
-                <button
-                  key={card.key}
-                  type="button"
-                  className="s-price-card"
-                  data-outcome={card.key}
-                  aria-label={t('market.buyAt', { outcome: label, price: formatCents(card.price) })}
-                  onClick={() => onPick(card.outcome)}
-                >
-                  {body}
-                </button>
-              ) : (
+          {/* While trading is open the trade panel's YES/NO control shows the prices and is the
+              one place to pick an outcome; the cards show them only when there is no panel. */}
+          {!tradingOpen && (
+            <div className="s-price-cards">
+              {cards.map((card) => (
                 <div
                   key={card.key}
                   className="s-price-card s-price-card-static"
                   data-outcome={card.key}
                 >
-                  {body}
+                  <span className="s-price-card-label">
+                    {card.outcome === 1 ? t('common.yes') : t('common.no')}
+                  </span>
+                  <span className="s-price-card-value">{formatCents(card.price)}</span>
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
           {!tradingOpen && (
             <Notice>
               {snapshot.isResolving ? t('market.resolving') : t('market.awaitingResult')}

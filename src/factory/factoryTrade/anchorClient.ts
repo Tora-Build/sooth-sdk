@@ -8,6 +8,13 @@ import { TradeMessageError } from './tradeMessageError.js';
 export const ANCHOR_TIMEOUT_MS = 4_000;
 /** Answers needed for the quorum reads. */
 export const ANCHOR_MIN_ANSWERS = 2;
+/**
+ * Times an endpoint that failed or timed out is asked again before a read
+ * fails. Public RPCs drop single requests; with two endpoints and a quorum of
+ * two, one dropped request would otherwise stop the trade. A retry never
+ * weakens the quorum: the answers must still agree.
+ */
+export const ANCHOR_RETRIES = 1;
 
 /**
  * The wallet transport's order for a chain: the build's anchor endpoints
@@ -31,6 +38,7 @@ export interface AnchorEndpoint {
 export interface AnchorOptions {
   timeoutMs?: number;
   minAnswers?: number;
+  retries?: number;
 }
 
 type ReadCall = Parameters<ReturnType<typeof createPublicClient>['readContract']>[0];
@@ -123,6 +131,7 @@ export function anchorReader(
 ): BindingReader {
   const timeoutMs = options.timeoutMs ?? ANCHOR_TIMEOUT_MS;
   const minAnswers = options.minAnswers ?? ANCHOR_MIN_ANSWERS;
+  const retries = options.retries ?? ANCHOR_RETRIES;
   if (!Number.isInteger(minAnswers) || minAnswers < 2)
     throw new TradeMessageError('At least two anchor endpoints must agree.');
   if (
@@ -140,7 +149,7 @@ export function anchorReader(
       `This build has no anchor RPC endpoints for chain ${chainId}. Nothing was signed.`,
     );
   }
-  /** The endpoints that answered the chain id and head for this chain, and the lowest head. Asked once. */
+  /** The endpoints that answered the chain id and head for this chain, and the lowest head. Asked once; a failed check is asked again on the next read. */
   let verified: Promise<{ pool: readonly AnchorEndpoint[]; head: bigint }> | null = null;
   /** The endpoints that answered every quorum read so far. */
   let agreed: readonly AnchorEndpoint[] | null = null;
@@ -150,9 +159,17 @@ export function anchorReader(
     what: string,
     ask: (endpoint: AnchorEndpoint) => Promise<T>,
   ) => {
-    const results = await Promise.allSettled(
-      pool.map((endpoint) => withTimeout(ask(endpoint), timeoutMs, host(endpoint.url))),
-    );
+    const settle = (endpoints: readonly AnchorEndpoint[]) =>
+      Promise.allSettled(
+        endpoints.map((endpoint) => withTimeout(ask(endpoint), timeoutMs, host(endpoint.url))),
+      );
+    let results = await settle(pool);
+    // Ask the endpoints that failed again; the ones that answered keep their answer.
+    for (let n = 0; n < retries && results.some((result) => result.status === 'rejected'); n++) {
+      const again = await settle(pool.filter((_, i) => results[i].status === 'rejected'));
+      let k = 0;
+      results = results.map((result) => (result.status === 'rejected' ? again[k++] : result));
+    }
     const answers = results.flatMap((result, i) =>
       result.status === 'fulfilled' ? [{ endpoint: pool[i], value: result.value }] : [],
     );
@@ -169,7 +186,8 @@ export function anchorReader(
   };
 
   const verify = () => {
-    verified ??= (async () => {
+    if (verified) return verified;
+    const attempt = (async () => {
       const answers = await askAll(endpoints, 'the chain head', async (endpoint) => {
         const [chain, head] = await Promise.all([
           endpoint.reader.getChainId(),
@@ -190,7 +208,12 @@ export function anchorReader(
           .reduce((low, value) => (value < low ? value : low)),
       };
     })();
-    return verified;
+    verified = attempt;
+    // A failed check is not kept: the next read (the user's next Review) asks again.
+    attempt.catch(() => {
+      if (verified === attempt) verified = null;
+    });
+    return attempt;
   };
 
   const quorum = async (what: string, call: BindingRead): Promise<unknown> => {
