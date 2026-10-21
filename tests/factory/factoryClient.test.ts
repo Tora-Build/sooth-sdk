@@ -170,6 +170,22 @@ describe('Factory binding and transaction targets', () => {
     expect(() => anchorReader(46630, [endpoints()[0]!, { ...endpoints()[1]!, url: 'https://one.example#secondary' }])).toThrow();
     expect(() => anchorReader(46630, endpoints(), { minAnswers: 1 })).toThrow();
   });
+  it('asks a failed endpoint once more before it refuses the head check', async () => {
+    const eps = endpoints(); let calls = 0;
+    eps[1]!.reader.getBlockNumber = async () => { if (calls++ === 0) throw new Error('dropped'); return 100n; };
+    await expect(anchorReader(46630, eps).getBlockNumber()).resolves.toBe(100n);
+    expect(calls).toBe(2);
+    eps[1]!.reader.getBlockNumber = async () => { throw new Error('dropped'); };
+    await expect(anchorReader(46630, eps, { retries: 0 }).getBlockNumber()).rejects.toThrow(/Only 1 of 2 RPC endpoints answered for the chain head/);
+  });
+  it('does not keep a failed head check: the next read asks again', async () => {
+    const eps = endpoints(); let down = true;
+    eps[1]!.reader.getBlockNumber = async () => { if (down) throw new Error('timeout'); return 100n; };
+    const reader = anchorReader(46630, eps);
+    await expect(reader.getBlockNumber()).rejects.toThrow(/Only 1 of 2 RPC endpoints answered for the chain head; 2 must answer and agree/);
+    down = false;
+    await expect(reader.getBlockNumber()).resolves.toBe(100n);
+  });
   it('refuses an endpoint on another chain', async () => {
     const eps = endpoints(); eps[1]!.reader.getChainId = async () => 1;
     await expect(verifyFactoryNode({ identity, release, endpoints: eps })).rejects.toThrow();
