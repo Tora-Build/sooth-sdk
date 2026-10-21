@@ -146,6 +146,8 @@ Keep AMM and book balances, spenders, approvals and claims separate.
 - Approvals: use a separate `approve` action with the intended venue and finite
   `amountNative`. Rebuild the spending action after the approval receipt.
   `--zero-first` is available only for explicit approvals that need it.
+  (The React widget offers "Approve unlimited" for trades and LP deposits as the
+  user's choice; the CLI and the planners stay finite.)
 - Book inventory includes gross YES/NO balances and reserved shares. Zero net
   exposure does not mean the position is empty.
 
