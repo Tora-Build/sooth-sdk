@@ -108,7 +108,7 @@ Keep existing useful function names during extraction where their contracts are 
 | Creation and liquidity | Demo creation, East useFactoryCreation, options-core factoryMarket; Factory reference prepare functions | Atomic bounded creation, admitted resolver/profile, frozen fees/terms, authoritative created address from event; state-bound sponsor entry and LP receipts |
 | Portfolio and claims | factoryPortfolio and factoryTransactions | Separate AMM/book settlement, LP principal/fees, transferable receipt units, deferred book payouts, INVALID fractional carry, timeout refund versus adjudicated resolution fees |
 | Roles and lifecycle | Factory NodeRoles/MarketFactory/vault/adjudicator artifacts; Alpha generic action builders | Role-correct creation policy, fee publication/claims, role transfers and node preparation/activation where the protocol exposes them; resolve/attest/dispute/settle/invalidate by supported adjudicator capability |
-| Approvals and transaction outcomes | tokenApproval, receiptWait, afterReceipt; app request/receipt checks | Preserve finite reusable approval choices, zero-first handling where required, distinct venue spenders, account/chain checks, exact receipt identity and decoded outcomes |
+| Approvals and transaction outcomes | tokenApproval, receiptWait, afterReceipt; app request/receipt checks | Preserve reusable approval choices (the widget offers unlimited or exact for trades and LP deposits; planner limits stay finite), zero-first handling where required, distinct venue spenders, account/chain checks, exact receipt identity and decoded outcomes |
 
 Do not generalize every action through ManualAdjudicator. Adjudicators are admitted separately from node releases. Retain explicitly supported adapters and refuse unknown capabilities.
 
@@ -246,7 +246,7 @@ The generated iframe line contains a versioned widget URL, encoded node referenc
 1. Load the question, resolution rules/source, closing time, lifecycle, token and selected venue. Show unavailable/stale data explicitly and offer a canonical market link.
 2. Choose YES or NO and an amount. Present the current quote or order price, fees, maximum spend/minimum proceeds and any resting remainder. Never present an unfilled order as purchased shares.
 3. Connect a wallet, select the required network and check funding. Explain insufficient funds; do not promise a fiat purchase or automatic funding integration that does not exist.
-4. Obtain bounded approval if needed, refresh the plan, simulate and request the trade signature. Confirm receipt identity and reconcile actual fills and balances.
+4. Obtain approval if needed (unlimited or exact, the user's choice), refresh the plan, simulate and request the trade signature. Confirm receipt identity and reconcile actual fills and balances.
 5. Show the user's selected-market holdings, reserved inventory and open orders. Support selling and cancellation for the enabled venue.
 6. After resolution, show the result and applicable claims. Preserve recovery for pending transactions, closed/reopened embeds and interrupted wallet flows.
 
