@@ -402,6 +402,7 @@ signs automatically. Offer both a new-window link and a same-tab link.
    Messages from a wrong origin, wrong frame or wrong instance are ignored.
    For drawer and modal, check messages after closing and reopening.
 6. Wallet path: connect, use the correct network, review the quote, approve
-   with a bounded amount, sign, and get a confirmed receipt. Check balances
+   with a bounded amount ("Approve exact amount" is the primary action;
+   unlimited is a secondary opt-in), sign, and get a confirmed receipt. Check balances
    independently. Test trade and creation handoff, popup blocking and reload
    after broadcast.

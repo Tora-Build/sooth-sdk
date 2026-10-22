@@ -145,6 +145,9 @@ Keep AMM and book balances, spenders, approvals and claims separate.
   Cancel with `cancel` and `{"orderId":"..."}` using the real order ID.
 - Approvals: use a separate `approve` action with the intended venue and finite
   `amountNative`. Rebuild the spending action after the approval receipt.
+  Finite (exact amount) approval is the default. Approve an unlimited amount
+  only when the user explicitly opts in; the React widget offers it as a
+  secondary option after "Approve exact amount".
   `--zero-first` is available only for explicit approvals that need it.
 - Book inventory includes gross YES/NO balances and reserved shares. Zero net
   exposure does not mean the position is empty.

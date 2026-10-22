@@ -11,6 +11,11 @@ v7/v7.1 releases. Optional React entry points supply reusable node/market UI and
 Alpha supplies production endpoints, hosted services and product policy. Legacy
 core exports and registry v1 remain retired.
 
+Collateral approvals default to a finite amount. The React trade and deposit reviews
+make "Approve exact amount" the primary action and the default `approve()` mode;
+"Approve unlimited {symbol}" is a secondary, explicit opt-in. Planners and the CLI
+never choose an unlimited amount.
+
 ## Integration and Release
 
 `sooth@1.0.0` was published on 2026-10-13 from merged SDK commit

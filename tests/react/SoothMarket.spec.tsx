@@ -319,9 +319,27 @@ describe('SoothMarket approval review in shadow DOM', () => {
     expect(ui.queryByRole('alert')).toBeNull();
   });
 
+  it('makes the exact-amount approval the primary action and unlimited a secondary opt-in', async () => {
+    vi.mocked(planSoothTrade).mockResolvedValue(preview(5_000_000n));
+    const { ui } = renderMarket();
+    await click(ui.getByRole('button', { name: 'Review buy' }));
+    const exact = ui.getByRole('button', { name: 'Approve exact amount' });
+    const unlimited = ui.getByRole('button', { name: 'Approve unlimited TEST' });
+    expect(exact.className).toContain('s-btn-primary');
+    expect(unlimited.className).toContain('s-btn-secondary');
+    expect(unlimited.className).not.toContain('s-btn-primary');
+    expect(exact.compareDocumentPosition(unlimited) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    await click(exact);
+    expect(sendSoothAction).toHaveBeenCalledTimes(1);
+    expect(sendSoothAction).toHaveBeenCalledWith(resolved, expect.objectContaining({ sendTransaction: expect.any(Function) }), account, {
+      kind: 'approve', venue: 'amm', amountNative: 5_000_000n,
+    }, expect.any(Function));
+  });
+
   it.each([
-    { button: 'Approve unlimited TEST', amount: (1n << 256n) - 1n },
     { button: 'Approve exact amount', amount: 5_000_000n },
+    { button: 'Approve unlimited TEST', amount: (1n << 256n) - 1n },
   ])('approves the reviewed buy: $button', async ({ button, amount }) => {
     vi.mocked(planSoothTrade).mockResolvedValue(preview(5_000_000n));
     const { ui } = renderMarket();
@@ -711,8 +729,8 @@ describe('SoothMarket liquidity deposits', () => {
   }
 
   it.each([
-    { allowance: 0n, button: 'Approve unlimited LPT', amount: (1n << 256n) - 1n },
     { allowance: 0n, button: 'Approve exact amount', amount: 25_000_000n },
+    { allowance: 0n, button: 'Approve unlimited LPT', amount: (1n << 256n) - 1n },
     { allowance: 1_000_000n, button: 'Reset allowance to zero', amount: 0n },
   ])('approves the AMM spender from a book market: $button', async ({ allowance, button, amount }) => {
     vi.mocked(useSoothLiquidity).mockReturnValue({ ...idle(), data: liquidity() });
@@ -729,6 +747,20 @@ describe('SoothMarket liquidity deposits', () => {
     expect(sendSoothAction).toHaveBeenCalledWith(bookMarket, expect.objectContaining({ sendTransaction: expect.any(Function) }), account, {
       kind: 'approve', venue: 'amm', amountNative: amount,
     }, expect.any(Function));
+  });
+
+  it('makes the exact-amount deposit approval the primary action and unlimited a secondary opt-in', async () => {
+    vi.mocked(useSoothLiquidity).mockReturnValue({ ...idle(), data: liquidity() });
+    vi.mocked(planSoothAddLiquidity).mockResolvedValue(lpPreview(25_000_000n));
+    marketState = { ...marketState, resolved: bookMarket, data: bookData() };
+    const { ui } = renderMarket(bookMarket.reference);
+    await openDeposit(ui);
+    const exact = ui.getByRole('button', { name: 'Approve exact amount' });
+    const unlimited = ui.getByRole('button', { name: 'Approve unlimited LPT' });
+    expect(exact.className).toContain('s-btn-primary');
+    expect(unlimited.className).toContain('s-btn-secondary');
+    expect(unlimited.className).not.toContain('s-btn-primary');
+    expect(exact.compareDocumentPosition(unlimited) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('requires reconfirmation when the re-planned approval changes', async () => {
