@@ -1,14 +1,14 @@
 /** ERC20 approval amounts use the collateral token's native units. */
 
 /**
- * An unlimited ERC20 approval: the user's explicit choice in the widget, so later trades
- * and deposits with the same verified spender need no approval and no reset step. It is
- * never a planner limit (`approvalLimitNative` stays finite).
+ * An unlimited ERC20 approval: an explicit opt-in in the widget (the exact amount is the
+ * default). Later trades and deposits with the same verified spender then need no approval
+ * and no reset step. It is never a planner limit (`approvalLimitNative` stays finite).
  */
 export const UNLIMITED_APPROVAL = (1n << 256n) - 1n;
 
-/** How the user approves: unlimited (one approval) or the exact amount of this transaction. */
-export type ApprovalMode = 'unlimited' | 'exact';
+/** How the user approves: the exact amount of this transaction (default) or opt-in unlimited. */
+export type ApprovalMode = 'exact' | 'unlimited';
 
 /** The approve amount to sign for a reviewed approval step. A reset is always zero. */
 export function approvalAmount(

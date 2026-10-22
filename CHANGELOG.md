@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Make finite approval the default in the React trade and deposit reviews.
+  "Approve exact amount" is the primary action and the default
+  `SoothMarketActions.approve()` mode; "Approve unlimited {symbol}" stays
+  available as a secondary, explicit opt-in.
 - Let a host flatten the React widgets inside its own frame. The widgets read
   optional inherited CSS variables (`--sooth-canvas-background`,
   `--sooth-page-padding`, `--sooth-card-background`, `--sooth-card-border`,

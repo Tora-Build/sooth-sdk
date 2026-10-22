@@ -104,7 +104,7 @@ export function LiquidityPanel({
       if (mounted.current) setPlanning(false);
     }
   };
-  const approve = (mode: ApprovalMode = 'unlimited') =>
+  const approve = (mode: ApprovalMode = 'exact') =>
     plan(async (next) => {
       if (!preview || preview.approveNative === null) return;
       if (next.approveNative === null) {
@@ -336,17 +336,17 @@ export function LiquidityPanel({
                     type="button"
                     className="s-btn s-btn-primary s-btn-block"
                     disabled={disabled}
-                    onClick={() => void approve('unlimited')}
+                    onClick={() => void approve('exact')}
                   >
-                    {t('trade.approveUnlimited', { symbol: token.symbol })}
+                    {t('trade.approveExact')}
                   </button>
                   <button
                     type="button"
                     className="s-btn s-btn-secondary s-btn-block"
                     disabled={disabled}
-                    onClick={() => void approve('exact')}
+                    onClick={() => void approve('unlimited')}
                   >
-                    {t('trade.approveExact')}
+                    {t('trade.approveUnlimited', { symbol: token.symbol })}
                   </button>
                 </>
               )}

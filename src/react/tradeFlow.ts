@@ -47,7 +47,7 @@ export interface SoothMarketActions {
   /** `connect()` hands off to `onWalletUnavailable` instead of connecting. */
   walletUnavailable: boolean;
   review: () => Promise<void>;
-  /** Sign the reviewed approval: unlimited (default) or the exact amount; a reset is zero. */
+  /** Sign the reviewed approval: the exact amount (default) or opt-in unlimited; a reset is zero. */
   approve: (mode?: ApprovalMode) => Promise<void>;
   submit: () => Promise<void>;
   clearReview: () => void;
@@ -174,8 +174,8 @@ export function useSoothMarketActions(options: SoothMarketActionsOptions): Sooth
       const next = await planSoothTrade(resolved, account, intent);
       if (revision === intentRevision.current) setPreview(next);
     });
-  /** Re-plan and sign only the reviewed approval (unlimited or exact), or the zero reset. */
-  const approve = (mode: ApprovalMode = 'unlimited') =>
+  /** Re-plan and sign only the reviewed approval (exact by default), or the zero reset. */
+  const approve = (mode: ApprovalMode = 'exact') =>
     run(async () => {
       if (!resolved || !account || !preview || preview.approveNative === null) return;
       const revision = intentRevision.current;

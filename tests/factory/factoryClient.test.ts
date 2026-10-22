@@ -450,7 +450,7 @@ describe('financial units and strict portfolios', () => {
 });
 
 describe('approval amount', () => {
-  it('signs unlimited or the exact amount as chosen, and a reset is always zero', async () => {
+  it('signs the exact amount or opt-in unlimited as chosen, and a reset is always zero', async () => {
     const { approvalAmount, UNLIMITED_APPROVAL } = await import('../../src/factory/factoryTrade.js');
     expect(UNLIMITED_APPROVAL).toBe((1n << 256n) - 1n);
     expect(approvalAmount({ allowance: 0n, approveNative: 5n }, 'unlimited')).toBe(UNLIMITED_APPROVAL);

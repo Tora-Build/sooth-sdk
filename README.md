@@ -127,6 +127,12 @@ market within the configured node. Creation uses current permissions, supported
 profiles and fee/budget previews, bounded approval and a separate explicit create
 action; a confirmed market waits for catalog indexing before opening.
 
+Trade and deposit reviews approve collateral separately from the spending transaction.
+"Approve exact amount" (the needed amount only) is the primary, default action.
+"Approve unlimited {symbol}" is a secondary, explicit opt-in that lets later trades and
+deposits with the same verified spender skip approval. A wallet with an insufficient
+nonzero allowance resets it to zero first.
+
 `presentation` defaults to `panel`; `drawer` and `modal` use native dialogs with
 Escape dismissal and focus restoration. Drawers are at most 480px wide and modals
 960px; both fill narrow screens. Use `open` and `onClose` for host-controlled

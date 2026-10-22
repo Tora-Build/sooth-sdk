@@ -305,18 +305,18 @@ export function TradePanel({ strings, resolved, data, actions, walletAction }: T
                   <button
                     type="button"
                     className="s-btn s-btn-primary s-btn-block"
-                    onClick={() => void actions.approve('unlimited')}
-                    disabled={!ready}
-                  >
-                    {t('trade.approveUnlimited', { symbol: token.symbol })}
-                  </button>
-                  <button
-                    type="button"
-                    className="s-btn s-btn-secondary s-btn-block"
                     onClick={() => void actions.approve('exact')}
                     disabled={!ready}
                   >
                     {t('trade.approveExact')}
+                  </button>
+                  <button
+                    type="button"
+                    className="s-btn s-btn-secondary s-btn-block"
+                    onClick={() => void actions.approve('unlimited')}
+                    disabled={!ready}
+                  >
+                    {t('trade.approveUnlimited', { symbol: token.symbol })}
                   </button>
                 </>
               )}

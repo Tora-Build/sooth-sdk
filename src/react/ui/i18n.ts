@@ -231,7 +231,7 @@ const en = {
   'trade.approveExact': 'Approve exact amount',
   'trade.approveUnlimited': 'Approve unlimited {symbol}',
   'trade.unlimitedNote':
-    'Unlimited: one approval covers your later trades and deposits with this spender, with no reset step. You can revoke it in your wallet. Exact: this transaction only.',
+    'Exact (recommended): this transaction only. Unlimited (optional): one approval covers your later trades and deposits with this spender, with no reset step. You can revoke it in your wallet.',
   'trade.resetAllowance': 'Reset allowance to zero',
   'trade.collateralApproval': 'Collateral approval',
   'trade.approvalRecipient': 'Approval recipient',
@@ -739,7 +739,7 @@ const zh: SoothStringTable = {
   'trade.approveExact': '授权精确金额',
   'trade.approveUnlimited': '无限授权 {symbol}',
   'trade.unlimitedNote':
-    '无限授权：一次授权即可覆盖之后与该支出方的交易和存款，无需重置步骤。您可以在钱包中撤销。精确授权：仅限本次交易。',
+    '精确授权（推荐）：仅限本次交易。无限授权（可选）：一次授权即可覆盖之后与该支出方的交易和存款，无需重置步骤。您可以在钱包中撤销。',
   'trade.resetAllowance': '将授权额度重置为零',
   'trade.collateralApproval': '抵押品授权',
   'trade.approvalRecipient': '授权接收方',
