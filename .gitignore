@@ -6,3 +6,9 @@ dist/
 .env
 .env.*
 !.env.example
+.envrc
+.envrc.*
+*.pem
+*.p12
+*.key
+**/utc--*
