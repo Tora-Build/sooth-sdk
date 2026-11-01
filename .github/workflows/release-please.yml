@@ -49,7 +49,8 @@ jobs:
       - name: Enable Corepack
         run: |
           corepack enable
-          corepack prepare pnpm@latest --activate
+          # Same pin as package.json#packageManager. Do not float to @latest.
+          corepack prepare pnpm@9.15.9 --activate
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Publish to npm

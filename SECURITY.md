@@ -19,9 +19,23 @@ any public announcement.
 
 ## Supported versions
 
-The utility-only 1.0.0 line is published. This repository now maintains
-SQF utilities. The removed 0.x protocol and CLI APIs are retired here; this
-policy does not claim continued support for them.
+Report issues in the code on `main` and in the published `sooth` package.
+That surface includes:
+
+- SQF utilities (`sooth`, `sooth/sqf`)
+- the Factory protocol SDK (`sooth/factory`)
+- the `soothcli` command
+- optional React embeds (`sooth/react`)
+
+Other branches and tags are historical. The retired 0.x sooth-core client is
+not maintained in this repository.
+
+## Secrets
+
+Do not commit private keys, seed phrases, or RPC URLs that contain API keys.
+Environment files, direnv files, and keystores are gitignored. If a secret is
+pushed, rotate it. Deleting it from the latest commit does not remove it from
+clones of older history.
 
 ## Out of scope
 
