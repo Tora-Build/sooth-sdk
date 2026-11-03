@@ -1,5 +1,5 @@
 import { useId, type ReactNode } from 'react';
-import { formatUnits } from 'viem';
+import { formatUnits, parseUnits } from 'viem';
 import { centsToTick } from '../../factory/factoryTrade/bookOrder.js';
 import { useSoothLiveQuote } from '../dataHooks.js';
 import type { SoothMarketData, SoothResolvedMarket } from '../runtime.js';
@@ -27,13 +27,21 @@ export interface TradePanelProps {
   actions: SoothMarketActions;
   /** Connect or switch-network action replacing review, if needed. */
   walletAction: ReactNode;
+  marketReadFailed?: boolean;
 }
 
 /**
  * Ticket with a display-only live quote. Review, approval and confirmation always go through
  * `useSoothMarketActions`, which re-plans from fresh chain reads; the live quote never signs.
  */
-export function TradePanel({ strings, resolved, data, actions, walletAction }: TradePanelProps) {
+export function TradePanel({
+  strings,
+  resolved,
+  data,
+  actions,
+  walletAction,
+  marketReadFailed = false,
+}: TradePanelProps) {
   const { t } = strings;
   const id = useId();
   const { intent, preview, busy, hasPending, ready } = actions;
@@ -58,14 +66,43 @@ export function TradePanel({ strings, resolved, data, actions, walletAction }: T
       ? 'max'
       : null;
   const impact = quote.data && !book ? Math.abs(quote.data.priceImpact) : 0;
+  const accountData =
+    data.account?.address.toLowerCase() === actions.account?.toLowerCase() ? data.account : null;
+  const insufficientBalance =
+    !marketReadFailed &&
+    Boolean(accountData) &&
+    (buy
+      ? Boolean(
+          accountData &&
+          (preview
+            ? preview.requiredNative > accountData.balance
+            : quote.data && !quote.error && quote.data.amountNative > accountData.balance),
+        )
+      : sharesValid && sellable !== null && parseUnits(intent.shares, 18) > sellable);
+  const blockedReason = marketReadFailed
+    ? t('trade.marketReadBlocked')
+    : hasPending
+      ? t('tx.waitPending')
+      : busy
+        ? t('trade.preparing')
+        : actions.account && !actions.rightChain
+          ? t('trade.wrongNetwork')
+          : insufficientBalance
+            ? t(buy ? 'trade.insufficientBalance' : 'trade.insufficientPosition')
+            : !sharesValid
+              ? t('trade.enterAmount')
+              : !tickValid
+                ? t('trade.tickHint')
+                : null;
+  const canReview = ready && !marketReadFailed && !insufficientBalance && sharesValid && tickValid;
   return (
-    <section className="s-card" aria-label={t('trade.title')}>
+    <section className="s-card s-trade-ticket" aria-label={t('trade.title')}>
       <form
         className="s-stack"
         aria-label={t('trade.shares')}
         onSubmit={(event) => {
           event.preventDefault();
-          void actions.review();
+          if (canReview && !preview) void actions.review();
         }}
       >
         <Segmented
@@ -109,9 +146,25 @@ export function TradePanel({ strings, resolved, data, actions, walletAction }: T
           ]}
         />
         <div className="s-field">
-          <label className="s-field-label" htmlFor={`${id}-shares`}>
-            {t('common.shares')}
-          </label>
+          <div className="s-field-heading">
+            <label className="s-field-label" htmlFor={`${id}-shares`}>
+              {t('common.shares')}
+            </label>
+            <span className="s-balance">
+              {buy
+                ? accountData &&
+                  t('trade.available', {
+                    amount: formatTokenWithSymbol(
+                      accountData.balance,
+                      token.decimals,
+                      token.symbol,
+                    ),
+                  })
+                : accountData &&
+                  sellable !== null &&
+                  t('trade.owned', { amount: formatShares(sellable) })}
+            </span>
+          </div>
           <div className="s-input-wrap">
             <input
               id={`${id}-shares`}
@@ -128,13 +181,7 @@ export function TradePanel({ strings, resolved, data, actions, walletAction }: T
             </span>
           </div>
           <span id={`${id}-units`} className="s-field-hint">
-            {t('trade.sharesHint', { symbol: token.symbol })}{' '}
-            {buy
-              ? data.account &&
-                t('trade.available', {
-                  amount: formatTokenWithSymbol(data.account.balance, token.decimals, token.symbol),
-                })
-              : sellable !== null && t('trade.owned', { amount: formatShares(sellable) })}
+            {t('trade.sharesHint', { outcome: outcomeLabel })}
           </span>
         </div>
         <Chips
@@ -172,7 +219,7 @@ export function TradePanel({ strings, resolved, data, actions, walletAction }: T
           <section className="s-quote" aria-label={t('trade.quoteTitle')} aria-live="polite">
             {quote.data ? (
               <>
-                <div className="s-kv">
+                <div className="s-kv s-quote-total">
                   <span>{buy ? t('trade.youPay') : t('trade.youReceive')}</span>
                   <span>
                     {formatTokenWithSymbol(
@@ -184,38 +231,40 @@ export function TradePanel({ strings, resolved, data, actions, walletAction }: T
                   </span>
                 </div>
                 <div className="s-kv">
-                  <span>{t('trade.fee')}</span>
+                  <span>{t('trade.feeIncluded')}</span>
                   <span>
                     {formatTokenWithSymbol(quote.data.feeNative, token.decimals, token.symbol, 4)}
                   </span>
                 </div>
-                <div className="s-kv">
-                  <span>{book ? t('trade.limit') : t('trade.avgPrice')}</span>
-                  <span>{formatCents(quote.data.averagePrice)}</span>
-                </div>
-                <div className="s-kv">
-                  <span>{t('trade.probability')}</span>
-                  <span>
-                    {t('trade.probabilityChange', {
-                      before: formatPercent(quote.data.priceBefore),
-                      after: formatPercent(quote.data.priceAfter),
-                    })}
-                  </span>
-                </div>
-                {!book && (
-                  <div
-                    className="s-kv"
-                    data-impact={
-                      impact > IMPACT_HIGH ? 'high' : impact > IMPACT_WARN ? 'warn' : 'low'
-                    }
-                  >
-                    <span>{t('trade.priceImpact')}</span>
+                <Disclosure summary={t('trade.quoteDetails')}>
+                  <div className="s-kv">
+                    <span>{book ? t('trade.limit') : t('trade.avgPrice')}</span>
+                    <span>{formatCents(quote.data.averagePrice)}</span>
+                  </div>
+                  <div className="s-kv">
+                    <span>{t('trade.probability')}</span>
                     <span>
-                      {quote.data.priceImpact > 0 ? '+' : ''}
-                      {formatPercent(quote.data.priceImpact, 2)}
+                      {t('trade.probabilityChange', {
+                        before: formatPercent(quote.data.priceBefore),
+                        after: formatPercent(quote.data.priceAfter),
+                      })}
                     </span>
                   </div>
-                )}
+                  {!book && (
+                    <div
+                      className="s-kv"
+                      data-impact={
+                        impact > IMPACT_HIGH ? 'high' : impact > IMPACT_WARN ? 'warn' : 'low'
+                      }
+                    >
+                      <span>{t('trade.priceImpact')}</span>
+                      <span>
+                        {quote.data.priceImpact > 0 ? '+' : ''}
+                        {formatPercent(quote.data.priceImpact, 2)}
+                      </span>
+                    </div>
+                  )}
+                </Disclosure>
                 {impact > IMPACT_HIGH ? (
                   <Notice tone="error">{t('trade.impactHigh')}</Notice>
                 ) : impact > IMPACT_WARN ? (
@@ -223,21 +272,32 @@ export function TradePanel({ strings, resolved, data, actions, walletAction }: T
                 ) : null}
               </>
             ) : quote.error ? (
-              <p className="s-small s-muted">
-                {t('trade.quoteUnavailable')}: {quote.error}
-              </p>
+              <p className="s-small s-muted">{t('trade.quoteUnavailable')}</p>
             ) : (
               <p className="s-small s-muted">
                 <Spinner /> {t('trade.quoteLoading')}
               </p>
             )}
-            <p className="s-small s-muted">{t('trade.quoteNote')}</p>
+            {quote.data && quote.error && (
+              <Notice tone="warn">{t('trade.quoteRefreshFailed')}</Notice>
+            )}
+            <p className="s-small s-muted">{t(book ? 'trade.quoteNote' : 'trade.slippageNote')}</p>
           </section>
         )}
-        <p className="s-small s-muted">{book ? t('trade.bookNotice') : t('trade.slippageNote')}</p>
+        {book && <p className="s-small s-muted">{t('trade.bookNotice')}</p>}
+        {blockedReason && (
+          <p id={`${id}-blocked`} className="s-small s-muted" role="status">
+            {blockedReason}
+          </p>
+        )}
         {walletAction ??
           (!preview && (
-            <button type="submit" className="s-btn s-btn-primary s-btn-block" disabled={!ready}>
+            <button
+              type="submit"
+              className="s-btn s-btn-primary s-btn-block"
+              disabled={!canReview}
+              aria-describedby={blockedReason ? `${id}-blocked` : undefined}
+            >
               {hasPending
                 ? t('tx.pending')
                 : busy
@@ -292,7 +352,7 @@ export function TradePanel({ strings, resolved, data, actions, walletAction }: T
                     type="button"
                     className="s-btn s-btn-primary s-btn-block"
                     onClick={() => void actions.approve()}
-                    disabled={!ready}
+                    disabled={!ready || marketReadFailed || insufficientBalance}
                   >
                     {t('trade.resetAllowance')}
                   </button>
@@ -306,7 +366,7 @@ export function TradePanel({ strings, resolved, data, actions, walletAction }: T
                     type="button"
                     className="s-btn s-btn-primary s-btn-block"
                     onClick={() => void actions.approve('exact')}
-                    disabled={!ready}
+                    disabled={!ready || marketReadFailed || insufficientBalance}
                   >
                     {t('trade.approveExact')}
                   </button>
@@ -314,7 +374,7 @@ export function TradePanel({ strings, resolved, data, actions, walletAction }: T
                     type="button"
                     className="s-btn s-btn-secondary s-btn-block"
                     onClick={() => void actions.approve('unlimited')}
-                    disabled={!ready}
+                    disabled={!ready || marketReadFailed || insufficientBalance}
                   >
                     {t('trade.approveUnlimited', { symbol: token.symbol })}
                   </button>
@@ -326,7 +386,7 @@ export function TradePanel({ strings, resolved, data, actions, walletAction }: T
               type="button"
               className="s-btn s-btn-primary s-btn-block"
               onClick={() => void actions.submit()}
-              disabled={!ready}
+              disabled={!ready || marketReadFailed || insufficientBalance}
             >
               {buy ? t('trade.confirmBuy') : t('trade.confirmSell')}
             </button>
