@@ -57,7 +57,8 @@ const marketCss = `
 .s-quote { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: var(--s-radius-sm); background: var(--s-surface-2); }
 .s-quote [data-impact=warn] > :last-child, .s-quote [data-impact=high] > :last-child { font-weight: 700; }
 .s-tabs { overflow-x: auto; }
-.s-market-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.s-market-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 12px 16px; }
+.s-market-foot .s-btn { flex: 0 0 auto; color: var(--s-muted); font-size: 12px; font-weight: 400; }
 `;
 
 /** Scoped shadow DOM keeps host CSS, routers and provider conventions out of the market UI. */
@@ -105,6 +106,7 @@ function MarketExperience(props: SoothMarketProps) {
   const depth = useSoothDepth(resolved, { enabled: book });
   const summary = useSoothMarketSummary(book ? null : resolved);
   const liquidity = useSoothLiquidity(resolved, account);
+  const refreshing = market.loading || liquidity.loading;
   const eventHandler = useRef(props.onEvent);
   eventHandler.current = props.onEvent;
   useEffect(() => {
@@ -234,9 +236,10 @@ function MarketExperience(props: SoothMarketProps) {
                       market.refresh();
                       refreshLiquidity();
                     }}
-                    disabled={busy}
+                    disabled={busy || refreshing}
+                    aria-busy={refreshing}
                   >
-                    {t('common.refresh')}
+                    {t(refreshing ? 'market.refreshing' : 'market.refreshData')}
                   </button>
                 </div>
               )}

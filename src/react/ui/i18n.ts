@@ -341,7 +341,9 @@ const en = {
   'market.policyNote':
     'New purchases require a listed market and current registry policy. Sells, cancellations and claims remain available when policy blocks new purchases.',
   'market.openInSooth': 'Open this market in Sooth',
-  'market.updated': 'Updated {time}',
+  'market.updated': 'Last updated {time}',
+  'market.refreshData': 'Refresh data',
+  'market.refreshing': 'Refreshing…',
   'market.retryRead': 'Retry market read',
   'market.eventsNote':
     "Decoded from this receipt's verified contracts. Numeric values below use raw contract units; current holdings and remaining orders are shown above.",
@@ -835,7 +837,9 @@ const zh: SoothStringTable = {
   'market.policyNote':
     '新的买入需要市场已上架且符合当前注册表政策。政策限制新买入时，卖出、取消和领取仍然可用。',
   'market.openInSooth': '在 Sooth 中打开此市场',
-  'market.updated': '更新于 {time}',
+  'market.updated': '上次更新于 {time}',
+  'market.refreshData': '刷新数据',
+  'market.refreshing': '正在刷新…',
   'market.retryRead': '重新读取市场',
   'market.eventsNote':
     '解码自此回执中经验证的合约。以下数值使用合约原始单位；当前持仓和剩余订单显示在上方。',

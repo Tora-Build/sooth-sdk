@@ -143,6 +143,26 @@ function alertText(ui: BoundFunctions<typeof queries>) {
 const changedMessage = 'The approval amount or reset step changed. Review the updated authorization and confirm again.';
 
 describe('SoothMarket embedded ticket', () => {
+  it.each(['en', 'zh'] as const)('labels the footer and shows market and liquidity refresh activity in %s', (locale) => {
+    const { ui, rerender } = renderMarket();
+    rerender(<SoothMarket {...props} locale={locale} />);
+    const label = locale === 'en' ? 'Refresh data' : '刷新数据';
+    const activeLabel = locale === 'en' ? 'Refreshing…' : '正在刷新…';
+    expect(ui.getByText(new RegExp(locale === 'en' ? '^Last updated ' : '^上次更新于 '))).toBeTruthy();
+    expect((ui.getByRole('button', { name: label }) as HTMLButtonElement).disabled).toBe(false);
+    marketState = { ...marketState, loading: true };
+    rerender(<SoothMarket {...props} locale={locale} />);
+    expect((ui.getByRole('button', { name: activeLabel }) as HTMLButtonElement).disabled).toBe(true);
+    expect(ui.getByRole('button', { name: activeLabel }).getAttribute('aria-busy')).toBe('true');
+    marketState = { ...marketState, loading: false };
+    vi.mocked(useSoothLiquidity).mockReturnValue({ ...idle(), loading: true });
+    rerender(<SoothMarket {...props} locale={locale} />);
+    expect((ui.getByRole('button', { name: activeLabel }) as HTMLButtonElement).disabled).toBe(true);
+    vi.mocked(useSoothLiquidity).mockReturnValue(idle());
+    rerender(<SoothMarket {...props} locale={locale} />);
+    expect((ui.getByRole('button', { name: label }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it('renders receipt feedback in a padded wrapping status card without submitting another trade', () => {
     vi.mocked(useSoothTransactionRecovery).mockReturnValue({
       pending: [], events: [], error: null, result: 'Buy YES shares confirmed.', addPending: vi.fn(),
@@ -792,7 +812,7 @@ describe('SoothMarket liquidity refresh', () => {
     await click(ui.getByRole('tab', { name: 'Liquidity' }));
     expect(ui.queryByRole('button', { name: 'Claim all for receipt #7' })).toBeNull();
 
-    await click(ui.getByRole('button', { name: 'Refresh', exact: true }));
+    await click(ui.getByRole('button', { name: 'Refresh data', exact: true }));
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
     await expectClaims(ui);
     expect(readSoothLiquidity).toHaveBeenCalledTimes(2);

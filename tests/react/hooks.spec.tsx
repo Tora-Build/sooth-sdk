@@ -59,6 +59,29 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe('Sooth market hook asynchronous state', () => {
+  it('keeps the last read and timestamp visible during manual refresh and clears them on account change', async () => {
+    const resolved = resolvedMarket(10);
+    const runtime: SoothRuntime = { resolveNode: vi.fn(), resolve: vi.fn().mockResolvedValue(resolved) };
+    const previous = marketData(resolved.reference.market, accountA, 12n);
+    const pending = deferred<SoothMarketData>();
+    vi.mocked(readSoothMarket).mockResolvedValueOnce(previous).mockImplementation(() => pending.promise);
+    const { result, rerender } = renderHook(({ account }) => useSoothMarket(resolved.reference, { runtime, account }), { initialProps: { account: accountA } });
+    await waitFor(() => expect(result.current.data).toBe(previous));
+    const updatedAt = result.current.updatedAt;
+    act(() => result.current.refresh());
+    await waitFor(() => expect(readSoothMarket).toHaveBeenCalledTimes(2));
+    expect(result.current.loading).toBe(true);
+    expect(result.current.data).toBe(previous);
+    expect(result.current.updatedAt).toBe(updatedAt);
+    rerender({ account: accountB });
+    expect(result.current.data).toBeNull();
+    expect(result.current.updatedAt).toBeNull();
+    const next = marketData(resolved.reference.market, accountB, 15n);
+    await act(async () => pending.resolve(next));
+    expect(result.current.data).toBe(next);
+    expect(result.current.loading).toBe(false);
+  });
+
   it('ignores a prior account response after the wallet account changes', async () => {
     const resolved = resolvedMarket(10);
     const runtime: SoothRuntime = { resolveNode: vi.fn(), resolve: vi.fn().mockResolvedValue(resolved) };
