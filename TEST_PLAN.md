@@ -1,9 +1,12 @@
 # sooth Test Plan
 
-Run the package checks from the SDK repository. Unit tests use isolated
+Run the package checks from the SDK repository on Node.js 22+ with Corepack.
+These checks need no private Alpha/Factory checkout. Unit tests use isolated
 clients; live RPC and local-chain smoke checks are separate below.
 
 ```sh
+corepack enable
+corepack prepare pnpm@9.15.9 --activate
 pnpm install --frozen-lockfile
 pnpm lint:check
 pnpm fmt:check
@@ -28,6 +31,13 @@ npm pack --dry-run --ignore-scripts --json
 ```
 
 ## Consumer and runtime proof
+
+The Alpha consumer scenarios below require access to the private
+[sooth-alpha repository](https://github.com/Tora-Build/sooth-alpha) and its configured
+services/fixtures. They are integration acceptance requirements, not prerequisites
+for the public SDK checks above. Historical results in `STATUS.md` and
+`FACTORY_MIGRATION_PLAN.md`, including temporary workstation paths and private
+evidence, are not publicly reproducible artifacts or proof of current deployments.
 
 Build the SDK before Alpha's registry and consumers. Alpha's `@sooth/sdk`
 workspace alias must resolve the same candidate package as external consumers.
@@ -56,7 +66,7 @@ to AMM. Keep direct `SoothMarket` integration covered independently.
 Check panel, 480px drawer and 960px modal, narrow full-screen presentation,
 keyboard navigation, Escape, focus restoration and host-controlled open/close.
 Use the actual Alpha generator output in an independent article host, plus the
-native React host described in [Alpha's embed guide](../sooth-alpha/apps/embed/README.md).
+native React host described in [Alpha's private embed guide](https://github.com/Tora-Build/sooth-alpha/blob/main/apps/embed/README.md).
 Verify URL/message data cannot replace trusted release/RPC configuration or
 cross instance/node identities. Wallet handoff must preserve node, feature
 settings, selected market/action and creation view without authorizing signing.
@@ -66,11 +76,12 @@ budget preview, bounded approval, explicit creation, canonical receipt recovery,
 and catalog indexing before opening the new market. Interrupt approval and
 creation, reopen, change account/chain and refuse duplicate submission. Correlate
 signed creation and AMM/CLOB flows with receipts and balances before recording
-acceptance. Current node-extension evidence is recorded separately in
-[STATUS.md](./STATUS.md#node-embed-extension-2026-10-17); scoped signed local
-creation, AMM buy/sell, native host-adapter sale and book placement/cancellation
-are complete. Real extension authentication and deployed-indexer acceptance
-remain outside that evidence, independently of earlier market-widget records.
+acceptance. Historical node-extension evidence is recorded separately in
+[STATUS.md](./STATUS.md#node-embed-extension-2026-10-17); that record reports scoped
+signed local creation, AMM buy/sell, native host-adapter sale and book
+placement/cancellation for its candidate. Real extension authentication and
+deployed-indexer acceptance remain outside that evidence, independently of earlier
+market-widget records.
 
 The detailed matrix is in [FACTORY_MIGRATION_PLAN.md](./FACTORY_MIGRATION_PLAN.md).
 Record checks actually run and distinguish unit tests, local-chain UI evidence,

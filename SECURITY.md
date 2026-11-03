@@ -4,7 +4,8 @@
 
 **Do not open a public GitHub issue for security bugs.**
 
-Email `security@tora.build` with:
+Use [GitHub private vulnerability reporting](https://github.com/Tora-Build/sooth-sdk/security/advisories/new)
+or email `security@tora.build`. Include:
 
 - A description of the vulnerability
 - Steps to reproduce or a proof-of-concept
@@ -20,7 +21,8 @@ any public announcement.
 ## Supported versions
 
 Report issues in the code on `main` and in the published `sooth` package.
-That surface includes:
+The published npm `sooth@1.0.0` is SQF-only; current source additionally includes
+Factory, CLI and React APIs. The reporting scope includes both surfaces:
 
 - SQF utilities (`sooth`, `sooth/sqf`)
 - the Factory protocol SDK (`sooth/factory`)

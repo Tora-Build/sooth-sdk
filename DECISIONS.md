@@ -1,5 +1,12 @@
 # Architectural Decision Records
 
+These dated decisions preserve the context and verification scope of their original
+records. Pending-release statements are historical; the [README](./README.md)
+distinguishes current source from the published SQF-only package. Alpha/Factory
+references require private repository access. Local acceptance evidence referenced
+through `STATUS.md`, including temporary workstation paths, is historical and not
+publicly reproducible; it does not establish current production readiness.
+
 ## ADR-001: Publish the SDK as the unscoped npm package `sooth`
 
 - **Date**: 2026-07-26
@@ -110,7 +117,7 @@
   to the migration scope, superseding the existing-market-only limitation.
   Automated creation from article text remains separate product work. SDK owns
   reusable UI/protocol behavior; Alpha owns hosted deployment and integration
-  guidance in its [embed documentation](../sooth-alpha/apps/embed/README.md).
+  guidance in its [private embed documentation](https://github.com/Tora-Build/sooth-alpha/blob/main/apps/embed/README.md).
   Existing verification records retain their original scope. Node creation,
   AMM buy/sell and book placement/cancellation have separate local signed
   evidence in `STATUS.md`; real extension authentication and deployed-indexer

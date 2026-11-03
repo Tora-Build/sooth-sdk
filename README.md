@@ -3,9 +3,12 @@
 Sooth Factory protocol APIs, an optional React node and market interface, a CLI, and
 protocol-neutral Sooth Question Format (SQF) utilities.
 
-The Factory and frontend additions in this checkout are under local integration.
-The published 1.0.0 release contains SQF only. Do not assume the new entry points
-are available from npm until a release is published.
+This repository's current source includes the Factory SDK, CLI and React entry
+points documented below. The published npm `sooth@1.0.0` release is SQF-only and
+does not contain those additions. The source manifest still says `1.0.0`; a new
+version is required before publishing the expanded package. Source availability,
+npm publication and hosted deployment are separate: this checkout alone does not
+establish a public widget deployment or production acceptance.
 
 ## Package boundaries
 
@@ -152,8 +155,10 @@ for independent single-market integrations. Its reference additionally includes
 the market address and explicit `amm` or `book` venue; it does not require a node
 browsing shell. `generateSoothEmbed` remains the direct-market snippet helper.
 
-For HTML/CMS hosts, Alpha's [hosted embed documentation](../sooth-alpha/apps/embed/README.md)
+For HTML/CMS hosts, Alpha's [hosted embed documentation](https://github.com/Tora-Build/sooth-alpha/blob/main/apps/embed/README.md)
 describes the node generator, one-line iframe, host containers and wallet handoff.
+That integration guide requires access to the private Alpha repository. Public SDK
+consumers can use the native React configuration above without an Alpha checkout.
 No public widget deployment is implied by this checkout.
 
 Native mode accepts a `wallet` adapter and rechecks account, chain and transaction
@@ -237,9 +242,16 @@ remain retired. Factory APIs do not reinterpret old core deployment addresses.
 The new CLI targets Factory explicitly. Keep versioned deployment identities
 when moving consumers.
 
-Use Node.js 22+ and the pinned pnpm version:
+Use Node.js 22+ and the pinned pnpm 9.15.9. CI uses the latest Node.js 22 patch.
+The publishing workflow uses Node.js 24 for npm Trusted Publishing (npm 11.5.1+);
+that publishing-tool requirement does not raise the SDK's minimum runtime.
+From a fresh public clone, enable Corepack before installing dependencies:
 
 ```sh
+git clone https://github.com/Tora-Build/sooth-sdk.git
+cd sooth-sdk
+corepack enable
+corepack prepare pnpm@9.15.9 --activate
 pnpm install --frozen-lockfile
 pnpm check
 pnpm typecheck
@@ -248,6 +260,30 @@ pnpm build
 pnpm test:package
 ```
 
+These checks use this repository and public package dependencies. Alpha/Factory
+checkouts and maintainer publishing credentials are not required for this build.
+Regenerating pinned upstream artifacts is a separate maintainer operation that
+requires access to their source repositories.
+
 See [FACTORY_MIGRATION_PLAN.md](./FACTORY_MIGRATION_PLAN.md) for the three
 workstreams and acceptance matrix, [TEST_PLAN.md](./TEST_PLAN.md) for runtime
 verification, and [DECISIONS.md](./DECISIONS.md) for package ownership.
+
+## Source snapshot provenance
+
+The repository retains these inputs under
+[`src/factory/factoryAbi/bundles/`](./src/factory/factoryAbi/bundles/):
+
+| Bundle | Recorded origin | Included source and license markers |
+| --- | --- | --- |
+| `oracle-sources.json` | [sooth-factory](https://github.com/Tora-Build/sooth-factory/tree/20b16862f12398d48f1b50d75970da0ae3730fab), revision `20b16862f12398d48f1b50d75970da0ae3730fab` | Four Solidity snapshots: `src/adjudicators/ZkTLSAdjudicator.sol`, `src/adjudicators/IMDAdjudicator.sol`, `src/adjudicators/AdjudicatorBase.sol`, and `src/adjudicators/primus/IPrimusZKTLS.sol`. Each carries `SPDX-License-Identifier: MIT`. |
+| `imd-sources.json` | [sooth-alpha](https://github.com/Tora-Build/sooth-alpha/tree/7d5284df1101e2d05ce41d1648b6166e59a24dab), revision `7d5284df1101e2d05ce41d1648b6166e59a24dab` | TypeScript ABI snapshot `packages/options-core/src/factoryAbi/IMDAdjudicator.ts`; no SPDX header is present in this snapshot. |
+
+The Primus interface attributes [primus-labs/zktls-contracts at `e14c7b1`](https://github.com/primus-labs/zktls-contracts/tree/e14c7b1).
+The upstream interface's MIT SPDX header was verified; that pinned upstream tree
+has no root `LICENSE` file. The SDK's own declared license is [MIT](./LICENSE).
+This inventory records provenance and observed license markers, not legal ownership
+or a determination of redistribution rights. The Factory and Alpha origins are
+private repositories; the copied snapshots are already public in this SDK.
+They are retained for artifact provenance and are not included by the current npm
+file allowlist. Repository source exposure and the packed npm contents differ.
