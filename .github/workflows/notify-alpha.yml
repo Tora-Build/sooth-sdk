@@ -12,6 +12,9 @@ on:
       - 'src/**'
       - 'package.json'
 
+# Dispatch uses ALPHA_PAT; the workflow GITHUB_TOKEN needs no permissions.
+permissions: {}
+
 concurrency:
   group: notify-alpha
   cancel-in-progress: false  # queue, never drop a main-push notification

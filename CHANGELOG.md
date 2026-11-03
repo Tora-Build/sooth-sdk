@@ -7,6 +7,8 @@
   current source from SQF-only npm 1.0.0 and require a new version for expanded
   publication. Inventory retained source provenance, qualify private/historical
   evidence links, and add GitHub private vulnerability reporting alongside email.
+- Limit CI's GitHub token to reading repository contents. Alpha dispatch jobs use
+  their explicit dispatch credential and grant no permissions to GITHUB_TOKEN.
 - Make finite approval the default in the React trade and deposit reviews.
   "Approve exact amount" is the primary action and the default
   `SoothMarketActions.approve()` mode; "Approve unlimited {symbol}" stays
