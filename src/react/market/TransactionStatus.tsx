@@ -22,11 +22,15 @@ export function TransactionStatus({
     <>
       {error && <Notice tone="error">{error}</Notice>}
       <section
-        className={active ? 's-stack' : undefined}
+        className={active ? 's-card s-transaction-status' : undefined}
         aria-live="polite"
         aria-label={t('tx.status')}
       >
-        {recovery.result && <p role="status">{recovery.result}</p>}
+        {recovery.result && (
+          <p className="s-small" role="status">
+            {recovery.result}
+          </p>
+        )}
         {recovery.pending.map((item) => (
           <div className="s-card s-card-flat" key={item.hash}>
             <p>{t('tx.pendingLabel', { label: item.label })}</p>

@@ -357,7 +357,7 @@ const en = {
   'trade.authorizeOnly':
     'This trade needs {amount} approved for the verified {venue} spender. Trading requires a separate confirmation.',
   'trade.quoteTitle': 'Live quote',
-  'trade.quoteNote': 'Estimate only. Review re-reads the chain before anything is signed.',
+  'trade.quoteNote': 'Estimate. Updated before signing.',
   'account.title': 'Your account',
   'account.sections': 'Account sections',
   'account.positions': 'Positions',
@@ -850,7 +850,7 @@ const zh: SoothStringTable = {
   'trade.sharesHint': '以份额计。支付和收益使用 {symbol}。',
   'trade.authorizeOnly': '本次交易需要向经验证的 {venue} 支出方授权 {amount}。交易需要单独确认。',
   'trade.quoteTitle': '实时报价',
-  'trade.quoteNote': '仅为估算。签名前审阅会重新读取链上数据。',
+  'trade.quoteNote': '估算金额，签名前更新。',
   'account.title': '您的账户',
   'account.sections': '账户分区',
   'account.positions': '持仓',

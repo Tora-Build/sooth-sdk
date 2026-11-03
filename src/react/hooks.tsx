@@ -255,7 +255,7 @@ export function useSoothTransactionRecovery(
           setPending((previous) => previous.filter((item) => item.hash !== record.hash));
           setResult(
             state.status === 'confirmed'
-              ? `${record.label} confirmed. Balances and open orders are being refreshed.`
+              ? `${record.label} confirmed.`
               : `${record.label} reverted on chain. No automatic retry was made.`,
           );
           setError(null);

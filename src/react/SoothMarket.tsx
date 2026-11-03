@@ -110,11 +110,12 @@ function MarketExperience(props: SoothMarketProps) {
   useEffect(() => {
     if (resolved) eventHandler.current?.({ type: 'market-opened' });
   }, [resolved]);
-  // LP receipts are not polled; re-read them whenever a transaction settles.
+  // LP receipts are not polled; refresh after local transactions or observed settlement.
   const refreshLiquidity = liquidity.refresh;
+  const settled = data?.snapshot.settled;
   useEffect(() => {
-    if (recovery.result) refreshLiquidity();
-  }, [recovery.result, refreshLiquidity]);
+    if (recovery.result || settled) refreshLiquidity();
+  }, [recovery.result, settled, refreshLiquidity]);
 
   const walletAction = !account ? (
     <button
@@ -229,7 +230,10 @@ function MarketExperience(props: SoothMarketProps) {
                   <button
                     type="button"
                     className="s-btn s-btn-ghost s-btn-sm"
-                    onClick={market.refresh}
+                    onClick={() => {
+                      market.refresh();
+                      refreshLiquidity();
+                    }}
                     disabled={busy}
                   >
                     {t('common.refresh')}
