@@ -18,7 +18,7 @@ import type { SoothRuntime } from './runtime.js';
 import type { SoothTradeIntent } from './trading.js';
 import { useSoothMarketActions } from './tradeFlow.js';
 import { soothText, type SoothLocale } from './ui/i18n.js';
-import { Notice, Skeleton } from './ui/primitives.js';
+import { Disclosure, Notice, Skeleton } from './ui/primitives.js';
 import { soothBaseCss, soothRootStyle } from './ui/theme.js';
 import type { SoothWalletAdapter } from './wallet.js';
 
@@ -40,8 +40,8 @@ export interface SoothMarketProps {
  * under the prices inside a 480-560px iframe; from 860px the trade column moves right.
  */
 const marketCss = `
-.s-market-layout { grid-template-areas: "head" "side" "main"; }
-.s-market-layout > .s-market-head { grid-area: head; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.s-market-layout { grid-template-areas: "head" "side" "main"; gap: 8px; }
+.s-market-layout > .s-market-head { grid-area: head; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .s-market-layout > .s-layout-side { grid-area: side; }
 .s-market-layout > .s-layout-main { grid-area: main; }
 @container sooth (min-width: 860px) {
@@ -56,6 +56,12 @@ const marketCss = `
 .s-price-card-static { cursor: default; }
 .s-quote { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: var(--s-radius-sm); background: var(--s-surface-2); }
 .s-quote [data-impact=warn] > :last-child, .s-quote [data-impact=high] > :last-child { font-weight: 700; }
+.s-market-layout > .s-market-head > .s-card, .s-trade-ticket, .s-market-layout > .s-layout-main > .s-card:first-child { padding: 12px; }
+.s-trade-ticket .s-field-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; }
+.s-trade-ticket .s-balance { font-size: 12px; color: var(--s-muted); }
+.s-trade-ticket .s-quote-total { font-weight: 700; }
+.s-trade-ticket .s-quote .s-disclosure { margin-top: 2px; }
+.s-market-layout > .s-layout-main, .s-market-layout > .s-layout-side { gap: 12px; }
 .s-tabs { overflow-x: auto; }
 .s-market-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 12px 16px; }
 .s-market-foot .s-btn { flex: 0 0 auto; color: var(--s-muted); font-size: 12px; font-weight: 400; }
@@ -178,7 +184,10 @@ function MarketExperience(props: SoothMarketProps) {
               </button>
             }
           >
-            {market.error}
+            <p>{t(data ? 'market.refreshFailed' : 'market.loadFailed')}</p>
+            <Disclosure summary={t('market.errorDetails')}>
+              <pre className="s-pre s-pre-code">{market.error}</pre>
+            </Disclosure>
           </Notice>
         )}
         {data && resolved ? (
@@ -200,6 +209,7 @@ function MarketExperience(props: SoothMarketProps) {
                   data={data}
                   actions={actions}
                   walletAction={walletAction}
+                  marketReadFailed={Boolean(market.error)}
                 />
               ) : walletAction ? (
                 <section className="s-card" aria-label={t('account.title')}>

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Clarify market load and stale-refresh failures in English and Chinese, retain retry
+  and technical details, and explain blocked trading beside the ticket action.
+  Show wallet balance separately, block unaffordable quotes using the matching on-chain
+  account balance, and keep total and included fees visible while placing secondary
+  price details behind a disclosure. Preserve impact warnings and review safeguards;
+  tighten market spacing without shrinking interaction targets.
+
 - Pad the market footer to match card content in flattened embeds, with a muted
   last-updated time, compact English/Chinese refresh labels and visible loading
   feedback. Preserve the current market read during refresh so the footer stays visible.
