@@ -1,10 +1,20 @@
 # Project Status
 
+This file preserves historical implementation and acceptance records. Test counts,
+deployment observations and statements of pending work apply to the recorded
+candidate and date, not automatically to current `main`. Alpha/Factory references
+require private repository access. Absolute `/tmp` and `/var/folders` links identify
+temporary workstation evidence, may no longer exist, and are not publicly
+reproducible artifacts. For public, self-contained SDK checks, use
+[README.md](./README.md#migration-and-development) and [TEST_PLAN.md](./TEST_PLAN.md).
+
 ## Current Focus
 
-Implement the three workstreams in `FACTORY_MIGRATION_PLAN.md`: Factory protocol
-SDK, Alpha consumer adoption and an embeddable node/market frontend. This checkout
-extends the published SQF-only 1.0.0 baseline; it has not been published or deployed.
+Current source includes the Factory protocol SDK, CLI and embeddable node/market
+frontend from the three workstreams in `FACTORY_MIGRATION_PLAN.md`. It extends the
+published SQF-only 1.0.0 baseline and requires a new version before npm publication.
+Hosted consumer integration and deployment have separate release records; the
+historical acceptance evidence below does not establish their current status.
 
 Root and `/sqf` retain their SQF APIs. Factory APIs and the new CLI target pinned
 v7/v7.1 releases. Optional React entry points supply reusable node/market UI and hooks.
@@ -93,7 +103,7 @@ environment guards passed 20 tests and now run in CI as `productionEnv.spec.ts`.
 `SoothNode` now provides host-selected node browsing, search, Open/Resolved/All
 filters, market/back navigation and native panel/drawer/modal presentations.
 Creation and CLOB default off; AMM remains available. Direct `SoothMarket` is
-still an independent integration. Alpha's [host documentation](../sooth-alpha/apps/embed/README.md)
+still an independent integration. Alpha's [private host documentation](https://github.com/Tora-Build/sooth-alpha/blob/main/apps/embed/README.md)
 covers node snippet generation, presentation containers and wallet handoff.
 
 For this extension, the SDK build passed. The React run passed 230 tests and

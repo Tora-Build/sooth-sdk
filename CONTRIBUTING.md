@@ -1,19 +1,24 @@
 # Contributing to sooth-sdk
 
-Thanks for your interest in improving the Sooth SDK. This package provides
-protocol-neutral SQF parsing and generation with no runtime dependencies.
+Thanks for your interest in improving the Sooth SDK. Current source includes
+Factory protocol APIs, a CLI, optional React components and protocol-neutral SQF
+utilities. The published npm `sooth@1.0.0` remains SQF-only; see [README.md](./README.md).
 
 If you're reporting a security issue, **do not open a public issue** —
 see [`SECURITY.md`](./SECURITY.md).
 
 ## Getting set up
 
-Prerequisites: [Node.js 20+](https://nodejs.org/), [pnpm](https://pnpm.io/).
+Prerequisites: [Node.js 22+](https://nodejs.org/) with Corepack. The pinned package
+manager is pnpm 9.15.9. CI uses the latest Node.js 22 patch; publishing uses Node.js
+24 for npm Trusted Publishing, independently of the minimum SDK runtime.
 
 ```bash
 git clone https://github.com/Tora-Build/sooth-sdk
 cd sooth-sdk
-pnpm install   # installs deps + sets up git hooks via husky
+corepack enable
+corepack prepare pnpm@9.15.9 --activate
+pnpm install --frozen-lockfile # installs deps + sets up git hooks via husky
 pnpm build
 ```
 
@@ -23,7 +28,7 @@ Before pushing, at minimum:
 pnpm fmt:check    # no diff expected
 pnpm lint:check   # zero warnings
 pnpm typecheck    # no type errors
-pnpm test         # SQF regression coverage
+pnpm test         # SQF, Factory, CLI and React regression coverage
 pnpm build        # clean compile
 pnpm test:package # public exports and removed subpaths
 ```

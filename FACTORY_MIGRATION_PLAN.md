@@ -1,5 +1,13 @@
 # Sooth SDK: Factory migration, client adoption and frontend embeds
 
+This is a historical migration plan and acceptance ledger. Its baseline revisions,
+service observations and pending-work statements retain their recorded dates and
+scope; they are not a current deployment inventory. Links to Alpha and Factory
+require private repository access. Absolute `/tmp` and `/var/folders` paths below
+are historical, temporary workstation evidence, may no longer exist, and are not
+publicly reproducible artifacts. Public SDK build/check instructions are in the
+[README](./README.md#migration-and-development) and [TEST_PLAN.md](./TEST_PLAN.md).
+
 Status: local implementation and partial acceptance recorded 2026-10-16. Protocol, consumer and embed code has changed; the planned acceptance matrices below remain requirements. No migration npm publication, deployment, commit or Alpha SDK gitlink pin is recorded. The combined plan is not complete.
 
 ## Three workstreams
@@ -42,13 +50,13 @@ Read-only GET `https://registry.sooth.market/v2/status` during this investigatio
 | Sepolia 11155111 | `sooth-factory-v7` | `0x67926F892CaBa6A8b96ee45b0c927031371C9e85` | ready, 3 nodes, 48 markets, lag 2, no quarantine |
 | Robinhood testnet 46630 | `sooth-factory-v7.1` | `0x42D11954d64822A7241a40d4cC2257799d87447c` | ready, 2 nodes, 72 markets, lag 2, no quarantine |
 
-Use the exact release IDs, ABI hashes, source/artifact revisions and start blocks in [Alpha release seeds](../sooth-alpha/packages/registry/factory-releases.json). Support both live releases. v7.2 requires a separate explicit support entry and conformance evidence; do not silently use Factory main's artifacts for v7/v7.1. An unchanged ABI digest does not imply unchanged behavior or deployment identity.
+Use the exact release IDs, ABI hashes, source/artifact revisions and start blocks in the [private Alpha release seeds at the research baseline](https://github.com/Tora-Build/sooth-alpha/blob/7d5284df1101e2d05ce41d1648b6166e59a24dab/packages/registry/factory-releases.json). Support both recorded live releases. v7.2 requires a separate explicit support entry and conformance evidence; do not silently use Factory main's artifacts for v7/v7.1. An unchanged ABI digest does not imply unchanged behavior or deployment identity.
 
 The old CLI's `node bin/soothcli.js --list` failed with HTTP 410 from `/v1/nodes`. That is consistent with the retired v1 integration, not evidence that Factory discovery is unavailable.
 
 ## Why Alpha worked without a protocol SDK (research baseline)
 
-1. Alpha deliberately retired the old SDK protocol surface. [ADR-130](../sooth-alpha/DECISIONS.md) records factory-only shared services and SDK cleanup, with no required old-claim support. [SDK ADR-004](../sooth-alpha/packages/sdk/DECISIONS.md) explicitly added no Factory client.
+1. Alpha deliberately retired the old SDK protocol surface. [ADR-130 (private baseline)](https://github.com/Tora-Build/sooth-alpha/blob/7d5284df1101e2d05ce41d1648b6166e59a24dab/DECISIONS.md) records factory-only shared services and SDK cleanup, with no required old-claim support. [SDK ADR-004](./DECISIONS.md#adr-004-utility-only-sqf-package) explicitly added no Factory client.
 2. The applications still depend on the workspace alias `@sooth/sdk`, but active imports use `/sqf` for question parsing and generation. Old core imports remain in some legacy tests and archived files; dependency declarations alone do not establish a runtime protocol dependency.
 3. Alpha built its own production client in the private `@sooth/options-core` package: `factoryClient`, `factoryTransactions`, `factoryPortfolio`, `factoryCatalog`, `factoryIndexer`, `factoryTrade/*`, and generated `factoryAbi/*`.
 4. Demo and Mobile use React adapters in `@sooth/ui-hooks`. Market and East also contain app-local financial calculations, binding checks and transaction helpers. Market's `bookOrder.ts` explicitly says it was copied from East and intended to move into a shared package after the milestone.
@@ -56,15 +64,15 @@ The old CLI's `node bin/soothcli.js --list` failed with HTTP 410 from `/v1/nodes
 
 The issue is ownership and duplication: much of the SDK already exists inside the client repository, under a package described as Eastboard option templates. Writing a new independent client would add another implementation to maintain.
 
-Key evidence:
+Key historical evidence (private repository access required):
 
-- [Shared client and verification](../sooth-alpha/packages/options-core/src/factoryClient.ts)
-- [Transaction builders](../sooth-alpha/packages/options-core/src/factoryTransactions.ts)
-- [Shared financial plans](../sooth-alpha/packages/options-core/src/factoryTrade/)
-- [React adapters](../sooth-alpha/packages/ui-hooks/src/factory.ts)
-- [Market's copied order arithmetic](../sooth-alpha/apps/market/src/factory/trade/bookOrder.ts)
-- [Mobile migration report](../sooth-alpha/apps/mobile/FACTORY_MIGRATION_REPORT.md)
-- [Factory reference adapter and accounting rules](../sooth-factory/sdk/README.md)
+- [Shared client and verification](https://github.com/Tora-Build/sooth-alpha/blob/7d5284df1101e2d05ce41d1648b6166e59a24dab/packages/options-core/src/factoryClient.ts)
+- [Transaction builders](https://github.com/Tora-Build/sooth-alpha/blob/7d5284df1101e2d05ce41d1648b6166e59a24dab/packages/options-core/src/factoryTransactions.ts)
+- [Shared financial plans](https://github.com/Tora-Build/sooth-alpha/tree/7d5284df1101e2d05ce41d1648b6166e59a24dab/packages/options-core/src/factoryTrade/)
+- [React adapters](https://github.com/Tora-Build/sooth-alpha/blob/7d5284df1101e2d05ce41d1648b6166e59a24dab/packages/ui-hooks/src/factory.ts)
+- [Market's copied order arithmetic](https://github.com/Tora-Build/sooth-alpha/blob/7d5284df1101e2d05ce41d1648b6166e59a24dab/apps/market/src/factory/trade/bookOrder.ts)
+- [Mobile migration report](https://github.com/Tora-Build/sooth-alpha/blob/7d5284df1101e2d05ce41d1648b6166e59a24dab/apps/mobile/FACTORY_MIGRATION_REPORT.md)
+- [Factory reference adapter and accounting rules](https://github.com/Tora-Build/sooth-factory/blob/8ab10997ead9f7e0d9afad873aa5799e214f0235/sdk/README.md)
 
 Do not use the October 12 umbrella migration ledger as current readiness: it predates ADR-130, v7.1 adoption and Mobile's October 14 acceptance update. The Mobile report records remaining real Privy/public-write verification limits; this investigation did not rerun those flows.
 
@@ -237,7 +245,7 @@ Native usage after installation/import and trusted runtime configuration (see th
 
 `nodeRef` identifies chain, factory, full node ID and supported release, with string form `sooth:node:v1:<chainId>:<factory>:<nodeId>:<releaseId>`. The runtime verifies binding and scopes catalog results to that node; catalog display facts do not replace live verified trading state. Host-selected `features.create` and `features.clob` both default to false; AMM cannot be disabled, and a `book` initial venue falls back to AMM when CLOB is off. Creation reuses fresh permissions/profile checks, fee and budget preview, bounded approval, explicit signing and receipt recovery before waiting for catalog indexing.
 
-The generated iframe line contains a versioned widget URL, encoded node reference, feature/presentation settings, descriptive title and usable dimensions. It is executable only after a widget origin is deployed. Do not document a fictional working endpoint. One-line setup means one embed line after selecting a node; React still requires installation/import, and users still connect a wallet and confirm signatures. See [Alpha's hosted integration guide](../sooth-alpha/apps/embed/README.md) for the generator and independent article/native hosts.
+The generated iframe line contains a versioned widget URL, encoded node reference, feature/presentation settings, descriptive title and usable dimensions. It is executable only after a widget origin is deployed. Do not document a fictional working endpoint. One-line setup means one embed line after selecting a node; React still requires installation/import, and users still connect a wallet and confirm signatures. See [Alpha's private hosted integration guide](https://github.com/Tora-Build/sooth-alpha/blob/main/apps/embed/README.md) for the generator and independent article/native hosts.
 
 `SoothNode` composes the existing selected-market experience; direct `SoothMarket` and the hosted `/v1/market` route remain supported independent integrations. Market references additionally select a market and explicit venue. The runtime must not accept arbitrary contract addresses or RPC endpoints from host messages or query parameters as trusted execution configuration. Native `panel` is the default; drawer (at most 480px) and modal (at most 960px) use native dialogs, Escape and focus restoration, becoming full-screen on narrow displays. Hosts can control `open`/`onClose`.
 
