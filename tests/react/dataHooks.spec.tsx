@@ -63,6 +63,73 @@ describe('live quote hook', () => {
     view.rerender({ value: intent('3') });
     expect(view.result.current).toMatchObject({ data: null, loading: true });
   });
+  it('refreshes unchanged inputs every market interval, preserves the last quote on failure, and stops on unmount', async () => {
+    const first = { ...quote(1n), amountNative: 1_000_000n };
+    const moved = { ...quote(1n), amountNative: 1_200_000n };
+    vi.mocked(quoteSoothTrade)
+      .mockResolvedValueOnce(first)
+      .mockResolvedValueOnce(moved)
+      .mockRejectedValueOnce(new Error('RPC unavailable'))
+      .mockResolvedValue(first);
+    const view = renderHook(() => useSoothLiveQuote(resolved, intent('1')));
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+    expect(view.result.current.data).toEqual(first);
+    await act(async () => { await vi.advanceTimersByTimeAsync(14_700); });
+    expect(view.result.current).toMatchObject({ data: moved, error: null, loading: false });
+    expect(quoteSoothTrade).toHaveBeenLastCalledWith(resolved, intent('1'));
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+    expect(view.result.current).toMatchObject({ data: moved, error: 'RPC unavailable', loading: false });
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+    expect(view.result.current).toMatchObject({ data: first, error: null, loading: false });
+    view.unmount();
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    expect(quoteSoothTrade).toHaveBeenCalledTimes(4);
+  });
+  it('recovers an initial quote error on the next market interval without changing inputs', async () => {
+    vi.mocked(quoteSoothTrade)
+      .mockRejectedValueOnce(new Error('RPC unavailable'))
+      .mockResolvedValue(quote(1n));
+    const view = renderHook(() => useSoothLiveQuote(resolved, intent('1')));
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+    expect(view.result.current).toMatchObject({ data: null, error: 'RPC unavailable', loading: false });
+    await act(async () => { await vi.advanceTimersByTimeAsync(14_700); });
+    expect(view.result.current).toMatchObject({ data: quote(1n), error: null, loading: false });
+    expect(quoteSoothTrade).toHaveBeenCalledTimes(2);
+  });
+  it('debounces a new intent at a polling boundary and discards an older poll response', async () => {
+    const oldPoll = deferred<SoothLiveQuote>();
+    vi.mocked(quoteSoothTrade)
+      .mockResolvedValueOnce(quote(1n))
+      .mockReturnValueOnce(oldPoll.promise)
+      .mockResolvedValue(quote(2n));
+    const view = renderHook(({ value }) => useSoothLiveQuote(resolved, value), { initialProps: { value: intent('1') } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+    expect(quoteSoothTrade).toHaveBeenCalledTimes(2);
+    await act(async () => { await vi.advanceTimersByTimeAsync(14_900); });
+    view.rerender({ value: intent('2') });
+    expect(view.result.current).toMatchObject({ data: null, loading: true });
+    await act(async () => { await vi.advanceTimersByTimeAsync(299); });
+    expect(quoteSoothTrade).toHaveBeenCalledTimes(2);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(view.result.current.data).toEqual(quote(2n));
+    await act(async () => { oldPoll.resolve(quote(1n)); });
+    expect(view.result.current.data).toEqual(quote(2n));
+    expect(quoteSoothTrade).toHaveBeenLastCalledWith(resolved, intent('2'));
+  });
+  it('keeps quote polling single-flight and stops when the intent is cleared', async () => {
+    const poll = deferred<SoothLiveQuote>();
+    vi.mocked(quoteSoothTrade).mockResolvedValueOnce(quote(1n)).mockReturnValue(poll.promise);
+    const view = renderHook(({ value }) => useSoothLiveQuote(resolved, value), {
+      initialProps: { value: intent('1') as SoothTradeIntent | null },
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(45_000); });
+    expect(quoteSoothTrade).toHaveBeenCalledTimes(2);
+    view.rerender({ value: null });
+    await act(async () => { poll.resolve(quote(2n)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+    expect(view.result.current).toMatchObject({ data: null, error: null, loading: false });
+    expect(quoteSoothTrade).toHaveBeenCalledTimes(2);
+  });
   it('stays idle without an intent', () => {
     const view = renderHook(() => useSoothLiveQuote(resolved, null));
     expect(view.result.current).toMatchObject({ data: null, error: null, loading: false });

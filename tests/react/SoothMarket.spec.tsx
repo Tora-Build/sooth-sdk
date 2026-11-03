@@ -9,7 +9,7 @@ import {
   useSoothDepth, useSoothLiquidity, useSoothLiveQuote, useSoothMarketSummary, useSoothPriceHistory,
 } from '../../src/react/dataHooks.js';
 import {
-  planSoothAddLiquidity, type SoothLiquidity, type SoothLiquidityPreview, type SoothLiveQuote,
+  planSoothAddLiquidity, readSoothLiquidity, type SoothLiquidity, type SoothLiquidityPreview, type SoothLiveQuote,
 } from '../../src/react/data.js';
 import { formatSoothMarketReference } from '../../src/react/embed.js';
 import type { SoothMarketData, SoothResolvedMarket } from '../../src/react/runtime.js';
@@ -34,6 +34,7 @@ vi.mock('../../src/react/dataHooks.js', () => ({
 }));
 vi.mock('../../src/react/data.js', () => ({
   planSoothAddLiquidity: vi.fn(),
+  readSoothLiquidity: vi.fn(),
 }));
 
 const address = (n: number) => `0x${n.toString(16).padStart(40, '0')}` as Address;
@@ -142,6 +143,39 @@ function alertText(ui: BoundFunctions<typeof queries>) {
 const changedMessage = 'The approval amount or reset step changed. Review the updated authorization and confirm again.';
 
 describe('SoothMarket embedded ticket', () => {
+  it.each(['en', 'zh'] as const)('labels the footer and shows market and liquidity refresh activity in %s', (locale) => {
+    const { ui, rerender } = renderMarket();
+    rerender(<SoothMarket {...props} locale={locale} />);
+    const label = locale === 'en' ? 'Refresh data' : '刷新数据';
+    const activeLabel = locale === 'en' ? 'Refreshing…' : '正在刷新…';
+    expect(ui.getByText(new RegExp(locale === 'en' ? '^Last updated ' : '^上次更新于 '))).toBeTruthy();
+    expect((ui.getByRole('button', { name: label }) as HTMLButtonElement).disabled).toBe(false);
+    marketState = { ...marketState, loading: true };
+    rerender(<SoothMarket {...props} locale={locale} />);
+    expect((ui.getByRole('button', { name: activeLabel }) as HTMLButtonElement).disabled).toBe(true);
+    expect(ui.getByRole('button', { name: activeLabel }).getAttribute('aria-busy')).toBe('true');
+    marketState = { ...marketState, loading: false };
+    vi.mocked(useSoothLiquidity).mockReturnValue({ ...idle(), loading: true });
+    rerender(<SoothMarket {...props} locale={locale} />);
+    expect((ui.getByRole('button', { name: activeLabel }) as HTMLButtonElement).disabled).toBe(true);
+    vi.mocked(useSoothLiquidity).mockReturnValue(idle());
+    rerender(<SoothMarket {...props} locale={locale} />);
+    expect((ui.getByRole('button', { name: label }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('renders receipt feedback in a padded wrapping status card without submitting another trade', () => {
+    vi.mocked(useSoothTransactionRecovery).mockReturnValue({
+      pending: [], events: [], error: null, result: 'Buy YES shares confirmed.', addPending: vi.fn(),
+    });
+    const { ui } = renderMarket();
+    const status = ui.getByRole('region', { name: 'Transaction status' });
+    expect(status.classList.contains('s-card')).toBe(true);
+    expect(status.classList.contains('s-transaction-status')).toBe(true);
+    expect(status.getAttribute('aria-live')).toBe('polite');
+    expect(within(status).getByRole('status').textContent).toBe('Buy YES shares confirmed.');
+    expect(sendSoothAction).not.toHaveBeenCalled();
+  });
+
   it('shows the live AMM probability and reviews the selected side and outcome in shares', async () => {
     vi.mocked(planSoothTrade).mockResolvedValue(preview(5_000_000n));
     const { ui } = renderMarket();
@@ -699,6 +733,102 @@ describe('SoothMarket open orders', () => {
     expect(sendSoothAction).toHaveBeenCalledWith(bookMarket, expect.objectContaining({ sendTransaction: expect.any(Function) }), account, {
       kind: 'cancelOrder', orderId: 7n,
     }, expect.any(Function));
+  });
+});
+
+describe('SoothMarket liquidity refresh', () => {
+  function lp(settled: boolean): SoothLiquidity {
+    const positionId = 7n;
+    const units = 3n * 10n ** 18n;
+    return {
+      blockNumber: settled ? 11n : 10n, token: data.token, liquidityOpen: !settled, settled, claims: [],
+      entitlements: {} as SoothLiquidity['entitlements'],
+      receipts: [{
+        positionId, market: resolved.reference.market, units, totalSupply: units,
+        residualNoWad: 0n, residualYesWad: 0n, residualInvalidWad: 0n, initialSupplyWad: null,
+        valueIfNoWad: null, valueIfYesWad: null, valueIfInvalidWad: null,
+        valuationComplete: false, valuationGap: 'Not valued',
+        feesNative: settled ? 100_000n : null,
+        feesGap: settled ? null : 'LP fees can be claimed after settlement.',
+        claimAvailable: settled ? { kind: 'claimAvailable', positionId, units } : null,
+        redeem: settled ? { kind: 'redeemLPPosition', positionId, units } : null,
+        claimFees: settled ? { kind: 'claimLPDividendForPosition', positionId } : null,
+      }],
+    };
+  }
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    const actual = await vi.importActual<{ useSoothLiquidity: typeof useSoothLiquidity }>('../../src/react/dataHooks.js');
+    vi.mocked(useSoothLiquidity).mockImplementation(actual.useSoothLiquidity);
+    vi.mocked(readSoothLiquidity).mockResolvedValueOnce(lp(false)).mockResolvedValue(lp(true));
+  });
+  afterEach(() => { vi.useRealTimers(); });
+
+  async function expectClaims(ui: BoundFunctions<typeof queries>) {
+    await click(ui.getByRole('tab', { name: 'Liquidity' }));
+    for (const action of ['Claim all', 'Claim fees', 'Redeem principal'])
+      expect((ui.getByRole('button', { name: `${action} for receipt #7` }) as HTMLButtonElement).disabled).toBe(false);
+    expect(sendSoothAction).not.toHaveBeenCalled();
+  }
+
+  it.each([resolved, bookMarket])('enables LP claims after external settlement in the $reference.venue venue', async (selected) => {
+    marketState = { ...marketState, resolved: selected, data: selected === bookMarket ? bookData() : data };
+    const { ui, rerender } = renderMarket(selected.reference);
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    await click(ui.getByRole('tab', { name: 'Liquidity' }));
+    expect(ui.queryByRole('button', { name: 'Claim all for receipt #7' })).toBeNull();
+    expect(readSoothLiquidity).toHaveBeenCalledOnce();
+
+    marketState = { ...marketState, data: { ...marketState.data }, updatedAt: marketState.updatedAt + 15_000 };
+    rerender(<SoothMarket {...props} market={selected.reference} />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+    expect(readSoothLiquidity).toHaveBeenCalledOnce();
+
+    marketState = {
+      ...marketState,
+      data: { ...marketState.data, snapshot: { ...data.snapshot, settled: true, tradingOpen: false, outcome: 1 } },
+      updatedAt: marketState.updatedAt + 15_000,
+    };
+    rerender(<SoothMarket {...props} market={selected.reference} />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    await expectClaims(ui);
+    expect(readSoothLiquidity).toHaveBeenCalledTimes(2);
+    expect(readSoothLiquidity).toHaveBeenLastCalledWith(selected, account);
+    expect(marketState.refresh).not.toHaveBeenCalled();
+
+    marketState = { ...marketState, data: { ...marketState.data }, updatedAt: marketState.updatedAt + 15_000 };
+    rerender(<SoothMarket {...props} market={selected.reference} />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+    expect(readSoothLiquidity).toHaveBeenCalledTimes(2);
+  });
+
+  it('refreshes LP claims with the explicit Refresh button when settlement is unchanged', async () => {
+    marketState = {
+      ...marketState, data: { ...data, snapshot: { ...data.snapshot, settled: true, tradingOpen: false, outcome: 1 } },
+    };
+    const { ui } = renderMarket();
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    await click(ui.getByRole('tab', { name: 'Liquidity' }));
+    expect(ui.queryByRole('button', { name: 'Claim all for receipt #7' })).toBeNull();
+
+    await click(ui.getByRole('button', { name: 'Refresh data', exact: true }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    await expectClaims(ui);
+    expect(readSoothLiquidity).toHaveBeenCalledTimes(2);
+    expect(marketState.refresh).toHaveBeenCalledOnce();
+  });
+
+  it('continues refreshing LP receipts after a locally recovered transaction', async () => {
+    const { ui, rerender } = renderMarket();
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    vi.mocked(useSoothTransactionRecovery).mockReturnValue({
+      pending: [], events: [], error: null, result: 'Settlement confirmed.', addPending: vi.fn(),
+    });
+    rerender(<SoothMarket {...props} />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    await expectClaims(ui);
+    expect(readSoothLiquidity).toHaveBeenCalledTimes(2);
   });
 });
 

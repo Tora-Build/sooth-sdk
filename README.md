@@ -170,6 +170,13 @@ must be reconciled after interruption rather than automatically resubmitted;
 users still explicitly approve signatures. Only enabled, validated widget events
 are exposed to the host.
 
+Market transaction feedback uses a padded, wrapping status card. Receipt confirmation
+reports the completed transaction without implying that balance refresh is still running;
+quote estimates remain separate from the fee, slippage and price-impact notices.
+Estimates debounce input changes for 300 ms and refresh every 15 seconds, including
+after a failed read. LP receipts and claims refresh after local transactions, when
+market reads detect settlement, and when the user selects Refresh.
+
 ## CLI
 
 Build the package, then inspect the command contract:

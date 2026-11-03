@@ -134,17 +134,21 @@ export function useSoothMarket(
   const [loading, setLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const generation = useRef(0);
-  const selection = useRef({ key, runtime });
+  const selection = useRef({ key, runtime, account: options.account });
   const [revision, setRevision] = useState(0);
   const refresh = useCallback(() => setRevision((value) => value + 1), []);
   useEffect(() => {
     const current = ++generation.current;
-    if (selection.current.key !== key || selection.current.runtime !== runtime) {
-      selection.current = { key, runtime };
+    if (
+      selection.current.key !== key ||
+      selection.current.runtime !== runtime ||
+      selection.current.account !== options.account
+    ) {
+      selection.current = { key, runtime, account: options.account };
       setResolved(null);
+      setData(null);
+      setUpdatedAt(null);
     }
-    setData(null);
-    setUpdatedAt(null);
     setLoading(true);
     setError(null);
     if (!runtime) {
@@ -157,6 +161,7 @@ export function useSoothMarket(
     const load = async () => {
       if (inFlight) return;
       inFlight = true;
+      setLoading(true);
       try {
         binding ??= await runtime.resolve(parseSoothMarketReference(key));
         if (generation.current === current) setResolved(binding);
@@ -255,7 +260,7 @@ export function useSoothTransactionRecovery(
           setPending((previous) => previous.filter((item) => item.hash !== record.hash));
           setResult(
             state.status === 'confirmed'
-              ? `${record.label} confirmed. Balances and open orders are being refreshed.`
+              ? `${record.label} confirmed.`
               : `${record.label} reverted on chain. No automatic retry was made.`,
           );
           setError(null);

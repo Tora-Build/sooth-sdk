@@ -124,7 +124,7 @@ export function useSoothDepth(
   );
 }
 
-/** Debounced while typing; a result for an older intent is never shown. */
+/** Debounced while typing and refreshed at the market cadence; older intents never show. */
 export function useSoothLiveQuote(
   resolved: SoothResolvedMarket | null,
   intent: SoothTradeIntent | null,
@@ -134,7 +134,7 @@ export function useSoothLiveQuote(
       ? `${formatSoothMarketReference(resolved.reference)}:${intent.side}:${intent.outcome}:${intent.shares}:${intent.price}`
       : null,
     () => quoteSoothTrade(resolved!, intent!),
-    { debounceMs: 300 },
+    { debounceMs: 300, interval: 15_000 },
   );
 }
 

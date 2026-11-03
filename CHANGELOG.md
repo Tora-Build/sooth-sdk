@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Pad the market footer to match card content in flattened embeds, with a muted
+  last-updated time, compact English/Chinese refresh labels and visible loading
+  feedback. Preserve the current market read during refresh so the footer stays visible.
+
 - Align the documented minimum runtime and shared CI setup on Node.js 22; document
   Corepack setup and the separate Node.js 24 publishing requirement. Distinguish
   current source from SQF-only npm 1.0.0 and require a new version for expanded

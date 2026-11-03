@@ -238,6 +238,7 @@ export const soothBaseCss = `
 .s-badge[data-tone=live]::before { content: ""; width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
 
 /* Notices */
+.s-transaction-status { overflow-wrap: anywhere; }
 .s-notice { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: var(--s-radius-sm); font-size: 13px; line-height: 1.45; background: var(--s-surface-2); color: var(--s-text); border: 1px solid var(--s-line); overflow-wrap: anywhere; }
 .s-notice[data-tone=warn] { border-color: var(--s-muted); }
 .s-notice[data-tone=error] { border-color: var(--s-text); border-left-width: 3px; }
