@@ -269,8 +269,20 @@ pnpm test:package
 
 These checks use this repository and public package dependencies. Alpha/Factory
 checkouts and maintainer publishing credentials are not required for this build.
-Regenerating pinned upstream artifacts is a separate maintainer operation that
-requires access to their source repositories.
+Pinned ABI modules can also be regenerated from this public checkout after the
+frozen install above, without Factory/Alpha checkouts or repository credentials:
+
+```sh
+node src/factory/factoryAbi/regenerate.mjs
+```
+
+The command validates the raw-byte Keccak-256 digests and pinned metadata of
+three ABI bundles (`v7.json`, `v7_1.json`, `adjudicator.json`) and two source
+snapshots (`oracle-sources.json`, `imd-sources.json`) before generating the
+existing node-release and Manual adjudicator ABI modules and their exports.
+It preserves the bundled inputs. The curated oracle, IMD and Swarm interfaces
+and `swarm.json` bundle require explicit provenance/capability review;
+this command does not regenerate them or validate the swarm bundle.
 
 See [FACTORY_MIGRATION_PLAN.md](./FACTORY_MIGRATION_PLAN.md) for the three
 workstreams and acceptance matrix, [TEST_PLAN.md](./TEST_PLAN.md) for runtime
@@ -278,19 +290,34 @@ verification, and [DECISIONS.md](./DECISIONS.md) for package ownership.
 
 ## Source snapshot provenance
 
+The current public [Tora-Build/sooth-factory](https://github.com/Tora-Build/sooth-factory)
+repository, rooted at `372c241` and tagged `v0.1.0`, is a separate lineage from
+the historical repository, now the private
+[Tora-Build/sooth-factory-archive](https://github.com/Tora-Build/sooth-factory-archive).
+The public repository does not contain the historical pinned objects. The SDK's
+deployed `sooth-factory-v7` and `sooth-factory-v7.1` pins and independent
+adjudicator pins remain unchanged; `v0.1.0` is not a replacement for them.
+
+Bundled raw-byte digest and metadata checks establish integrity against this
+SDK's recorded pins. They do not independently establish authenticity against
+the historical upstream: the Factory archive and Alpha revisions require
+private repository access. Bundled JSON retains its exact historical repository
+names, metadata and bytes, including `sooth-factory`, because the expected
+digests commit to those bytes; renaming provenance links does not rewrite them.
+
 The repository retains these inputs under
 [`src/factory/factoryAbi/bundles/`](./src/factory/factoryAbi/bundles/):
 
 | Bundle | Recorded origin | Included source and license markers |
 | --- | --- | --- |
-| `oracle-sources.json` | [sooth-factory](https://github.com/Tora-Build/sooth-factory/tree/20b16862f12398d48f1b50d75970da0ae3730fab), revision `20b16862f12398d48f1b50d75970da0ae3730fab` | Four Solidity snapshots: `src/adjudicators/ZkTLSAdjudicator.sol`, `src/adjudicators/IMDAdjudicator.sol`, `src/adjudicators/AdjudicatorBase.sol`, and `src/adjudicators/primus/IPrimusZKTLS.sol`. Each carries `SPDX-License-Identifier: MIT`. |
+| `oracle-sources.json` | [sooth-factory-archive (private)](https://github.com/Tora-Build/sooth-factory-archive/tree/20b16862f12398d48f1b50d75970da0ae3730fab), recorded as `sooth-factory`, revision `20b16862f12398d48f1b50d75970da0ae3730fab` | Four Solidity snapshots: `src/adjudicators/ZkTLSAdjudicator.sol`, `src/adjudicators/IMDAdjudicator.sol`, `src/adjudicators/AdjudicatorBase.sol`, and `src/adjudicators/primus/IPrimusZKTLS.sol`. Each carries `SPDX-License-Identifier: MIT`. |
 | `imd-sources.json` | [sooth-alpha](https://github.com/Tora-Build/sooth-alpha/tree/7d5284df1101e2d05ce41d1648b6166e59a24dab), revision `7d5284df1101e2d05ce41d1648b6166e59a24dab` | TypeScript ABI snapshot `packages/options-core/src/factoryAbi/IMDAdjudicator.ts`; no SPDX header is present in this snapshot. |
 
 The Primus interface attributes [primus-labs/zktls-contracts at `e14c7b1`](https://github.com/primus-labs/zktls-contracts/tree/e14c7b1).
 The upstream interface's MIT SPDX header was verified; that pinned upstream tree
 has no root `LICENSE` file. The SDK's own declared license is [MIT](./LICENSE).
 This inventory records provenance and observed license markers, not legal ownership
-or a determination of redistribution rights. The Factory and Alpha origins are
-private repositories; the copied snapshots are already public in this SDK.
+or a determination of redistribution rights. The historical Factory archive and
+Alpha origins are private repositories; the copied snapshots are already public in this SDK.
 They are retained for artifact provenance and are not included by the current npm
 file allowlist. Repository source exposure and the packed npm contents differ.

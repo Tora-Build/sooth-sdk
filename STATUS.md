@@ -2,8 +2,9 @@
 
 This file preserves historical implementation and acceptance records. Test counts,
 deployment observations and statements of pending work apply to the recorded
-candidate and date, not automatically to current `main`. Alpha/Factory references
-require private repository access. Absolute `/tmp` and `/var/folders` links identify
+candidate and date, not automatically to current `main`. Alpha and historical
+Factory references require private access; the old Factory objects belong to
+`sooth-factory-archive`, not the new public Factory history. Absolute `/tmp` and `/var/folders` links identify
 temporary workstation evidence, may no longer exist, and are not publicly
 reproducible artifacts. For public, self-contained SDK checks, use
 [README.md](./README.md#migration-and-development) and [TEST_PLAN.md](./TEST_PLAN.md).

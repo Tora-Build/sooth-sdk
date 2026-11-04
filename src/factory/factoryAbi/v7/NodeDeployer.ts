@@ -1,6 +1,7 @@
-/** GENERATED from sooth-factory 1aa5fc80e7e4e14df5a4141c3195fd2ee4b302ef:sdk/abi.json.
+/** GENERATED from historical sooth-factory (now sooth-factory-archive) 1aa5fc80e7e4e14df5a4141c3195fd2ee4b302ef:sdk/abi.json.
  * Interface: sooth-factory-v7; bundle keccak256: 0xbbb80127a1464f7f8a754d71ea4dd825664c9892762b57a880258fd3d090025a.
- * Regenerate with node src/factory/factoryAbi/regenerate.mjs /path/to/sooth-factory
+ * Verified against bundled bytes; historical upstream git objects are not verified.
+ * Regenerate with node src/factory/factoryAbi/regenerate.mjs
  */
 export const NodeDeployerAbi = [
   {

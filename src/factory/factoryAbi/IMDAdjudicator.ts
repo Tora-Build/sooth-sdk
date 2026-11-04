@@ -2,10 +2,14 @@ import { parseAbi } from 'viem';
 
 /**
  * Explicit SQF-bound IMD profile interface, independent of the Factory release ABI.
- * Source interface: sooth-alpha 7d5284df1101e2d05ce41d1648b6166e59a24dab,
+ * Source interface: private sooth-alpha 7d5284df1101e2d05ce41d1648b6166e59a24dab,
  * packages/options-core/src/factoryAbi/IMDAdjudicator.ts, preserved in bundles/imd-sources.json.
- * Solidity source: sooth-factory 8ab10997ead9f7e0d9afad873aa5799e214f0235,
- * src/adjudicators/{IMDAdjudicator,IMDTestnetAdjudicator,AdjudicatorBase}.sol.
+ * Source bundle keccak256: 0x57c58cb4fde645f2d0b4120875567f9a237d839aac635fe444e3ed35b00d5aa6.
+ * Historical Solidity reference: private sooth-factory-archive 8ab10997ead9f7e0d9afad873aa5799e214f0235,
+ * src/adjudicators/{IMDAdjudicator,IMDTestnetAdjudicator,AdjudicatorBase}.sol;
+ * those Solidity files at that revision are not preserved in the bundled source snapshots.
+ * Bundle integrity does not independently verify private upstream authenticity.
+ * This curated interface requires explicit review; regeneration validates its source bundle only.
  * This independent profile pin does not admit that revision's node release.
  * Profile capabilities must be checked with semanticBindingId and adjudicatorType;
  * a matching Factory release alone does not identify this separately admitted profile.

@@ -1,10 +1,9 @@
 #!/usr/bin/env node
-/** Regenerate: node src/factory/factoryAbi/regenerate.mjs /path/to/sooth-factory [/path/to/sooth-alpha]
- * Only these immutable git objects are accepted; never reads the checkout's ABI.
- * The original bytes remain in bundles/ so consumers can audit sdkAbiHash.
+/** Regenerate: node src/factory/factoryAbi/regenerate.mjs
+ * Validate the exact committed bundle bytes before generating any output.
+ * Bundle integrity does not verify inaccessible historical upstream git objects.
  */
-import { execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { keccak256 } from 'viem';
@@ -14,8 +13,8 @@ const formatConfig = await resolveConfig(root);
 async function writeTypescript(path, source) {
   writeFileSync(path, await format(source, { ...formatConfig, filepath: path }));
 }
-const repo = process.argv[2];
-if (!repo) throw new Error('Supply the sooth-factory repository path');
+if (process.argv.length !== 2)
+  throw new Error('Usage: node src/factory/factoryAbi/regenerate.mjs (no arguments; uses committed bundles)');
 const pins = [
   [
     'v7',
@@ -36,27 +35,66 @@ const pins = [
     '0x3425d303fa006c283be9cb867e42570ce9d1a7187b2b4b85cf88df4c25506fd7',
   ],
 ];
-mkdirSync(join(root, 'bundles'), { recursive: true });
-for (const [name, revision, version, hash] of pins) {
-  const bytes = execFileSync('git', ['show', `${revision}:sdk/abi.json`], {
-    cwd: repo,
-    maxBuffer: 4 * 1024 * 1024,
-  });
+
+// Curated oracle and IMD modules are not generated from these source archives.
+// Both archives are mandatory integrity inputs, with their historical metadata.
+const sourcePins = [
+  {
+    name: 'oracle',
+    repository: 'sooth-factory',
+    revision: '20b16862f12398d48f1b50d75970da0ae3730fab',
+    hash: '0xdb67c3c4274d31792731196504cbe6483b96a8eb636b0a046fcfdc935d23d1f0',
+    files: [
+      'src/adjudicators/ZkTLSAdjudicator.sol',
+      'src/adjudicators/IMDAdjudicator.sol',
+      'src/adjudicators/AdjudicatorBase.sol',
+      'src/adjudicators/primus/IPrimusZKTLS.sol',
+    ],
+  },
+  {
+    name: 'imd',
+    repository: 'sooth-alpha',
+    revision: '7d5284df1101e2d05ce41d1648b6166e59a24dab',
+    hash: '0x57c58cb4fde645f2d0b4120875567f9a237d839aac635fe444e3ed35b00d5aa6',
+    files: ['packages/options-core/src/factoryAbi/IMDAdjudicator.ts'],
+  },
+];
+const bundles = pins.map(([name, revision, version, hash]) => {
+  const bytes = readFileSync(join(root, 'bundles', `${name}.json`));
   const bundle = JSON.parse(bytes.toString('utf8'));
   if (keccak256(bytes) !== hash || bundle.interfaceVersion !== version)
     throw new Error(`Refusing unpinned ${name} artifact`);
-  writeFileSync(join(root, 'bundles', `${name}.json`), bytes);
   const entries =
     name === 'adjudicator'
       ? [['ManualAdjudicator', bundle.contracts.ManualAdjudicator]]
       : Object.entries(bundle.contracts);
-  if (name !== 'adjudicator') mkdirSync(join(root, name), { recursive: true });
   for (const [contract, abi] of entries) {
     if (!Array.isArray(abi)) throw new Error(`Missing ${contract}`);
+  }
+  return { name, revision, version, hash, entries };
+});
+for (const pin of sourcePins) {
+  const bytes = readFileSync(join(root, 'bundles', `${pin.name}-sources.json`));
+  const archive = JSON.parse(bytes.toString('utf8'));
+  const files = archive.files;
+  if (
+    keccak256(bytes) !== pin.hash ||
+    archive.repository !== pin.repository ||
+    archive.revision !== pin.revision ||
+    !files || typeof files !== 'object' || Array.isArray(files) ||
+    Object.keys(files).length !== pin.files.length ||
+    !pin.files.every((path) => Object.hasOwn(files, path) && typeof files[path] === 'string')
+  ) throw new Error(`Refusing unpinned ${pin.name} source archive`);
+}
+
+// Every input has passed validation before creating directories or writing files.
+for (const { name, revision, version, hash, entries } of bundles) {
+  if (name !== 'adjudicator') mkdirSync(join(root, name), { recursive: true });
+  for (const [contract, abi] of entries) {
     const destination = name === 'adjudicator' ? root : join(root, name);
     await writeTypescript(
       join(destination, `${contract}.ts`),
-      `/** GENERATED from sooth-factory ${revision}:sdk/abi.json.\n * Interface: ${version}; bundle keccak256: ${hash}.\n * Regenerate with node src/factory/factoryAbi/regenerate.mjs /path/to/sooth-factory\n */\nexport const ${contract}Abi = ${JSON.stringify(abi, null, 2)} as const;\n`,
+      `/** GENERATED from historical sooth-factory (now sooth-factory-archive) ${revision}:sdk/abi.json.\n * Interface: ${version}; bundle keccak256: ${hash}.\n * Verified against bundled bytes; historical upstream git objects are not verified.\n * Regenerate with node src/factory/factoryAbi/regenerate.mjs\n */\nexport const ${contract}Abi = ${JSON.stringify(abi, null, 2)} as const;\n`,
     );
     if (name === 'v7' && contract !== 'ManualAdjudicator')
       await writeTypescript(
@@ -70,55 +108,4 @@ for (const [name, revision, version, hash] of pins) {
       entries.map(([contract]) => `export { ${contract}Abi } from './${contract}.js';`).join('\n') +
         '\n',
     );
-}
-
-// Curated oracle interfaces are separate from sdk/abi.json. Preserve their exact
-// pinned source inputs; changing these hashes requires explicit capability review.
-const alpha = process.argv[3];
-const sourcePins = [
-  {
-    name: 'oracle',
-    repository: 'sooth-factory',
-    repo,
-    revision: '20b16862f12398d48f1b50d75970da0ae3730fab',
-    hash: '0xdb67c3c4274d31792731196504cbe6483b96a8eb636b0a046fcfdc935d23d1f0',
-    files: [
-      'src/adjudicators/ZkTLSAdjudicator.sol',
-      'src/adjudicators/IMDAdjudicator.sol',
-      'src/adjudicators/AdjudicatorBase.sol',
-      'src/adjudicators/primus/IPrimusZKTLS.sol',
-    ],
-  },
-  ...(alpha
-    ? [
-        {
-          name: 'imd',
-          repository: 'sooth-alpha',
-          repo: alpha,
-          revision: '7d5284df1101e2d05ce41d1648b6166e59a24dab',
-          hash: '0x57c58cb4fde645f2d0b4120875567f9a237d839aac635fe444e3ed35b00d5aa6',
-          files: ['packages/options-core/src/factoryAbi/IMDAdjudicator.ts'],
-        },
-      ]
-    : []),
-];
-for (const pin of sourcePins) {
-  const files = Object.fromEntries(
-    pin.files.map((path) => [
-      path,
-      execFileSync('git', ['show', `${pin.revision}:${path}`], { cwd: pin.repo, encoding: 'utf8' }),
-    ]),
-  );
-  const json = JSON.stringify(
-    { repository: pin.repository, revision: pin.revision, files },
-    null,
-    2,
-  ).replace(
-    /[\u0080-\uffff]/g,
-    (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`,
-  );
-  const bytes = Buffer.from(json + '\n');
-  if (keccak256(bytes) !== pin.hash)
-    throw new Error(`Refusing unpinned ${pin.name} source archive`);
-  writeFileSync(join(root, 'bundles', `${pin.name}-sources.json`), bytes);
 }
