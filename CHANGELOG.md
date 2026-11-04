@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Restore standalone public ABI regeneration from the exact bundled inputs with
+  raw-byte digest and metadata checks for three ABI bundles and two source snapshots.
+  Preserve deployed-version pins, bundle bytes and ABI values; distinguish the
+  historical private Factory archive from the separate public `v0.1.0` lineage
+  and snapshot integrity from independent upstream authenticity. Keep curated
+  oracle, IMD and Swarm interfaces under explicit provenance/capability review.
+
 - Clarify market load and stale-refresh failures in English and Chinese, retain retry
   and technical details, and explain blocked trading beside the ticket action.
   Show wallet balance separately, block unaffordable quotes using the matching on-chain

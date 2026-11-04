@@ -24,6 +24,20 @@ The package smoke imports SQF, Factory and React in Node ESM, runs CLI help,
 and checks the packed files. Retired `sooth/core` paths must remain unavailable.
 The build clears stale output before compiling.
 
+Regenerate the supported node/manual ABI modules from the committed inputs:
+
+```sh
+node src/factory/factoryAbi/regenerate.mjs
+```
+
+This command validates all three pinned ABI bundles and both source archives before
+writing outputs. It needs no Factory or Alpha clone and does not change the bundle
+bytes or release pins. Regeneration tests cover stable outputs and refusal of
+corrupted or mismatched inputs without partial writes. The curated oracle, IMD and
+Swarm interfaces retain their separate review requirements. Passing these checks
+proves integrity against the SDK's pinned snapshots, not independent verification
+of git objects held only in the private historical Factory archive or Alpha.
+
 Inspect the publication file list without publishing:
 
 ```sh

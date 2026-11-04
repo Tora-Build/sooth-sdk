@@ -2,8 +2,9 @@
 
 These dated decisions preserve the context and verification scope of their original
 records. Pending-release statements are historical; the [README](./README.md)
-distinguishes current source from the published SQF-only package. Alpha/Factory
-references require private repository access. Local acceptance evidence referenced
+distinguishes current source from the published SQF-only package. Alpha and historical
+Factory references require private access to Alpha or `sooth-factory-archive`;
+the new public Factory repository does not supply those old objects. Local acceptance evidence referenced
 through `STATUS.md`, including temporary workstation paths, is historical and not
 publicly reproducible; it does not establish current production readiness.
 

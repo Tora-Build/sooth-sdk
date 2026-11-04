@@ -2,8 +2,11 @@
 
 This is a historical migration plan and acceptance ledger. Its baseline revisions,
 service observations and pending-work statements retain their recorded dates and
-scope; they are not a current deployment inventory. Links to Alpha and Factory
-require private repository access. Absolute `/tmp` and `/var/folders` paths below
+scope; they are not a current deployment inventory. Alpha and historical Factory
+references require private repository access. The historical Factory repository is
+now `Tora-Build/sooth-factory-archive`; the new public `sooth-factory` has a separate
+history and does not contain the old pinned git objects. Exact bundled SDK inputs
+can be checked and regenerated publicly as described in the README. Absolute `/tmp` and `/var/folders` paths below
 are historical, temporary workstation evidence, may no longer exist, and are not
 publicly reproducible artifacts. Public SDK build/check instructions are in the
 [README](./README.md#migration-and-development) and [TEST_PLAN.md](./TEST_PLAN.md).
@@ -39,7 +42,7 @@ The frontend deliverable is an embeddable Sooth node experience for applications
 | Standalone sooth-sdk | `9a5f0f4bf1116ece2e40bad05b7070f94f57b47f` | Package 0.6.1; old core client, ABIs, registry v1, CLI |
 | sooth-alpha | `7d5284df1101e2d05ce41d1648b6166e59a24dab` | Factory applications, registry v2, indexer and shared client code |
 | Alpha packages/sdk gitlink and checked-out HEAD | `a63e22f0a7660bf248d1bc6e8d3bd854d6d46b09` | Package 1.0.0; SQF only; no runtime dependencies or CLI |
-| sooth-factory | `8ab10997ead9f7e0d9afad873aa5799e214f0235` | Current reference adapter describes v7.2; not the live target by default |
+| Historical sooth-factory (now private sooth-factory-archive) | `8ab10997ead9f7e0d9afad873aa5799e214f0235` | Reference adapter at the research baseline describes v7.2; not the live target by default |
 
 The standalone SDK checkout differs from the SDK Alpha already consumes. Reconcile with the existing `a63e22f0` cleanup before implementing; do not redo its deletion work or assume this checkout is the current consumer baseline. These revisions identify inspected source, not published npm versions or proof that every working file is committed.
 
@@ -72,7 +75,7 @@ Key historical evidence (private repository access required):
 - [React adapters](https://github.com/Tora-Build/sooth-alpha/blob/7d5284df1101e2d05ce41d1648b6166e59a24dab/packages/ui-hooks/src/factory.ts)
 - [Market's copied order arithmetic](https://github.com/Tora-Build/sooth-alpha/blob/7d5284df1101e2d05ce41d1648b6166e59a24dab/apps/market/src/factory/trade/bookOrder.ts)
 - [Mobile migration report](https://github.com/Tora-Build/sooth-alpha/blob/7d5284df1101e2d05ce41d1648b6166e59a24dab/apps/mobile/FACTORY_MIGRATION_REPORT.md)
-- [Factory reference adapter and accounting rules](https://github.com/Tora-Build/sooth-factory/blob/8ab10997ead9f7e0d9afad873aa5799e214f0235/sdk/README.md)
+- [Historical Factory reference adapter and accounting rules (private archive)](https://github.com/Tora-Build/sooth-factory-archive/blob/8ab10997ead9f7e0d9afad873aa5799e214f0235/sdk/README.md)
 
 Do not use the October 12 umbrella migration ledger as current readiness: it predates ADR-130, v7.1 adoption and Mobile's October 14 acceptance update. The Mobile report records remaining real Privy/public-write verification limits; this investigation did not rerun those flows.
 

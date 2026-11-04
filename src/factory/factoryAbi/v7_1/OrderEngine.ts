@@ -1,6 +1,7 @@
-/** GENERATED from sooth-factory 9edac2036184bb5860b958fb739d5698f0e2afa4:sdk/abi.json.
+/** GENERATED from historical sooth-factory (now sooth-factory-archive) 9edac2036184bb5860b958fb739d5698f0e2afa4:sdk/abi.json.
  * Interface: sooth-factory-v7.1; bundle keccak256: 0x45eff5ba71a0edb8bcc1a4a8146f1450b7db7b8ce34371d4e8b53f8317642869.
- * Regenerate with node src/factory/factoryAbi/regenerate.mjs /path/to/sooth-factory
+ * Verified against bundled bytes; historical upstream git objects are not verified.
+ * Regenerate with node src/factory/factoryAbi/regenerate.mjs
  */
 export const OrderEngineAbi = [
   {

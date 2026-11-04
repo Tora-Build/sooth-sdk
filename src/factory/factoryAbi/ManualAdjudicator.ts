@@ -1,6 +1,7 @@
-/** GENERATED from sooth-factory a128cb6aa4a1886f00ffa6b500277fdf128dfd25:sdk/abi.json.
+/** GENERATED from historical sooth-factory (now sooth-factory-archive) a128cb6aa4a1886f00ffa6b500277fdf128dfd25:sdk/abi.json.
  * Interface: sooth-factory-v7; bundle keccak256: 0x3425d303fa006c283be9cb867e42570ce9d1a7187b2b4b85cf88df4c25506fd7.
- * Regenerate with node src/factory/factoryAbi/regenerate.mjs /path/to/sooth-factory
+ * Verified against bundled bytes; historical upstream git objects are not verified.
+ * Regenerate with node src/factory/factoryAbi/regenerate.mjs
  */
 export const ManualAdjudicatorAbi = [
   {
