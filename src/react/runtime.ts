@@ -2,6 +2,7 @@ import {
   createPublicClient,
   defineChain,
   erc20Abi,
+  fallback,
   http,
   keccak256,
   stringToHex,
@@ -121,10 +122,14 @@ export function createSoothRuntime(configuration: SoothRuntimeConfiguration): So
       rpcUrls: { default: { http: [...config.rpcUrls] } },
     });
     // Concurrent display reads share one HTTP request; per-call block pins and errors are kept.
-    // Quorum anchor reads stay unbatched (anchorClient.ts).
+    // A failed display read moves to the next trusted endpoint (a lagging or pruned backend
+    // answers -32000 "historical state not available"). Reverts and rejections do not.
+    // Quorum anchor reads stay unbatched and per endpoint (anchorClient.ts).
     const client = createPublicClient({
       chain,
-      transport: http(config.rpcUrls[0], { batch: { batchSize: 50, wait: 16 } }),
+      transport: fallback(
+        config.rpcUrls.map((url) => http(url, { batch: { batchSize: 50, wait: 16 } })),
+      ),
     }) as PublicClient;
     const endpoints = anchorEndpoints(reference.chainId, config.rpcUrls);
     const [nodes, catalog] = await Promise.all([

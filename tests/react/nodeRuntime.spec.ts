@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Address, Hash } from 'viem';
 import { createSoothRuntime, type SoothRuntimeConfiguration } from '../../src/react/runtime.js';
 import { verifyFactoryNode, assertMarketBinding } from '../../src/factory/factoryClient.js';
@@ -54,5 +54,35 @@ describe('trusted node runtime', () => {
   it('propagates authenticated binding failures instead of displaying unverified catalogs', async () => {
     vi.mocked(verifyFactoryNode).mockRejectedValue(new Error('Independent endpoints disagree'));
     await expect(createSoothRuntime(configuration).resolveNode(reference)).rejects.toThrow('Independent endpoints disagree');
+  });
+  describe('display reads', () => {
+    type Rpc = { id: number; method: string };
+    /** Each endpoint answers every JSON-RPC call (batched or not) with `answer(url)`. */
+    const serve = (answer: (url: string) => Record<string, unknown>) => {
+      const calls: string[] = [];
+      vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url = new URL(String(input instanceof Request ? input.url : input)).origin;
+        const body = JSON.parse(String(init?.body)) as Rpc | Rpc[];
+        const reply = (rpc: Rpc) => { calls.push(`${url} ${rpc.method}`); return { jsonrpc: '2.0', id: rpc.id, ...answer(url) }; };
+        return new Response(JSON.stringify(Array.isArray(body) ? body.map(reply) : reply(body)), { headers: { 'content-type': 'application/json' } });
+      }));
+      return calls;
+    };
+    afterEach(() => vi.unstubAllGlobals());
+
+    it('read a pinned block from the second trusted endpoint when the first has lost its state', async () => {
+      const calls = serve((url) => url === 'https://one.test'
+        ? { error: { code: -32000, message: 'historical state 1e70d9 is not available' } }
+        : { result: `0x${'0'.repeat(63)}1` });
+      const { client } = await createSoothRuntime(configuration).resolveNode(reference);
+      await expect(client.call({ to: address('7'), data: '0x12345678', blockNumber: 5n })).resolves.toEqual({ data: `0x${'0'.repeat(63)}1` });
+      expect(calls).toEqual(['https://one.test eth_call', 'https://two.test eth_call']);
+    });
+    it('return a revert from the first endpoint without asking the second', async () => {
+      const calls = serve(() => ({ error: { code: 3, message: 'execution reverted', data: '0x' } }));
+      const { client } = await createSoothRuntime(configuration).resolveNode(reference);
+      await expect(client.call({ to: address('7'), data: '0x12345678', blockNumber: 5n })).rejects.toThrow(/revert/i);
+      expect(calls).toEqual(['https://one.test eth_call']);
+    });
   });
 });
