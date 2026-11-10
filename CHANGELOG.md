@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Send widget display reads through every trusted endpoint in order: a read that
+  fails on the first endpoint (for example `-32000` "historical state not available"
+  from a lagging or pruned backend) is retried on the next one, so one missing state
+  no longer fails the whole liquidity panel. Reverts and user rejections do not fail
+  over. Quorum anchor reads are unchanged.
+
 - Restore standalone public ABI regeneration from the exact bundled inputs with
   raw-byte digest and metadata checks for three ABI bundles and two source snapshots.
   Preserve deployed-version pins, bundle bytes and ABI values; distinguish the
