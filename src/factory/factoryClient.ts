@@ -61,10 +61,41 @@ export type FactoryOutcome = 0 | 1 | 2;
 export const FACTORY_OUTCOME = { NO: 0, YES: 1, INVALID: 2 } as const;
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
-/** Adapt a viem public client without losing its transport or requiring wagmi. */
+/**
+ * Facts one viem client has already answered that the contracts never change: its chain id,
+ * markets whose immutable `marketFactory` matched, and LP receipts' immutable markets.
+ * Display reads reuse them instead of asking again on every poll. Kept per client under a
+ * symbol, so a client built another way (a test double, a custom reader) never caches.
+ * Quorum reads before a signature use `anchorReader`, which never reads this cache.
+ */
+export interface FactoryReadMemo {
+  /** `${marketFactory}:${market}`, lowercased, for markets whose binding read matched. */
+  boundMarkets: Set<string>;
+  /** `${positionManager}:${positionId}`, lowercased key, to the receipt's market. */
+  positionMarkets: Map<string, Address>;
+}
+export const FACTORY_READ_MEMO: unique symbol = Symbol('sooth.factoryReadMemo');
+const memoOf = (client: object): FactoryReadMemo | undefined =>
+  (client as { [FACTORY_READ_MEMO]?: FactoryReadMemo })[FACTORY_READ_MEMO];
+/** This client's memo, if it was built by `factoryReadClient` (or spreads one). */
+export const factoryReadMemo = memoOf;
+const readClients = new WeakMap<PublicClient, FactoryReadClient>();
+
+/**
+ * Adapt a viem public client without losing its transport or requiring wagmi. One adapter per
+ * client: its chain id is asked once (a failed ask is asked again), and it carries the memo above.
+ */
 export function factoryReadClient(client: PublicClient): FactoryReadClient {
-  return {
-    getChainId: () => client.getChainId(),
+  const known = readClients.get(client);
+  if (known) return known;
+  let chainId: Promise<number> | null = null;
+  const adapter: FactoryReadClient & { [FACTORY_READ_MEMO]: FactoryReadMemo } = {
+    [FACTORY_READ_MEMO]: { boundMarkets: new Set(), positionMarkets: new Map() },
+    getChainId: () =>
+      (chainId ??= client.getChainId().catch((error: unknown) => {
+        chainId = null;
+        throw error;
+      })),
     getBlockNumber: () => client.getBlockNumber({ cacheTime: 0 }),
     readContract: (call) =>
       client.readContract(call as Parameters<PublicClient['readContract']>[0]),
@@ -88,6 +119,8 @@ export function factoryReadClient(client: PublicClient): FactoryReadClient {
       });
     },
   };
+  readClients.set(client, adapter);
+  return adapter;
 }
 
 export interface VerifyFactoryNodeInput {
@@ -231,6 +264,10 @@ export async function factoryReadScope(input: FactoryReadParams) {
 }
 export async function factoryMarketScope(input: FactoryMarketParams) {
   const scope = await factoryReadScope(input);
+  // `marketFactory` is an immutable clone argument: once it matched for this client, it matches.
+  const memo = memoOf(input.client);
+  const key = `${input.context.contracts.marketFactory}:${input.market}`.toLowerCase();
+  if (memo?.boundMarkets.has(key)) return scope;
   const actual = await scope.read<Address>(
     input.market,
     scope.abis.TruthMarketAbi,
@@ -238,6 +275,7 @@ export async function factoryMarketScope(input: FactoryMarketParams) {
   );
   if (!same(factoryAddress(actual), input.context.contracts.marketFactory))
     throw new Error('Market belongs to another node');
+  memo?.boundMarkets.add(key);
   return scope;
 }
 

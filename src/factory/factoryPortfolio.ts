@@ -12,6 +12,7 @@ import {
   factoryMarketScope,
   factoryReadScope,
   factoryReadClient,
+  factoryReadMemo,
   type FactoryAccountParams,
   type FactoryMarketParams,
   type FactoryReadParams,
@@ -118,6 +119,8 @@ export interface FactoryLpPosition {
   valuationComplete: boolean;
   valuationGap: string | null;
 }
+/** LP receipt reads sent together; the display transport batches each group. */
+const LP_READ_GROUP = 100;
 /** Enumerate every receipt class, including additions and transfers. No bootstrap-only lookup. */
 export async function discoverFactoryLpPositions(
   input: FactoryReadParams &
@@ -136,13 +139,48 @@ export async function discoverFactoryLpPositions(
   if (!Number.isSafeInteger(max) || max <= 0 || next < 1n || next - 1n > BigInt(max))
     throw new Error('LP receipt discovery exceeds its bound; portfolio is incomplete');
   const positions: FactoryLpPosition[] = [];
+  // A receipt's market is set once at mint and never changes (LPPositionManager refuses a
+  // second write), so a client that already read it keeps it. Reads go out in groups, not one
+  // by one; balances are read only for receipts of the requested market.
+  const memo = factoryReadMemo(input.client);
+  const ids: bigint[] = [];
+  for (let positionId = 1n; positionId < next; positionId++) ids.push(positionId);
+  const marketOf = new Map<bigint, Address>();
+  const memoKey = (positionId: bigint) => `${manager}:${positionId}`.toLowerCase();
+  for (let i = 0; i < ids.length; i += LP_READ_GROUP) {
+    await Promise.all(
+      ids.slice(i, i + LP_READ_GROUP).map(async (positionId) => {
+        const kept = memo?.positionMarkets.get(memoKey(positionId));
+        const market =
+          kept ??
+          (await read<Address>(manager, LPPositionManagerAbi, 'positionMarket', [positionId]));
+        if (!kept && BigInt(market) !== 0n) memo?.positionMarkets.set(memoKey(positionId), market);
+        marketOf.set(positionId, market);
+      }),
+    );
+  }
+  const wanted = ids.filter(
+    (positionId) =>
+      !input.market || marketOf.get(positionId)!.toLowerCase() === input.market.toLowerCase(),
+  );
   // These reads cover receipt ownership after transfers, burns and additions at one block.
-  for (let positionId = 1n; positionId < next; positionId++) {
-    const [market, units] = await Promise.all([
-      read<Address>(manager, LPPositionManagerAbi, 'positionMarket', [positionId]),
-      read<bigint>(manager, LPPositionManagerAbi, 'balanceOf', [input.account, positionId]),
-    ]);
-    if (input.market && market.toLowerCase() !== input.market.toLowerCase()) continue;
+  const unitsOf = new Map<bigint, bigint>();
+  for (let i = 0; i < wanted.length; i += LP_READ_GROUP) {
+    await Promise.all(
+      wanted.slice(i, i + LP_READ_GROUP).map(async (positionId) => {
+        unitsOf.set(
+          positionId,
+          await read<bigint>(manager, LPPositionManagerAbi, 'balanceOf', [
+            input.account,
+            positionId,
+          ]),
+        );
+      }),
+    );
+  }
+  for (const positionId of wanted) {
+    const market = marketOf.get(positionId)!;
+    const units = unitsOf.get(positionId)!;
     if (units === 0n) continue;
     const [totalSupply, residualNoWad, residualYesWad, residualInvalidWad] = await Promise.all([
       read<bigint>(manager, LPPositionManagerAbi, 'totalSupply', [positionId]),
