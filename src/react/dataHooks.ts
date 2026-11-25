@@ -19,6 +19,7 @@ import { describeSoothError } from './errors.js';
 import { formatSoothNodeReference } from './node.js';
 import type { SoothResolvedMarket, SoothResolvedNode } from './runtime.js';
 import type { SoothTradeIntent } from './trading.js';
+import { pollWhileVisible } from './visibility.js';
 
 export interface SoothDataState<T> {
   data: T | null;
@@ -36,8 +37,8 @@ interface SoothReadState<T> {
 
 /**
  * One read per key. Data belongs to the key it was read for, so a new key never shows an
- * older result, even before its first read settles. Polling keeps the last data on failure
- * and stops on unmount. State is per hook instance.
+ * older result, even before its first read settles. Polling keeps the last data on failure,
+ * pauses while the page is hidden and stops on unmount. State is per hook instance.
  */
 function useSoothRead<T>(
   key: string | null,
@@ -86,11 +87,11 @@ function useSoothRead<T>(
       }
     };
     const start = setTimeout(() => void load(), debounceMs);
-    const timer = interval ? setInterval(() => void load(), interval) : undefined;
+    const stop = interval ? pollWhileVisible(() => void load(), interval) : undefined;
     return () => {
       generation.current++;
       clearTimeout(start);
-      clearInterval(timer);
+      stop?.();
     };
   }, [key, revision, interval, debounceMs]);
   const fresh = state.key === key;

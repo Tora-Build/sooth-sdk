@@ -31,6 +31,7 @@ import {
 import { noteReceipt } from '../factory/factoryTrade/afterReceipt.js';
 import { decodeFactoryReceiptEvents, type FactoryReceiptEvent } from '../factory/factoryReceipt.js';
 import { describeSoothError } from './errors.js';
+import { pollWhileVisible } from './visibility.js';
 
 interface SoothProviderValue {
   runtime?: SoothRuntime;
@@ -179,12 +180,10 @@ export function useSoothMarket(
       }
     };
     void load();
-    const timer = setInterval(() => {
-      void load();
-    }, options.refreshInterval ?? 15_000);
+    const stop = pollWhileVisible(() => void load(), options.refreshInterval ?? 15_000);
     return () => {
       generation.current++;
-      clearInterval(timer);
+      stop();
     };
   }, [key, runtime, options.account, options.refreshInterval, revision]);
   return { resolved, data, error, loading, updatedAt, refresh };
